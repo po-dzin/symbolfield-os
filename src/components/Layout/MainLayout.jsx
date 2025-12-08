@@ -219,10 +219,15 @@ const MainLayout = () => {
                                 <div key={win.id} className="pointer-events-none absolute inset-0">
                                     <WindowFrame
                                         id={win.id}
-                                        title={win.title}
-                                        glyph={win.glyph}
+                                        title={win.id.startsWith('node-properties') || win.id === 'unified-node-properties' ? '' : win.title}
+                                        glyph={win.id.startsWith('node-properties') || win.id === 'unified-node-properties' ? null : win.glyph}
                                         initialPosition={win.position}
-                                        style={{ zIndex: win.zIndex }}
+                                        style={{
+                                            zIndex: win.zIndex,
+                                            ...(win.id.startsWith('node-properties') || win.id === 'unified-node-properties'
+                                                ? { width: 'fit-content', height: 'auto', minWidth: 'auto', minHeight: 'auto' }
+                                                : {})
+                                        }}
                                     >
                                         <NodePropertiesWindow
                                             node={node}

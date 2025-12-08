@@ -282,10 +282,15 @@ const GraphCanvas = ({ isEditMode = false }) => {
             setTimeout(() => {
                 setTimeout(() => {
                     const { openWindow } = useWindowStore.getState();
+                    const windowWidth = 256; // 32U
                     openWindow('unified-node-properties', {
                         title: 'PROPERTIES',
                         glyph: '◉',
-                        data: { id: nodeId }
+                        data: { id: nodeId },
+                        position: {
+                            x: window.innerWidth - windowWidth - 100,
+                            y: 60
+                        }
                     });
                 }, 100);
             }, 100);
@@ -407,10 +412,15 @@ const GraphCanvas = ({ isEditMode = false }) => {
 
                     // Open window for new node
                     const windowId = 'unified-node-properties';
+                    const windowWidth = 256; // 32U
                     openWindow(windowId, {
                         title: 'PROPERTIES',
                         glyph: 'NODE',
-                        data: { id: newNodeId }
+                        data: { id: newNodeId },
+                        position: {
+                            x: window.innerWidth - windowWidth - 100,
+                            y: 60
+                        }
                     });
                 }, 0);
             }

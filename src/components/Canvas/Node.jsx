@@ -237,11 +237,16 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
             // Window already open for this node - just focus it
             focusWindow(windowId);
         } else {
-            // Open or update window with new node data
+            // Open or update window with new node data (100px right, 60px top)
+            const windowWidth = 256; // 32U
             openWindow(windowId, {
                 title: 'PROPERTIES',
                 glyph: glyphChar || (isSource ? 'SOURCE' : 'NODE'),
-                data: { id: node.id }
+                data: { id: node.id },
+                position: {
+                    x: window.innerWidth - windowWidth - 100,
+                    y: 60
+                }
             });
         }
 
