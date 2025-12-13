@@ -19,7 +19,7 @@ import {
 const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSourceOnboarding }) => {
     const { entity, components, state } = node;
     const { mode } = useStateStore();
-    const { startConnection, endConnection, transformSourceToCore, updateNodePosition } = useGraphStore();
+    const { startConnection, endConnection, transformSourceToCore, updateNodePosition, enterNOW } = useGraphStore();
     const { openWindow } = useWindowStore();
     const { isHarmonicLockEnabled } = useHarmonyStore();
 
@@ -87,7 +87,9 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
 
         // SOURCE and CORE are FIXED - cannot be dragged
         if (isSource || isCore) {
-            return; // Allow click/double-click, but no dragging
+            e.preventDefault();
+            e.stopPropagation(); // CRITICAL: Stop canvas panning
+            return;
         }
 
         // Shift+Click = Connection (handled in handleClick, not here)
@@ -138,6 +140,14 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
         };
     }, [isDragging, isHarmonicLockEnabled, scale, node.id, updateNodePosition]);
 
+    // Force Core/Source to exact center (0,0) if they drift
+    useEffect(() => {
+        if ((isSource || isCore) && (node.position.x !== 0 || node.position.y !== 0)) {
+            console.log('📍 Enforcing center position for Core/Source');
+            updateNodePosition(node.id, { x: 0, y: 0 });
+        }
+    }, [isSource, isCore, node.position.x, node.position.y, node.id, updateNodePosition]);
+
     const handleMouseUp = (e) => {
         // Don't end connection if we are the source (allows click-move-click workflow)
         const { tempConnection } = useGraphStore.getState();
@@ -182,17 +192,9 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
             return;
         }
 
-        // 2. NORMAL NODE -> Open Fullscreen Content / Document
-        // This works in BOTH HUD and Graph modes
-        const windowId = `node-document-${node.id}`;
-        openWindow(windowId, {
-            title: 'DOCUMENT', // Placeholder for "Node Content/Dock"
-            glyph: glyphChar || 'DOC',
-            data: { id: node.id },
-            initialPosition: { x: window.innerWidth / 2 - 300, y: 100 },
-            width: 600,
-            height: 800
-        });
+        // 2. NORMAL NODE -> ENTER NOW MODE (Dive)
+        console.log('🤿 Node Double-Click: Entering NOW Mode for', node.id);
+        enterNOW(node.id);
     };
 
     const handleClick = (e) => {
@@ -378,7 +380,7 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
     return (
         <div
             className={clsx(
-                "absolute transform -translate-x-1/2 -translate-y-1/2 group flex items-center justify-center outline-none cursor-pointer",
+                "graph-node absolute transform -translate-x-1/2 -translate-y-1/2 group flex items-center justify-center outline-none cursor-pointer",
                 milestone && "animate-milestone"
             )}
             style={{
@@ -508,7 +510,7 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
                             <div
                                 className={clsx(
                                     "absolute rounded-full animate-spin-slow transition-opacity",
-                                    isWindowOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                    isWindowOpen ? "opacity-100" : "opacity-0"
                                 )}
                                 style={{
                                     width: '107px',
@@ -574,7 +576,7 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
                     {/* Hover Effect - Solid border (stays on selection) */}
                     <div className={clsx(
                         "absolute inset-0 rounded-full border border-white/40 transition-opacity scale-110",
-                        isWindowOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        isWindowOpen ? "opacity-100" : "opacity-0"
                     )} />
                 </>
             )}
@@ -602,7 +604,7 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
                 <div
                     className={clsx(
                         "absolute inset-0 -m-2 border border-dashed border-white/20 rounded-full transition-opacity pointer-events-none",
-                        isWindowOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        isWindowOpen ? "opacity-100" : "opacity-0"
                     )}
                 />
             )}

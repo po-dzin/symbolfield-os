@@ -17,11 +17,15 @@ import CoreWidget from '../HUD/CoreWidget'; // Import CoreWidget
 import XpSummaryPanel from '../HUD/XpSummaryPanel'; // Import XpSummaryPanel
 import GraphInfo from '../HUD/GraphInfo'; // Import GraphInfo
 import { defaultTimeWindow, now } from '../../utils/temporal';
+import NOWView from '../NOW/NOWView'; // Import NOWView
 
 const MainLayout = () => {
     const { windows, activeTab, resetWindows, navRailWidth, isNavCollapsed } = useWindowStore();
     const { mode, temporal, setTimeWindow } = useStateStore();
+    const { mode: graphMode } = useGraphStore(); // Alias to avoid collision
     const { isUltraEnabled, toggleUltraMode } = useHarmonyStore();
+
+
 
     // Temporal Dock handlers
     const [isCalendarOpen, setIsCalendarOpen] = React.useState(false);
@@ -172,10 +176,17 @@ const MainLayout = () => {
                 gridTemplateColumns: `${isNavCollapsed ? 72 : navRailWidth}px 1fr`
             }}
         >
-            {/* Layer 0: The Infinite Canvas (Background) */}
-            < div className={`absolute inset-0 z-[var(--z-canvas)] ${mode === 'LUMA' ? 'opacity-100 mix-blend-normal' : 'opacity-50 mix-blend-screen'}`}>
-                <GraphCanvas isEditMode={activeTab === 'Graph'} />
-            </div >
+            {/* Layer 0: The Infinite Canvas (Background) OR NOW View */}
+            {console.log('DEBUG: MainLayout Render. graphMode:', graphMode)}
+            {graphMode === 'NOW' ? (
+                <div className="absolute inset-0 z-[100] bg-[#050505]">
+                    <NOWView />
+                </div>
+            ) : (
+                <div className={`absolute inset-0 z-[var(--z-canvas)] ${mode === 'LUMA' ? 'opacity-100 mix-blend-normal' : 'opacity-50 mix-blend-screen'}`}>
+                    <GraphCanvas isEditMode={activeTab === 'Graph'} />
+                </div>
+            )}
 
             {/* Nav Rail - Column 1 (0.146W) */}
             < div className="relative z-[var(--z-trinity)] col-start-1 border-r border-os-glass-border bg-os-glass/5 backdrop-blur-sm" >

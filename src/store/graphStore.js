@@ -7,6 +7,11 @@ export const useGraphStore = create((set, get) => ({
     selection: [],
     interactionState: 'IDLE', // IDLE, CONNECTING, DRAGGING
 
+    // Mode State
+    mode: 'GRAPH', // 'GRAPH' | 'NOW'
+    activeNodeId: null, // ID of the node being viewed in NOW mode
+
+
     // Core Lifecycle
     hasCore: false,
 
@@ -151,6 +156,7 @@ export const useGraphStore = create((set, get) => ({
                 if (node.id === id) {
                     return {
                         ...node,
+                        position: { x: 0, y: 0 }, // Force Core to center
                         entity: { type: 'core' },
                         components: {
                             ...node.components,
@@ -237,6 +243,30 @@ export const useGraphStore = create((set, get) => ({
                 node.id === id ? { ...node, position } : node
             )
         }));
+    },
+
+    // Mode Actions
+    setMode: (mode) => set({ mode }),
+
+    enterNOW: (nodeId) => {
+        console.log('🏪 graphStore: enterNOW triggered for', nodeId);
+        set((state) => {
+            console.log('🏪 graphStore: switching mode to NOW');
+            // Push current state to history before switching? 
+            // For now just switch.
+            return {
+                mode: 'NOW',
+                activeNodeId: nodeId,
+                selection: [nodeId] // Also select it
+            };
+        });
+    },
+
+    exitNOW: () => {
+        set({
+            mode: 'GRAPH',
+            activeNodeId: null
+        });
     },
 
     selectNode: (id) => {

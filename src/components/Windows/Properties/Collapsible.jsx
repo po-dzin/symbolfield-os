@@ -9,9 +9,16 @@ export default function Collapsible({ label, children, defaultOpen = false, onRe
 
     return (
         <div className="collapsible-section">
-            <button
+            <div
                 className="collapsible-header"
                 onClick={() => setIsOpen(!isOpen)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        setIsOpen(!isOpen);
+                    }
+                }}
             >
                 <span className="collapse-icon">{isOpen ? '▼' : '►'}</span>
                 <span className="section-label">{label}</span>
@@ -27,7 +34,7 @@ export default function Collapsible({ label, children, defaultOpen = false, onRe
                         ×
                     </button>
                 )}
-            </button>
+            </div>
             {isOpen && (
                 <div className="collapsible-content">
                     {children}

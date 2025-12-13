@@ -20,7 +20,8 @@ const GraphCanvas = ({ isEditMode = false }) => {
         addNode,
         transformSourceToCore,
         updateTempConnection,
-        cancelConnection
+        cancelConnection,
+        enterNOW // Import enterNOW action
     } = useGraphStore();
     const { mode } = useStateStore();
     const { isUltraEnabled, harmonics } = useHarmonyStore();
@@ -350,9 +351,32 @@ const GraphCanvas = ({ isEditMode = false }) => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [radialMenu]);
 
-    // Double Click to Create Node
+    // Double Click to Create Node OR Enter NOW Mode
     const handleDoubleClick = (e) => {
         console.log('🖱️ Double-click detected', { x: e.clientX, y: e.clientY, shift: e.shiftKey, editMode: isEditMode });
+
+        // 1. Check if we clicked ON a node (Dive into NOW)
+        const rect = containerRef.current.getBoundingClientRect();
+        const clickX = (e.clientX - rect.left - camera.x) / camera.scale;
+        const clickY = (e.clientY - rect.top - camera.y) / camera.scale;
+
+        // Find clicked node (reverse to hit top-most first)
+        const clickedNode = [...nodes].reverse().find(node => {
+            // Simple interaction radius check (approximate, since Node is HTML)
+            // Tune radii to avoid Core eclipsing satellites
+            const hitRadius = node.entity.type === 'core' ? 70 : 50;
+
+            const dist = Math.sqrt(Math.pow(clickX - node.position.x, 2) + Math.pow(clickY - node.position.y, 2));
+            return dist < hitRadius;
+        });
+
+        if (clickedNode) {
+            console.log('🤿 Diving into NOW mode for node:', clickedNode.id);
+            enterNOW(clickedNode.id);
+            return;
+        }
+
+        // 2. Otherwise try to create a node (existing logic)
 
         // Prevent duplicate creation
         if (isCreatingNode.current) {
@@ -379,9 +403,9 @@ const GraphCanvas = ({ isEditMode = false }) => {
 
         isCreatingNode.current = true;
 
-        const rect = containerRef.current.getBoundingClientRect();
-        const initialX = (e.clientX - rect.left - camera.x) / camera.scale;
-        const initialY = (e.clientY - rect.top - camera.y) / camera.scale;
+        // Use pre-calculated click coordinates from above
+        const initialX = clickX;
+        const initialY = clickY;
 
         // VALIDATE coordinates
         if (!isFinite(initialX) || !isFinite(initialY)) {

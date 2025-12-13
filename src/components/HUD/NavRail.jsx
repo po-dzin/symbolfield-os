@@ -1,9 +1,10 @@
 import React from 'react';
 import { useWindowStore } from '../../store/windowStore';
+import { useGraphStore } from '../../store/graphStore'; // Import graphStore
 import { useStateStore, TONES } from '../../store/stateStore';
 
 const NAV_ITEMS = [
-    { id: 'HUD', label: 'HUD', icon: <span className="block text-[24px] leading-none">⍜</span> },
+    { id: 'now', label: 'NOW', icon: <span className="block text-[24px] leading-none mb-1">•</span> },
     { id: 'Graph', label: 'Graph', icon: <span className="block text-[24px] leading-none">◎</span> },
     { id: 'Agent', label: 'Agent', icon: <span className="block text-[24px] leading-none font-bold">𓂀</span> },
     { id: 'Log', label: 'Log', icon: <span className="block text-[24px] leading-none">≡</span> },
@@ -38,7 +39,35 @@ const NavItem = ({ id, icon, label, activeTab, setActiveTab, activeColor, classN
 
 const NavRail = () => {
     const { activeTab, setActiveTab, dockZIndex, focusDock, navRailWidth, setNavRailWidth, windows, updateWindowPosition, isNavCollapsed, toggleNavCollapse } = useWindowStore();
-    const { toneId, mode } = useStateStore();
+    const { toneId } = useStateStore(); // Removed 'mode' from here
+    const { mode, setMode, nodes, enterNOW } = useGraphStore(); // Use graphStore
+    const { currentState } = useStateStore(); // Added currentState, though not used in the provided snippet
+
+    // Determine active item based on mode
+    const activeItem = mode === 'NOW' ? 'now' : activeTab;
+
+    const handleTabClick = (id) => {
+        if (id === 'now') {
+            const { selection, nodes } = useGraphStore.getState();
+            // 1. Try currently selected node
+            if (selection.length > 0) {
+                enterNOW(selection[0]);
+                return;
+            }
+            // 2. Fallback to Core
+            const coreNode = nodes.find(n => n.entity.type === 'core');
+            if (coreNode) {
+                enterNOW(coreNode.id);
+            }
+            return;
+        }
+
+        // For other tabs (Graph, Log, etc.)
+        setActiveTab(id);
+        if (mode === 'NOW') {
+            setMode('GRAPH'); // Exit NOW mode when clicking other tabs
+        }
+    };
     const currentTone = TONES.find(t => t.id === toneId) || TONES[0];
     const activeColor = mode === 'LUMA' ? currentTone.lumaColor : currentTone.color;
 
@@ -97,7 +126,7 @@ const NavRail = () => {
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging, setNavRailWidth, setActiveTab]);
+    }, [isDragging, setNavRailWidth, setActiveTab, isNavCollapsed, toggleNavCollapse, windows, updateWindowPosition]);
 
     return (
         <nav
@@ -127,10 +156,10 @@ const NavRail = () => {
                         <NavItem
                             key={item.id}
                             {...item}
-                            activeTab={activeTab}
-                            setActiveTab={setActiveTab}
+                            activeTab={activeItem}
+                            setActiveTab={handleTabClick}
                             activeColor={activeColor}
-                            className={index === 1 ? 'mt-0.5' : ''}
+                            className={item.id === 'now' ? 'mb-4' : ''}
                         />
                     ))}
                 </div>
