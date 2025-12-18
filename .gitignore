@@ -12,6 +12,31 @@ dist
 dist-ssr
 *.local
 
+.env
+.env.*
+!.env.example
+
+.venv
+__pycache__
+*.pyc
+
+output
+reports
+test-results
+playwright-report
+
+e2e
+playwright.config.ts
+
+specs
+spec.md
+test_spec.md
+qa_contract.md
+scripts
+agents
+memory
+.agent
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
