@@ -21,9 +21,9 @@ import {
 const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSourceOnboarding }) => {
     const { entity, components, state } = node;
     const { mode } = useStateStore();
-    const { startConnection, endConnection, transformSourceToCore, updateNodePosition, enterNOW, activateNode } = useGraphStore();
+    const { startConnection, endConnection, transformSourceToCore, updateNodePosition, activateNode } = useGraphStore();
     const { openWindow, windows, focusWindow } = useWindowStore();
-    const { setActiveTab } = useOsShellStore();
+    const { setActiveTab, enterNOW } = useOsShellStore();
     const { isHarmonicLockEnabled } = useHarmonyStore();
 
     // Force re-render every 10 seconds for aging animation

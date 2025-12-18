@@ -24,7 +24,6 @@ output
 reports
 test-results
 playwright-report
-
 e2e
 playwright.config.ts
 
