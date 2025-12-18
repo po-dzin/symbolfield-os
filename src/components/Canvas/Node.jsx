@@ -4,7 +4,9 @@ import { useStateStore, TONES } from '../../store/stateStore';
 import { useGraphStore } from '../../store/graphStore';
 import { useWindowStore } from '../../store/windowStore';
 import { useHarmonyStore } from '../../store/harmonyStore';
+import { useOsShellStore } from '../../store/osShellStore';
 
+import { LAYERS } from '../../engine/layers';
 import { calculateGeometry, calculateColorHarmonics, snapToGrid } from '../../engine/harmonics';
 import {
     getAgingFactor,
@@ -19,8 +21,9 @@ import {
 const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSourceOnboarding }) => {
     const { entity, components, state } = node;
     const { mode } = useStateStore();
-    const { startConnection, endConnection, transformSourceToCore, updateNodePosition, enterNOW } = useGraphStore();
-    const { openWindow } = useWindowStore();
+    const { startConnection, endConnection, transformSourceToCore, updateNodePosition, enterNOW, activateNode } = useGraphStore();
+    const { openWindow, windows, focusWindow } = useWindowStore();
+    const { setActiveTab } = useOsShellStore();
     const { isHarmonicLockEnabled } = useHarmonyStore();
 
     // Force re-render every 10 seconds for aging animation
@@ -63,8 +66,9 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
 
     // Visual Config
     // Core: Small seed (w-24) + LARGE outer ring
-    // Container: base size w-16
-    const size = isCore ? 'w-24 h-24' : isSource ? 'w-12 h-12' : 'w-12 h-12';
+    // Container: base size w-12
+    // Source: w-16 (64px) to keep pulse perfectly radial
+    const size = isCore ? 'w-24 h-24' : isSource ? 'w-16 h-16' : 'w-12 h-12';
     const fontSize = isCore ? 'text-3xl' : isSource ? 'text-[0px]' : 'text-xl';
 
     // Hex to RGB for rgba usage
@@ -163,7 +167,6 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
         if (isSource) {
             // HUD Mode: Use onboarding flow (camera animation + tooltip)
             if (!isEditMode && onSourceOnboarding) {
-                const { setActiveTab } = useWindowStore.getState();
                 setActiveTab('Graph');
                 console.log('🌱 Switching to Graph Mode (Onboarding)');
 
@@ -181,11 +184,14 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
 
                 // Auto-open properties
                 setTimeout(() => {
-                    const { openWindow } = useWindowStore.getState();
                     openWindow('unified-node-properties', {
                         title: 'PROPERTIES',
                         glyph: '◉',
-                        data: { id: node.id }
+                        data: { id: node.id },
+                        position: {
+                            x: window.innerWidth - 256 - 100,
+                            y: 60
+                        }
                     });
                 }, 100);
             }
@@ -227,11 +233,9 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
         }
 
         // Activate node (refresh timestamp, trigger joy)
-        const { activateNode } = useGraphStore.getState();
         activateNode(node.id);
 
         // Check if properties window is already open for THIS node
-        const { windows, openWindow, focusWindow } = useWindowStore.getState();
         const windowId = 'unified-node-properties';
         const existingWindow = windows[windowId];
 
@@ -256,7 +260,7 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
     };
 
     // Check if ANY window is open for this node (Properties OR Document)
-    const { windows } = useWindowStore();
+    // windows is already destructured from useWindowStore hook at top level
     const isWindowOpen = Object.values(windows).some(w =>
         w.isOpen && w.data?.id === node.id && !w.isMinimized
     );
@@ -380,13 +384,14 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
     return (
         <div
             className={clsx(
-                "graph-node absolute transform -translate-x-1/2 -translate-y-1/2 group flex items-center justify-center outline-none cursor-pointer",
+                "graph-node absolute transform -translate-x-1/2 -translate-y-1/2 group flex items-center justify-center outline-none cursor-pointer rounded-full",
+                size,
                 milestone && "animate-milestone"
             )}
             style={{
                 left: node.position.x,
                 top: node.position.y,
-                zIndex: isCore ? 50 : (isWindowOpen ? 60 : 10),
+                zIndex: isCore ? LAYERS.CORE_NODE : (isWindowOpen ? LAYERS.NODE_ACTIVE : LAYERS.NODE_BASE),
                 filter: `contrast(${hudContrast})`,
                 // Smooth position transition when NOT dragging
                 transition: isDragging ? 'none' : 'left 0.15s ease-out, top 0.15s ease-out'
@@ -398,9 +403,14 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
             onMouseUp={handleMouseUp}
             tabIndex={-1} // Prevent focus
         >
+            {!isSource && !isCore && isWindowOpen && (
+                <>
+                    <div className="absolute inset-0 -m-2 rounded-full border border-dashed border-white/20 pointer-events-none" />
+                </>
+            )}
             {/* Source Visuals: Refined Pulse & Ripple with Tooltip */}
             {isSource && (
-                <div className="relative flex items-center justify-center w-16 h-16 pointer-events-auto group">
+                <div className="relative flex items-center justify-center w-full h-full pointer-events-auto group">
                     {/* Pulsing Source Ring (expands to Core size: 142px) */}
                     <div className="absolute inset-0 rounded-full border border-white/20 animate-source-ping-large" />
 
@@ -576,7 +586,7 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
                     {/* Hover Effect - Solid border (stays on selection) */}
                     <div className={clsx(
                         "absolute inset-0 rounded-full border border-white/40 transition-opacity scale-110",
-                        isWindowOpen ? "opacity-100" : "opacity-0"
+                        isWindowOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                     )} />
                 </>
             )}
@@ -600,11 +610,11 @@ const Node = ({ node, isEditMode = false, scale = 1, onClick, onRightClick, onSo
             )}
 
             {/* Connection Port (Visible on Hover or when window open) */}
-            {!isSource && (
+            {!isSource && !isCore && !isWindowOpen && (
                 <div
                     className={clsx(
                         "absolute inset-0 -m-2 border border-dashed border-white/20 rounded-full transition-opacity pointer-events-none",
-                        isWindowOpen ? "opacity-100" : "opacity-0"
+                        "opacity-0 group-hover:opacity-100"
                     )}
                 />
             )}

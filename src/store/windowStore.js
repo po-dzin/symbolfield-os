@@ -21,7 +21,7 @@ export const useWindowStore = create((set) => ({
     toggleNavCollapse: () => set((state) => ({ isNavCollapsed: !state.isNavCollapsed })),
 
     // Spec v0.2 State
-    activeTab: 'HUD', // HUD, Graph, Log, Agent, Settings
+    // activeTab moved to osShellStore (SSoT)
     xpState: {
         hp: 50, // 🪨
         ep: 50, // 💧
@@ -34,7 +34,6 @@ export const useWindowStore = create((set) => ({
         breathPhase: 'inhale' // inhale, hold, exhale
     },
 
-    setActiveTab: (tab) => set({ activeTab: tab }),
     updateXP: (type, value) => set((state) => ({
         xpState: { ...state.xpState, [type]: value }
     })),

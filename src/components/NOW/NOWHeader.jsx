@@ -1,9 +1,8 @@
 import React from 'react';
-import { useGraphStore } from '../../store/graphStore';
-import { useWindowStore } from '../../store/windowStore'; // Might need for window logic later
+import { useOsShellStore } from '../../store/osShellStore';
 
 const NOWHeader = ({ node }) => {
-    const { exitNOW } = useGraphStore();
+    const { exitNOW } = useOsShellStore();
 
     if (!node) return null;
 

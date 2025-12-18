@@ -4,6 +4,7 @@ import { useWindowStore } from '../../store/windowStore';
 import { useStateStore, TONES } from '../../store/stateStore';
 import { useHarmonyStore } from '../../store/harmonyStore';
 import { snapToGrid } from '../../engine/harmonics';
+import { LAYERS } from '../../engine/layers';
 import { clsx } from 'clsx';
 
 const WindowFrame = ({
@@ -111,7 +112,7 @@ const WindowFrame = ({
                 isMinimized ? "w-0 h-0 opacity-0 pointer-events-none" : "w-[500px] h-[400px]"
             )}
             style={{
-                zIndex: 100, // Default base
+                zIndex: LAYERS.WINDOW_BASE, // Default base
                 left: currentPosition.x,
                 top: currentPosition.y,
                 '--glow-color': `${currentTone.color}60`,

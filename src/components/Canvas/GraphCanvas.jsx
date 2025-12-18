@@ -6,6 +6,11 @@ import { useStateStore } from '../../store/stateStore';
 import { useWindowStore } from '../../store/windowStore';
 import { useHarmonyStore } from '../../store/harmonyStore';
 
+import { useOsShellStore } from '../../store/osShellStore'; // Import osShellStore
+
+// ... existing imports
+
+import { LAYERS } from '../../engine/layers';
 // Easing function for smooth camera animation
 const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
@@ -21,12 +26,21 @@ const GraphCanvas = ({ isEditMode = false }) => {
         transformSourceToCore,
         updateTempConnection,
         cancelConnection,
-        enterNOW // Import enterNOW action
+        selectNode,
+        undo,
+        redo,
+        deleteNode,
+        selection
     } = useGraphStore();
+
+    // Use OS Shell Store for NOW mode
+    const { enterNOW } = useOsShellStore();
+
     const { mode } = useStateStore();
     const { isUltraEnabled, harmonics } = useHarmonyStore();
+
     const edgeThickness = 1.5 * (isUltraEnabled ? harmonics.modifiers.edgeThickness : 1.0);
-    const { onboardingTooltip, showOnboardingTooltip } = useWindowStore();
+    const { onboardingTooltip, showOnboardingTooltip, openWindow, closeWindow, windows } = useWindowStore();
 
     // Radial Menu State
     const [radialMenu, setRadialMenu] = useState(null);
@@ -146,7 +160,6 @@ const GraphCanvas = ({ isEditMode = false }) => {
         }
 
         if (!isEditMode) return;
-        const { tempConnection } = useGraphStore.getState();
         if (!tempConnection) return;
 
         isCreatingNode.current = true;
@@ -204,12 +217,12 @@ const GraphCanvas = ({ isEditMode = false }) => {
             // Undo: Ctrl+Z or Cmd+Z
             if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
                 e.preventDefault();
-                useGraphStore.getState().undo();
+                undo();
             }
             // Redo: Ctrl+Shift+Z or Cmd+Shift+Z
             if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
                 e.preventDefault();
-                useGraphStore.getState().redo();
+                redo();
             }
         };
 
@@ -338,7 +351,6 @@ const GraphCanvas = ({ isEditMode = false }) => {
 
             // Backspace to delete selected node
             if (e.key === 'Backspace' && !radialMenu) {
-                const { selection, deleteNode } = useGraphStore.getState();
                 if (selection.length > 0) {
                     e.preventDefault();
                     selection.forEach(nodeId => {
@@ -372,6 +384,9 @@ const GraphCanvas = ({ isEditMode = false }) => {
 
         if (clickedNode) {
             console.log('🤿 Diving into NOW mode for node:', clickedNode.id);
+            // Sync graph selection logic (previously done by graphStore.enterNOW)
+            selectNode(clickedNode.id);
+            // Switch to OS Shell NOW mode
             enterNOW(clickedNode.id);
             return;
         }
@@ -425,8 +440,6 @@ const GraphCanvas = ({ isEditMode = false }) => {
             // Auto-open properties window for newly created node
             if (newNodeId) {
                 setTimeout(() => {
-                    const { openWindow, windows, closeWindow } = useWindowStore.getState();
-
                     // Singleton: Close other node-properties windows
                     Object.keys(windows).forEach(winId => {
                         if (winId.startsWith('unified-node-properties')) {
@@ -811,7 +824,7 @@ const GraphCanvas = ({ isEditMode = false }) => {
                         left: coreIndicator.x,
                         top: coreIndicator.y,
                         transform: `translate(-50%, -50%) rotate(${coreIndicator.angle}deg)`,
-                        zIndex: 1000
+                        zIndex: LAYERS.OVERLAY_MODAL
                     }}
                 >
                     <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-white/50 blur-[2px]" />
@@ -844,7 +857,7 @@ const GraphCanvas = ({ isEditMode = false }) => {
                                    rounded-md shadow-lg shadow-cyan-500/20
                                    animate-fade-scale"
                         style={{
-                            zIndex: 10000,
+                            zIndex: LAYERS.TOOLTIP,
                             left: `${screenX}px`,
                             top: `${screenY + 96}px`, // 96px below Core (24×4, harmonic)
                             transform: 'translateX(-50%)'

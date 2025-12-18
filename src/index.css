@@ -534,7 +534,7 @@ body {
 }
 
 .animate-liquid {
-  animation: liquid-flow 4s ease-in-out infinite;
+  animation: liquid-flow 8s ease-in-out infinite;
 }
 
 @keyframes joy-glow {

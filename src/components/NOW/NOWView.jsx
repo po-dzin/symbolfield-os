@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react';
 import { useGraphStore } from '../../store/graphStore';
+import { useOsShellStore } from '../../store/osShellStore'; // Use OS Shell Store
 import NOWHeader from './NOWHeader';
 
 const NOWView = () => {
-    const { activeNodeId, nodes } = useGraphStore();
+    const { nodes } = useGraphStore(); // Keep nodes from graph store
+    const { activeNodeId } = useOsShellStore(); // Get active ID from OS Shell
 
     // Find the active node data
     const activeNode = nodes.find(n => n.id === activeNodeId);

@@ -19,12 +19,22 @@ import GraphInfo from '../HUD/GraphInfo'; // Import GraphInfo
 import { defaultTimeWindow, now } from '../../utils/temporal';
 import NOWView from '../NOW/NOWView'; // Import NOWView
 
-const MainLayout = () => {
-    const { windows, activeTab, resetWindows, navRailWidth, isNavCollapsed } = useWindowStore();
-    const { mode, temporal, setTimeWindow } = useStateStore();
-    const { mode: graphMode } = useGraphStore(); // Alias to avoid collision
-    const { isUltraEnabled, toggleUltraMode } = useHarmonyStore();
+import { useOsShellStore } from '../../store/osShellStore'; // Use OS Shell Store
 
+// ... existing imports
+
+const MainLayout = () => {
+    // 1. Get OS Shell State
+    const { activeTab, layoutMode } = useOsShellStore();
+
+    // Legacy mapping (temp) until we switch all components
+    const graphMode = activeTab === 'now' ? 'NOW' : 'GRAPH';
+
+    // Window store only needed for window management now, not activeTab
+    const { windows, resetWindows, navRailWidth, isNavCollapsed } = useWindowStore();
+    const { mode, temporal, setTimeWindow } = useStateStore(); // 'mode' here is Color Mode (LUMA/Dark), confuse with graphMode?
+    // Let's rename destructuring if needed, but 'mode' from useStateStore is purely visual/tone.
+    const { isUltraEnabled, toggleUltraMode } = useHarmonyStore();
 
 
     // Temporal Dock handlers
@@ -41,6 +51,13 @@ const MainLayout = () => {
 
     useEffect(() => {
         resetWindows();
+        // Sync harmonics with state store initially and on updates
+        useHarmonyStore.getState().syncWithStateStore();
+        // Subscribe to stateStore changes to keep harmonics in sync
+        const unsubscribe = useStateStore.subscribe(() => {
+            useHarmonyStore.getState().syncWithStateStore();
+        });
+        return () => unsubscribe();
     }, []);
 
     // Dynamic Background based on Mode
@@ -57,14 +74,16 @@ const MainLayout = () => {
         }
     };
 
-    // Helper to render content based on activeTab
+    // Updated renderTabContent using osShell activeTab ('graph', 'now' etc lower case)
     const renderTabContent = () => {
+        // Map store keys to UI logic
+        // 'graph', 'now' -> Handled by Canvas layer
+        if (activeTab === 'graph' || activeTab === 'now') return null;
+
         switch (activeTab) {
-            case 'HUD':
-                return null; // HUD overlay is always on top, canvas is visible
-            case 'Graph':
-                return null; // Just the canvas
-            case 'Agent':
+            case 'hud': // assuming lowercase
+                return null;
+            case 'agent':
                 return (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="pointer-events-auto w-[800px] h-[600px]">
@@ -81,8 +100,9 @@ const MainLayout = () => {
                         </div>
                     </div>
                 );
-            case 'Log':
+            case 'log':
                 return (
+                    // ... (Log Content)
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="pointer-events-auto w-[600px] h-[400px]">
                             <WindowFrame
@@ -104,8 +124,9 @@ const MainLayout = () => {
                         </div>
                     </div>
                 );
-            case 'Settings':
+            case 'settings':
                 return (
+                    // ... (Settings Content)
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="pointer-events-auto w-[500px] h-[600px]">
                             <WindowFrame
@@ -150,10 +171,50 @@ const MainLayout = () => {
                                         <div className="flex items-center justify-between text-os-text-secondary">
                                             <span>B&W UI Mode</span>
                                             <button
-                                                onClick={() => useStateStore.getState().setGrayscale(!useStateStore.getState().isGrayscale)}
-                                                className={`w-10 h-5 rounded-full transition-colors duration-300 relative ${useStateStore.getState().isGrayscale ? 'bg-white' : 'bg-os-glass-border'}`}
+                                                onClick={() => setGrayscale(!isGrayscale)}
+                                                className={`w-10 h-5 rounded-full transition-colors duration-300 relative ${isGrayscale ? 'bg-white' : 'bg-os-glass-border'}`}
                                             >
-                                                <div className={`absolute top-1 w-3 h-3 rounded-full bg-black transition-all duration-300 ${useStateStore.getState().isGrayscale ? 'left-6' : 'left-1'}`} />
+                                                <div className={`absolute top-1 w-3 h-3 rounded-full bg-black transition-all duration-300 ${isGrayscale ? 'left-6' : 'left-1'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-os-text-primary font-bold mb-2">Visuals</h3>
+                                        <div className="flex items-center justify-between text-os-text-secondary">
+                                            <span>Glass Blur</span>
+                                            <span className="text-os-cyan">High</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-os-text-secondary mt-2">
+                                            <span>Animations</span>
+                                            <span className="text-os-cyan">On</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-os-text-primary font-bold mb-2">Audio</h3>
+                                        <div className="flex items-center justify-between text-os-text-secondary">
+                                            <span>Ambience</span>
+                                            <span className="text-os-cyan">50%</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-4 border-t border-os-glass-border">
+                                        <h3 className="text-os-text-primary font-bold mb-2">Experimental</h3>
+                                        <div className="flex items-center justify-between text-os-text-secondary mb-3">
+                                            <span>Ultra-Harmony Mode</span>
+                                            <button
+                                                onClick={toggleUltraMode}
+                                                className={`w-10 h-5 rounded-full transition-colors duration-300 relative ${isUltraEnabled ? 'bg-os-cyan' : 'bg-os-glass-border'}`}
+                                            >
+                                                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${isUltraEnabled ? 'left-6' : 'left-1'}`} />
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center justify-between text-os-text-secondary">
+                                            <span>B&W UI Mode</span>
+                                            <button
+                                                onClick={() => setGrayscale(!isGrayscale)}
+                                                className={`w-10 h-5 rounded-full transition-colors duration-300 relative ${isGrayscale ? 'bg-white' : 'bg-os-glass-border'}`}
+                                            >
+                                                <div className={`absolute top-1 w-3 h-3 rounded-full bg-black transition-all duration-300 ${isGrayscale ? 'left-6' : 'left-1'}`} />
                                             </button>
                                         </div>
                                     </div>
@@ -167,7 +228,8 @@ const MainLayout = () => {
         }
     };
 
-    const { isGrayscale } = useStateStore();
+    const { isGrayscale, setGrayscale } = useStateStore(); // Removed duplicate isGrayscale definition
+    const { nodes } = useGraphStore(); // Extracted nodes
 
     return (
         <div className={`relative w-screen h-screen overflow-hidden grid transition-colors duration-1000 ${getBackgroundStyle()} ${mode === 'LUMA' ? 'mode-luma' : ''} ${mode === 'FLOW' ? 'mode-flow' : ''}`}
@@ -177,14 +239,22 @@ const MainLayout = () => {
             }}
         >
             {/* Layer 0: The Infinite Canvas (Background) OR NOW View */}
-            {console.log('DEBUG: MainLayout Render. graphMode:', graphMode)}
-            {graphMode === 'NOW' ? (
+
+            {/* RENDER LOGIC: 
+                - If activeTab is 'now' -> Show NOW View
+                - If activeTab is 'graph' -> Show GraphCanvas
+                - If activeTab is 'agent'/'log' -> Show GraphCanvas (dimmed) + Overlay? 
+                    Usually Graph is always present in background unless Fullscreen NOW. 
+                    Let's assume Graph is visible unless NOW.
+            */}
+
+            {activeTab === 'now' ? (
                 <div className="absolute inset-0 z-[100] bg-[#050505]">
                     <NOWView />
                 </div>
             ) : (
                 <div className={`absolute inset-0 z-[var(--z-canvas)] ${mode === 'LUMA' ? 'opacity-100 mix-blend-normal' : 'opacity-50 mix-blend-screen'}`}>
-                    <GraphCanvas isEditMode={activeTab === 'Graph'} />
+                    <GraphCanvas isEditMode={activeTab === 'graph'} />
                 </div>
             )}
 
@@ -219,11 +289,11 @@ const MainLayout = () => {
 
             {/* Layer 4: Floating Windows (Node Properties, etc.) */}
             <div className="absolute inset-0 pointer-events-none z-[var(--z-windows)]">
-                {Object.values(useWindowStore.getState().windows)
+                {Object.values(windows) // Correctly uses hook value
                     .filter(w => w.isOpen && !w.isMinimized)
                     .map(win => {
                         if (win.id.startsWith('node-properties-') || win.id === 'unified-node-properties') {
-                            const node = useGraphStore.getState().nodes.find(n => n.id === win.data?.id);
+                            const node = nodes.find(n => n.id === win.data?.id); // Correctly uses hook value
                             if (!node) return null;
 
                             return (
@@ -242,7 +312,7 @@ const MainLayout = () => {
                                     >
                                         <NodePropertiesWindow
                                             node={node}
-                                            onClose={() => useWindowStore.getState().closeWindow(win.id)}
+                                            onClose={() => useWindowStore.getState().closeWindow(win.id)} // Close action is fine to be inline? Contract says logic in stores. But useStore.getState().action() in event handler is technically "safe" from render loop but bad style. Better: const { closeWindow } = useWindow();
                                         />
                                     </WindowFrame>
                                 </div>

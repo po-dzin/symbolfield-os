@@ -5,10 +5,10 @@ import { useStateStore, TONES } from '../../store/stateStore';
 
 const NAV_ITEMS = [
     { id: 'now', label: 'NOW', icon: <span className="block text-[24px] leading-none mb-1">•</span> },
-    { id: 'Graph', label: 'Graph', icon: <span className="block text-[24px] leading-none">◎</span> },
-    { id: 'Agent', label: 'Agent', icon: <span className="block text-[24px] leading-none font-bold">𓂀</span> },
-    { id: 'Log', label: 'Log', icon: <span className="block text-[24px] leading-none">≡</span> },
-    { id: 'Settings', label: 'Settings', icon: <span className="block text-[24px] leading-none font-bold">∴</span> }
+    { id: 'graph', label: 'Graph', icon: <span className="block text-[24px] leading-none">◎</span> },
+    { id: 'agent', label: 'Agent', icon: <span className="block text-[24px] leading-none font-bold">𓂀</span> },
+    { id: 'log', label: 'Log', icon: <span className="block text-[24px] leading-none">≡</span> },
+    { id: 'settings', label: 'Settings', icon: <span className="block text-[24px] leading-none font-bold">∴</span> }
 ];
 
 const NavItem = ({ id, icon, label, activeTab, setActiveTab, activeColor, className = '' }) => {
@@ -37,18 +37,39 @@ const NavItem = ({ id, icon, label, activeTab, setActiveTab, activeColor, classN
     );
 };
 
-const NavRail = () => {
-    const { activeTab, setActiveTab, dockZIndex, focusDock, navRailWidth, setNavRailWidth, windows, updateWindowPosition, isNavCollapsed, toggleNavCollapse } = useWindowStore();
-    const { toneId } = useStateStore(); // Removed 'mode' from here
-    const { mode, setMode, nodes, enterNOW } = useGraphStore(); // Use graphStore
-    const { currentState } = useStateStore(); // Added currentState, though not used in the provided snippet
+import { useOsShellStore } from '../../store/osShellStore'; // Import osShellStore
 
-    // Determine active item based on mode
-    const activeItem = mode === 'NOW' ? 'now' : activeTab;
+// ... (NAV_ITEMS remains same)
+
+const NavRail = () => {
+    const { dockZIndex, focusDock, navRailWidth, setNavRailWidth, windows, updateWindowPosition, isNavCollapsed, toggleNavCollapse } = useWindowStore();
+    const { toneId } = useStateStore();
+    const { nodes, selection } = useGraphStore(); // Keep nodes for fallback logic
+
+    // Use osShellStore
+    const { activeTab, setTab, enterNOW } = useOsShellStore();
+    const { viewMode } = useGraphStore(); // Renamed mode to viewMode
+    // But wait, line 76 uses 'mode' for LUMA check. Is that graphStore mode or stateStore mode?
+    // "const { mode } = useStateStore();" is at line 4? No, line 4 imports it.
+    // Line 46: const { toneId } = useStateStore();
+    // Line 51: const { mode } = useGraphStore(); -> This was likely wrong if it wanted LUMA.
+    // GraphStore mode was GRAPH/NOW. StateStore mode is FLOW/LUMA.
+    // Line 76: const activeColor = mode === 'LUMA' ...
+    // So NavRail was checking graphStore.mode for LUMA? That would always be false (offsetting to default color).
+    // I should fix this to use useStateStore for mode (LUMA).
+    // And if it needs viewMode, use viewMode.
+
+    // Let's check imports. uses stateStore line 4.
+    // Let's fetch mode from useStateStore.
+
+    // Replacement:
+    const { mode } = useStateStore();
+
+    // Active item matches activeTab directly now (both lowercase)
+    const activeItem = activeTab;
 
     const handleTabClick = (id) => {
         if (id === 'now') {
-            const { selection, nodes } = useGraphStore.getState();
             // 1. Try currently selected node
             if (selection.length > 0) {
                 enterNOW(selection[0]);
@@ -62,11 +83,8 @@ const NavRail = () => {
             return;
         }
 
-        // For other tabs (Graph, Log, etc.)
-        setActiveTab(id);
-        if (mode === 'NOW') {
-            setMode('GRAPH'); // Exit NOW mode when clicking other tabs
-        }
+        // For other tabs (graph, log, etc.) - Direct set
+        setTab(id);
     };
     const currentTone = TONES.find(t => t.id === toneId) || TONES[0];
     const activeColor = mode === 'LUMA' ? currentTone.lumaColor : currentTone.color;
@@ -112,7 +130,7 @@ const NavRail = () => {
             // Check for Full Screen Trigger (> 80% width)
             if (e.clientX > window.innerWidth * 0.8) {
                 console.log('🚀 NavRail Full Screen Trigger -> Switch to HUD Mode');
-                setActiveTab('HUD');
+                setTab('hud');
                 // Reset width with animation (handled by CSS transition if we add it, or just snap back)
                 setNavRailWidth(window.innerWidth * 0.146);
             }
@@ -126,7 +144,7 @@ const NavRail = () => {
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging, setNavRailWidth, setActiveTab, isNavCollapsed, toggleNavCollapse, windows, updateWindowPosition]);
+    }, [isDragging, setNavRailWidth, setTab, isNavCollapsed, toggleNavCollapse, windows, updateWindowPosition]);
 
     return (
         <nav

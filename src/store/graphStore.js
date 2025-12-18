@@ -8,7 +8,7 @@ export const useGraphStore = create((set, get) => ({
     interactionState: 'IDLE', // IDLE, CONNECTING, DRAGGING
 
     // Mode State
-    mode: 'GRAPH', // 'GRAPH' | 'NOW'
+    viewMode: 'GRAPH', // 'GRAPH' | 'NOW'
     activeNodeId: null, // ID of the node being viewed in NOW mode
 
 
@@ -246,7 +246,7 @@ export const useGraphStore = create((set, get) => ({
     },
 
     // Mode Actions
-    setMode: (mode) => set({ mode }),
+    setViewMode: (viewMode) => set({ viewMode }),
 
     enterNOW: (nodeId) => {
         console.log('🏪 graphStore: enterNOW triggered for', nodeId);
@@ -255,7 +255,7 @@ export const useGraphStore = create((set, get) => ({
             // Push current state to history before switching? 
             // For now just switch.
             return {
-                mode: 'NOW',
+                viewMode: 'NOW',
                 activeNodeId: nodeId,
                 selection: [nodeId] // Also select it
             };
@@ -264,7 +264,7 @@ export const useGraphStore = create((set, get) => ({
 
     exitNOW: () => {
         set({
-            mode: 'GRAPH',
+            viewMode: 'GRAPH',
             activeNodeId: null
         });
     },

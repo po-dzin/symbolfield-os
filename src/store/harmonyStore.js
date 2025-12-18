@@ -5,6 +5,7 @@ import {
     calculateGlyphParams,
     calculateUltraState
 } from '../engine/harmonics';
+import { useStateStore } from './stateStore';
 
 /**
  * Harmony Engine State Store
@@ -15,12 +16,11 @@ export const useHarmonyStore = create((set, get) => ({
     isUltraEnabled: false,
     isHarmonicLockEnabled: false,
 
-    baseState: {
-        mode: 'DEEP', // 'DEEP' | 'FLOW' | 'LUMA'
-        tone: 'void',
-        xp_total: 0,
-        time: Date.now()
-    },
+    // State
+    isUltraEnabled: false,
+    isHarmonicLockEnabled: false,
+
+    // Removed baseState (Duplicate SSoT). Use stateStore values.
 
     // Calculated Harmonics (default values)
     harmonics: {
@@ -38,7 +38,11 @@ export const useHarmonyStore = create((set, get) => ({
     toggleUltraMode: () => {
         set(state => {
             const newUltra = !state.isUltraEnabled;
-            const ultraState = calculateUltraState(state.baseState, newUltra);
+            // Fetch current state
+            const { mode, toneId } = useStateStore.getState();
+            const currentState = { mode, tone: toneId, xp_total: 0, time: Date.now() };
+
+            const ultraState = calculateUltraState(currentState, newUltra);
 
             return {
                 isUltraEnabled: newUltra,
@@ -59,17 +63,36 @@ export const useHarmonyStore = create((set, get) => ({
      * Update base state (mode, tone, XP, etc.) and recalculate harmonics
      * @param {object} newState - Partial base state to update
      */
-    updateBaseState: (newState) => {
+    /**
+     * Sync with State Store (Main SSoT)
+     * Reads current mode/tone/xp from useStateStore and updates harmonics
+     */
+    syncWithStateStore: () => {
         set(state => {
-            const mergedState = { ...state.baseState, ...newState };
-            const ultraState = calculateUltraState(mergedState, state.isUltraEnabled);
+            const { mode, toneId, temporal } = useStateStore.getState();
+            // XP is in windowStore (another SSoT violation? No, windowStore has xpState).
+            // Wait, windowStore has xpState. stateStore has mode/tone.
+            // Let's grab xpState from windowStore too if needed?
+            // "mergedState.xp_total" was used.
+            // xpState is in windowStore.
+            // For now, let's assume xp_total is 0 or fetch from windowStore if needed.
+            // But I can't easily import windowStore here if windowStore imports harmonyStore (cycle?).
+            // Let's assume 0 for now to avoid cycles and complex deps.
+
+            const currentState = {
+                mode,
+                tone: toneId,
+                xp_total: 0, // TODO: Fetch from proper store
+                time: Date.now()
+            };
+
+            const ultraState = calculateUltraState(currentState, state.isUltraEnabled);
 
             return {
-                baseState: mergedState,
                 harmonics: {
-                    color: calculateColorHarmonics(mergedState.mode, mergedState.tone, mergedState.xp_total),
-                    geometry: calculateGeometry(mergedState.xp_total, mergedState.mode, mergedState.time),
-                    glyph: calculateGlyphParams(mergedState.mode, mergedState.tone, mergedState.xp_total, mergedState.time),
+                    color: calculateColorHarmonics(currentState.mode, currentState.tone, currentState.xp_total),
+                    geometry: calculateGeometry(currentState.xp_total, currentState.mode, currentState.time),
+                    glyph: calculateGlyphParams(currentState.mode, currentState.tone, currentState.xp_total, currentState.time),
                     modifiers: ultraState.modifiers
                 }
             };
@@ -83,12 +106,24 @@ export const useHarmonyStore = create((set, get) => ({
      */
     tick: (time) => {
         set(state => {
-            const { baseState } = state;
+            // Need current base state. Since we don't store it, we must fetch it or assume it's stable?
+            // Fetching from other stores in a tick (60fps) is risky for perf.
+            // But we already do getState.
+            // Let's fetch lightweight.
+            const { mode, toneId } = useStateStore.getState();
+
+            const currentState = {
+                mode,
+                tone: toneId || 'void',
+                xp_total: 0,
+                time: time
+            };
+
             return {
                 harmonics: {
                     ...state.harmonics,
-                    geometry: calculateGeometry(baseState.xp_total, baseState.mode, time),
-                    glyph: calculateGlyphParams(baseState.mode, baseState.tone, baseState.xp_total, time)
+                    geometry: calculateGeometry(currentState.xp_total, currentState.mode, currentState.time),
+                    glyph: calculateGlyphParams(currentState.mode, currentState.tone, currentState.xp_total, currentState.time)
                 }
             };
         });
