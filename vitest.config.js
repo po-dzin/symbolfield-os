@@ -9,6 +9,9 @@ export default defineConfig({
         globals: true,
         setupFiles: './src/test/setup.js',
         exclude: [
+            '**/node_modules/**',
+            '**/dist/**',
+            '**/.{idea,git,cache,output,temp}/**',
             '**/e2e/**',
             '**/playwright-report/**',
             '**/test-results/**',

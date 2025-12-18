@@ -26,8 +26,8 @@ const NOWHeader = ({ node }) => {
                         <span className="text-[#00FFFF] text-lg">{glyphChar}</span>
                     </div>
                     <div>
-                        <h1 className="text-lg font-medium tracking-wide text-white/90">{node.details?.title || 'Untitled Node'}</h1>
-                        <div className="text-xs text-white/40 font-mono">{node.type} • {node.id.substring(0, 8)}</div>
+                        <h1 className="text-lg font-medium tracking-wide text-white/90">{node.entity?.title || 'Untitled Node'}</h1>
+                        <div className="text-xs text-white/40 font-mono">{node.entity?.type || 'unknown'} • {node.id.substring(0, 8)}</div>
                     </div>
                 </div>
             </div>

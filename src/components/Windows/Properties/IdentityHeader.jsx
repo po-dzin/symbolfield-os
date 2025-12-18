@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Collapsible from './Collapsible';
 import { useGraphStore } from '../../../store/graphStore';
 
@@ -9,6 +9,11 @@ export default function IdentityHeader({ node, connections = [] }) {
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [titleValue, setTitleValue] = useState(node.entity?.title || 'Untitled');
     const { updateNodeEntity } = useGraphStore();
+
+    useEffect(() => {
+        setTitleValue(node.entity?.title || 'Untitled');
+        setIsEditingTitle(false);
+    }, [node.id, node.entity?.title]);
 
     const metadata = [
         { label: 'Type', value: node.entity?.type || 'unknown' },

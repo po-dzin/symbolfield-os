@@ -245,6 +245,24 @@ export const useGraphStore = create((set, get) => ({
         }));
     },
 
+    updateNodeEntity: (id, entity) => {
+        get().pushToHistory();
+        set(state => ({
+            nodes: state.nodes.map(node =>
+                node.id === id
+                    ? {
+                        ...node,
+                        entity,
+                        state: {
+                            ...node.state,
+                            lastEditedAt: Date.now()
+                        }
+                    }
+                    : node
+            )
+        }));
+    },
+
     // Mode Actions
     setViewMode: (viewMode) => set({ viewMode }),
 
