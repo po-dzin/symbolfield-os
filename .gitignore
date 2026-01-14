@@ -45,3 +45,7 @@ memory
 *.njsproj
 *.sln
 *.sw?
+
+# Legacy
+src_v0_legacy/
+specs/
