@@ -50,3 +50,22 @@ memory
 src_v0_legacy/
 specs/
 symbolfield-crew/
+
+# Migration & Docs
+MIGRATION.md
+qa_contract.md
+spec.md
+test_spec.md
+
+# Test Artifacts
+smoke-results.json
+test-results.json
+unit-results.json
+playwright-report/
+test-results/
+
+# Agent & System
+.agent/
+agents/
+memory/
+output/
