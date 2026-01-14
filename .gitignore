@@ -69,3 +69,6 @@ test-results/
 agents/
 memory/
 output/
+refs/
+scripts/
+public/
