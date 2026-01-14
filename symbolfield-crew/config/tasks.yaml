@@ -1,0 +1,34 @@
+# tasks.yaml
+sync_context_task:
+  description: >
+    Scan the /docs/specs folder and the latest Git commits. 
+    Identify modified files. 
+    Generate embeddings for them (using Gemini Flash) and upsert into Supabase `project_specs` and `code_components` tables.
+  expected_output: >
+    A log summary of synced files and any errors.
+
+audit_codebase_run_tests:
+  description: >
+    Run the Playwright test suite (smoke and regression) and capture the output.
+  expected_output: >
+    A summary of test results (Pass/Fail) and any error logs.
+  agent: qa_guardian
+
+report_feature_status:
+  description: >
+    Read the latest test results and `task.md` status, then update the Notion database with a new entry for the current feature.
+  expected_output: >
+    Confirmation that the Notion page was created/updated with the correct URL.
+  agent: notion_reporter
+
+audit_codebase_task:
+  description: >
+    1. Run the Playwright smoke and regression suites (`npm test`).
+    2. Parse the results.
+    3. If tests pass, perform static analysis on `src/` to check for:
+       - Direct z-index usage (should use layers constant)
+       - Components bypassing StateEngine
+    4. Generate an `audit_report.md`.
+  expected_output: >
+    A markdown report containing test results and architectural violation warnings.
+```

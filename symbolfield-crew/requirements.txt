@@ -1,0 +1,6 @@
+crewai
+langchain
+playwright
+supabase
+pyyaml
+python-dotenv

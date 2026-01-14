@@ -41,6 +41,7 @@ export default {
         'os-glass-bg': 'var(--surface-1-bg)',
         'os-surface-highlight': 'var(--surface-highlight)',
         'os-surface-dim': 'var(--surface-dim)',
+        'sf-zinc-900': '#0e0f11', // Matches os-dark for consistency
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

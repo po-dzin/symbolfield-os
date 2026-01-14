@@ -25,16 +25,15 @@ reports
 test-results
 playwright-report
 e2e
-playwright.config.ts
 
-specs
+# specs
 spec.md
 test_spec.md
 qa_contract.md
-scripts
+
 agents
 memory
-.agent
+
 
 # Editor directories and files
 .vscode/*
