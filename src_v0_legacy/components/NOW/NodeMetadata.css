@@ -1,0 +1,86 @@
+.node-metadata {
+    padding: 2rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 2rem;
+}
+
+.node-title-section h1 {
+    transition: all 0.2s ease;
+}
+
+.node-title-section h1:hover {
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.node-title-section input {
+    background: transparent;
+    color: white;
+    border: none;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+    outline: none;
+    font-size: 1.875rem;
+    font-weight: 500;
+    letter-spacing: 0.025em;
+    line-height: 1.2;
+    width: 100%;
+    padding: 0.25rem 0;
+}
+
+.node-title-section input:focus {
+    border-bottom-color: rgba(255, 255, 255, 0.6);
+}
+
+.metadata-collapsible {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.metadata-grid {
+    padding: 1rem;
+}
+
+.metadata-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.metadata-item:last-child {
+    border-bottom: none;
+}
+
+/* Custom styles for collapsible header */
+.metadata-collapsible .collapsible-header {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.metadata-collapsible .collapsible-header:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.metadata-collapsible .collapsible-title {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.metadata-collapsible .collapsible-icon {
+    transition: transform 0.2s ease;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.metadata-collapsible.collapsed .collapsible-icon {
+    transform: rotate(-90deg);
+}
+
+.metadata-collapsible .collapsible-content {
+    background: rgba(255, 255, 255, 0.02);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}

@@ -1,0 +1,457 @@
+import { create } from 'zustand';
+import { v4 as uuidv4 } from 'uuid';
+
+export const useGraphStore = create((set, get) => ({
+    nodes: [],
+    edges: [],
+    selection: [],
+    interactionState: 'IDLE', // IDLE, CONNECTING, DRAGGING
+
+    // Mode State
+    viewMode: 'GRAPH', // 'GRAPH' | 'NOW'
+    activeNodeId: null, // ID of the node being viewed in NOW mode
+
+
+    // Core Lifecycle
+    hasCore: false,
+
+    // Connection State
+    // Connection State
+    tempConnection: null, // { sourceId, sourcePos, currentPos }
+
+    // History State
+    history: [],
+    future: [],
+
+    // History Actions
+    pushToHistory: () => {
+        const { nodes, edges, history } = get();
+        // Deep copy to prevent reference issues
+        const snapshot = {
+            nodes: JSON.parse(JSON.stringify(nodes)),
+            edges: JSON.parse(JSON.stringify(edges))
+        };
+        set({
+            history: [...history.slice(-49), snapshot],
+            future: []
+        });
+    },
+
+    undo: () => {
+        const { history, future, nodes, edges } = get();
+        if (history.length === 0) return;
+
+        const previous = history[history.length - 1];
+        const newHistory = history.slice(0, -1);
+
+        // Save current state to future
+        const currentSnapshot = {
+            nodes: JSON.parse(JSON.stringify(nodes)),
+            edges: JSON.parse(JSON.stringify(edges))
+        };
+
+        set({
+            nodes: previous.nodes,
+            edges: previous.edges,
+            history: newHistory,
+            future: [currentSnapshot, ...future]
+        });
+        console.log('Start Undo');
+    },
+
+    redo: () => {
+        const { history, future, nodes, edges } = get();
+        if (future.length === 0) return;
+
+        const next = future[0];
+        const newFuture = future.slice(1);
+
+        // Save current state to history
+        const currentSnapshot = {
+            nodes: JSON.parse(JSON.stringify(nodes)),
+            edges: JSON.parse(JSON.stringify(edges))
+        };
+
+        set({
+            nodes: next.nodes,
+            edges: next.edges,
+            history: [...history, currentSnapshot],
+            future: newFuture
+        });
+        console.log('Start Redo');
+    },
+
+    // Actions
+    startConnection: (sourceId, sourcePos) => {
+        set({
+            interactionState: 'CONNECTING',
+            tempConnection: { sourceId, sourcePos, currentPos: sourcePos }
+        });
+    },
+
+    updateTempConnection: (currentPos) => {
+        set(state => ({
+            tempConnection: { ...state.tempConnection, currentPos }
+        }));
+    },
+
+    endConnection: (targetId) => {
+        const { tempConnection, edges, pushToHistory } = get();
+        if (tempConnection && targetId && tempConnection.sourceId !== targetId) {
+            pushToHistory(); // Save state before adding edge
+            // Create Edge
+            const newEdge = {
+                id: uuidv4(),
+                source: tempConnection.sourceId,
+                target: targetId,
+                type: 'mycelial'
+            };
+            // Check for duplicates
+            const exists = edges.some(e =>
+                (e.source === newEdge.source && e.target === newEdge.target) ||
+                (e.source === newEdge.target && e.target === newEdge.source)
+            );
+
+            if (!exists) {
+                set(state => ({ edges: [...state.edges, newEdge] }));
+            }
+        }
+        set({ interactionState: 'IDLE', tempConnection: null });
+    },
+
+    cancelConnection: () => {
+        set({ interactionState: 'IDLE', tempConnection: null });
+    },
+
+    initializeGraph: () => {
+        const { nodes, hasCore } = get();
+        if (nodes.length === 0 && !hasCore) {
+            const timestamp = Date.now();
+            // Spawn Source Node at origin (not screen center)
+            set({
+                nodes: [{
+                    id: 'source-node',
+                    position: { x: 0, y: 0 },
+                    createdAt: timestamp,
+                    updatedAt: timestamp,
+                    entity: { type: 'source' },
+                    components: {
+                        glyph: { id: 'source' },
+                        tone: { id: 'void' },
+                        xp: { hp: 0, ep: 0, mp: 0, sp: 0, np: 100 },
+                        temporal: { scale: 'now' }
+                    },
+                    state: {
+                        isSource: true,
+                        isCore: false,
+                        mode: 'DEEP'
+                    }
+                }]
+            });
+        }
+    },
+
+    transformSourceToCore: (id) => {
+        get().pushToHistory();
+        set(state => ({
+            hasCore: true,
+            nodes: state.nodes.map(node => {
+                if (node.id === id) {
+                    const timestamp = Date.now();
+                    return {
+                        ...node,
+                        position: { x: 0, y: 0 }, // Force Core to center
+                        updatedAt: timestamp,
+                        entity: { type: 'core' },
+                        components: {
+                            ...node.components,
+                            glyph: { id: 'core' }, // Base core glyph
+                            tone: { id: 'base' } // Inherit base tone
+                        },
+                        state: {
+                            ...node.state,
+                            isSource: false,
+                            isCore: true,
+                            lastEditedAt: timestamp,
+                            materializedAt: timestamp
+                        }
+                    };
+                }
+                return node;
+            })
+        }));
+    },
+
+    addNode: (position, autoConnectTo = null) => {
+        get().pushToHistory();
+        const timestamp = Date.now();
+        const newNode = {
+            id: uuidv4(),
+            position,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            entity: { type: 'container' }, // Empty container
+            components: {
+                glyph: null, // No glyph
+                tone: null, // No tone initially
+                xp: { hp: 0, ep: 0, mp: 0, sp: 0, np: 0 },
+                temporal: { scale: 'day' }
+            },
+            state: {
+                mode: 'DEEP',
+                lastEditedAt: timestamp, // Timestamp for aging system
+                activatedAt: timestamp // For "joy" animation
+            }
+        };
+
+        set(state => {
+            const newNodes = [...state.nodes, newNode];
+            let newEdges = state.edges;
+
+            // Auto-connect if requested
+            if (autoConnectTo) {
+                const newEdge = {
+                    id: uuidv4(),
+                    source: autoConnectTo,
+                    target: newNode.id,
+                    type: 'mycelial'
+                };
+                newEdges = [...state.edges, newEdge];
+            }
+
+            return {
+                nodes: newNodes,
+                edges: newEdges,
+                interactionState: 'IDLE',
+                tempConnection: null
+            };
+        });
+
+        return newNode.id;
+    },
+
+    activateNode: (id) => {
+        set(state => ({
+            nodes: state.nodes.map(node =>
+                node.id === id
+                    ? {
+                        ...node,
+                        state: {
+                            ...node.state,
+                            lastEditedAt: Date.now(),
+                            activatedAt: Date.now()
+                        }
+                    }
+                    : node
+            )
+        }));
+    },
+
+    updateNodePosition: (id, position) => {
+        set(state => ({
+            nodes: state.nodes.map(node =>
+                node.id === id ? { ...node, position } : node
+            )
+        }));
+    },
+
+    updateNodeEntity: (id, entity) => {
+        get().pushToHistory();
+        const timestamp = Date.now();
+        set(state => ({
+            nodes: state.nodes.map(node =>
+                node.id === id
+                    ? {
+                        ...node,
+                        entity,
+                        updatedAt: timestamp,
+                        state: {
+                            ...node.state,
+                            lastEditedAt: timestamp
+                        }
+                    }
+                    : node
+            )
+        }));
+    },
+
+    // Mode Actions
+    setViewMode: (viewMode) => set({ viewMode }),
+
+    enterNOW: (nodeId) => {
+        console.log('🏪 graphStore: enterNOW triggered for', nodeId);
+        set((state) => {
+            console.log('🏪 graphStore: switching mode to NOW');
+            // Push current state to history before switching? 
+            // For now just switch.
+            return {
+                viewMode: 'NOW',
+                activeNodeId: nodeId,
+                selection: [nodeId] // Also select it
+            };
+        });
+    },
+
+    exitNOW: () => {
+        set({
+            viewMode: 'GRAPH',
+            activeNodeId: null
+        });
+    },
+
+    selectNode: (id) => {
+        set({ selection: [id] });
+    },
+
+    clearSelection: () => {
+        set({ selection: [] });
+    },
+
+    // Node Management Actions
+    cloneNode: (id) => {
+        const { nodes } = get();
+        const sourceNode = nodes.find(n => n.id === id);
+        if (!sourceNode) return null;
+
+        const timestamp = Date.now();
+        const clonedNode = {
+            ...sourceNode,
+            id: uuidv4(),
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            position: {
+                x: sourceNode.position.x + 50,
+                y: sourceNode.position.y + 50
+            },
+            state: {
+                ...sourceNode.state,
+                lastEditedAt: timestamp,
+                activatedAt: timestamp
+            }
+        };
+
+        set(state => ({
+            nodes: [...state.nodes, clonedNode]
+        }));
+
+        return clonedNode.id;
+    },
+
+    deleteNode: (id) => {
+        const { nodes, pushToHistory } = get();
+        const node = nodes.find(n => n.id === id);
+
+        // Cannot delete Core node
+        if (node?.entity.type === 'core') {
+            console.warn('⚠️ Cannot delete Core node');
+            return false;
+        }
+
+        pushToHistory();
+
+        set(state => ({
+            nodes: state.nodes.filter(n => n.id !== id),
+            edges: state.edges.filter(e => e.source !== id && e.target !== id),
+            selection: state.selection.filter(s => s !== id)
+        }));
+
+        console.log('🗑 Node deleted:', id);
+        return true;
+    },
+
+    // Component Management Actions
+    addComponentToNode: (nodeId, componentType, initialData = {}) => {
+        get().pushToHistory();
+        const timestamp = Date.now();
+        set(state => ({
+            nodes: state.nodes.map(node => {
+                if (node.id === nodeId) {
+                    const updatedComponents = { ...node.components };
+
+                    // Set default data based on component type
+                    switch (componentType) {
+                        case 'glyph':
+                            updatedComponents.glyph = initialData.char ? { char: initialData.char } : { char: '•' };
+                            break;
+                        case 'tone':
+                            updatedComponents.tone = initialData.id ? { id: initialData.id } : { id: 'sky' };
+                            break;
+                        case 'xp':
+                            updatedComponents.xp = initialData || { hp: 0, ep: 0, mp: 0, sp: 0, np: 0 };
+                            break;
+                        case 'temporal':
+                            updatedComponents.temporal = initialData || { scale: 'day' };
+                            break;
+                        case 'process':
+                            updatedComponents.process = initialData || { enabled: false };
+                            break;
+                        case 'ritual':
+                            updatedComponents.ritual = initialData || { enabled: false };
+                            break;
+                        default:
+                            break;
+                    }
+
+                    return {
+                        ...node,
+                        components: updatedComponents,
+                        updatedAt: timestamp,
+                        state: {
+                            ...node.state,
+                            lastEditedAt: timestamp
+                        }
+                    };
+                }
+                return node;
+            })
+        }));
+    },
+
+    removeComponentFromNode: (nodeId, componentType) => {
+        get().pushToHistory();
+        const timestamp = Date.now();
+        set(state => ({
+            nodes: state.nodes.map(node => {
+                if (node.id === nodeId) {
+                    const updatedComponents = { ...node.components };
+                    updatedComponents[componentType] = null;
+
+                    return {
+                        ...node,
+                        components: updatedComponents,
+                        updatedAt: timestamp,
+                        state: {
+                            ...node.state,
+                            lastEditedAt: timestamp
+                        }
+                    };
+                }
+                return node;
+            })
+        }));
+    },
+
+    updateNodeComponent: (nodeId, componentType, data) => {
+        get().pushToHistory();
+        const timestamp = Date.now();
+        set(state => ({
+            nodes: state.nodes.map(node => {
+                if (node.id === nodeId) {
+                    return {
+                        ...node,
+                        components: {
+                            ...node.components,
+                            [componentType]: data
+                        },
+                        updatedAt: timestamp,
+                        state: {
+                            ...node.state,
+                            lastEditedAt: timestamp
+                        }
+                    };
+                }
+                return node;
+            })
+        }));
+    }
+}));

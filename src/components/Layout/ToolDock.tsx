@@ -1,0 +1,58 @@
+/**
+ * ToolDock.jsx
+ * Minimal left-side tool strip.
+ */
+
+import React from 'react';
+import { useAppStore } from '../../store/useAppStore';
+
+type ToolId = 'pointer' | 'link' | 'region';
+
+const TOOLS: Array<{ id: ToolId; label: string; icon: string }> = [
+    { id: 'pointer', label: 'Pointer', icon: '↗' },
+    { id: 'link', label: 'Link', icon: '⚡' },
+    { id: 'region', label: 'Region', icon: '☷' },
+    // { id: 'zone', label: 'Zone', icon: 'Z' }
+];
+
+const ToolDock = () => {
+    const activeTool = useAppStore(state => state.activeTool);
+    const setTool = useAppStore(state => state.setTool);
+    const toggleSettings = useAppStore(state => state.toggleSettings);
+
+    return (
+        <div className="flex flex-col gap-2 p-2 glass-panel">
+            {TOOLS.map((tool) => (
+                <button
+                    key={tool.id}
+                    onClick={() => setTool(tool.id)}
+                    className={`
+            w-10 h-10 rounded-xl flex items-center justify-center
+            transition-all duration-200
+            ${activeTool === tool.id
+                            ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]'
+                            : 'text-text-secondary hover:bg-white/10 hover:text-text-primary'
+                        }
+          `}
+                    title={tool.label}
+                >
+                    {tool.icon}
+                </button>
+            ))}
+
+            {/* Divider */}
+            <div className="h-[1px] bg-white/10 my-1 w-full" />
+
+            {/* Settings Toggle (Placeholder) */}
+            <button
+                onClick={toggleSettings}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-text-secondary hover:text-text-primary"
+                title="Settings"
+            >
+                ⚙
+            </button>
+        </div>
+    );
+};
+
+export default ToolDock;
