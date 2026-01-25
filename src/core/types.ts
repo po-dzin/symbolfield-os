@@ -27,14 +27,86 @@ export interface Position {
 }
 
 // =============================================================================
+// Areas (Zone/Region overlays)
+// =============================================================================
+
+export type AreaId = string
+export type AreaShape = 'rect' | 'circle'
+
+export interface AreaRect {
+    x: number
+    y: number
+    w: number
+    h: number
+}
+
+export interface AreaCircle {
+    cx?: number
+    cy?: number
+    r: number
+}
+
+export type AreaAnchor =
+    | { type: 'canvas' }
+    | {
+        type: 'node'
+        nodeId: NodeId
+        attach: 'center'
+        offset?: { dx: number; dy: number }
+        follow: 'position'
+    }
+
+export interface AreaRing {
+    id: string
+    r: number
+    opacityMul?: number
+    border?: { width: number; style: 'solid' | 'dashed' }
+}
+
+export interface Area {
+    id: AreaId
+    title?: string
+    shape: AreaShape
+    rect?: AreaRect
+    circle?: AreaCircle
+    anchor: AreaAnchor
+    color: string
+    opacity: number
+    border: { width: number; style: 'solid' | 'dashed' }
+    borderColor?: string
+    zIndex: number
+    locked: boolean
+    hitbox: 'border' | 'fill'
+    purpose?: 'highlight' | 'clusterFrame' | 'influence'
+    clusterId?: string
+    rings?: AreaRing[]
+    created_at: number
+    updated_at: number
+}
+
+// =============================================================================
 // Node Types (Flexible data model)
 // =============================================================================
+
+export interface NodeData {
+    label?: string
+    icon_value?: string
+    color?: string
+    color_body?: string
+    color_stroke?: string
+    color_glow?: string
+    color_glyph?: string
+    glyph_offset_x?: number
+    glyph_offset_y?: number
+    glyph_scale?: number
+    glyph_align?: 'auto' | 'manual'
+}
 
 export interface NodeBase {
     id: NodeId
     type?: string
     position: Position
-    data: Record<string, unknown>
+    data: NodeData & Record<string, unknown>
     style?: Record<string, unknown>
     meta?: Record<string, unknown>
     created_at?: number

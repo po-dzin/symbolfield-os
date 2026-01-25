@@ -199,10 +199,8 @@ class SpaceManager {
         }
 
         // 2. Load new
-        // Reset camera per-space to baseline before centering on origin
-        const camera = useCameraStore.getState();
-        camera.reset();
-        camera.centerOn(0, 0, window.innerWidth, window.innerHeight);
+        // Reset camera per-space to baseline; CanvasView will center using its own rect.
+        useCameraStore.getState().reset();
 
         stateEngine.setSpace(id);
         localStorage.setItem(STORAGE_KEYS.ACTIVE_SPACE, id);

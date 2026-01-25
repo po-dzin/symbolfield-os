@@ -11,7 +11,7 @@ import type { NodeId } from '../core/types';
 // Matches StateEngine constants
 type AppModeType = 'deep' | 'flow' | 'luma';
 type ViewContextType = 'home' | 'space' | 'now';
-type ToolType = 'pointer' | 'link' | 'region';
+type ToolType = 'pointer' | 'link' | 'area';
 
 interface Session {
     isActive: boolean;
@@ -28,6 +28,7 @@ interface AppState {
     activeScope: NodeId | null;
     settingsOpen: boolean;
     paletteOpen: boolean;
+    contextMenuMode: 'bar' | 'radial';
     session: Session;
 }
 
@@ -45,6 +46,8 @@ interface AppStoreState extends AppState {
     closePalette: () => void;
     toggleSettings: () => void;
     closeSettings: () => void;
+    setContextMenuMode: (mode: 'bar' | 'radial') => void;
+    toggleContextMenuMode: () => void;
 }
 
 export const useAppStore = create<AppStoreState>((set) => {
@@ -62,6 +65,7 @@ export const useAppStore = create<AppStoreState>((set) => {
     eventBus.on(EVENTS.PALETTE_TOGGLED, sync);
     eventBus.on(EVENTS.SPACE_CHANGED, sync);
     eventBus.on(EVENTS.FIELD_SCOPE_CHANGED, sync);
+    eventBus.on(EVENTS.CONTEXT_MENU_MODE_CHANGED, sync);
 
     return {
         ...initialState,
@@ -109,6 +113,13 @@ export const useAppStore = create<AppStoreState>((set) => {
         },
         closeSettings: () => {
             stateEngine.closeSettings();
+        }
+        ,
+        setContextMenuMode: (mode: 'bar' | 'radial') => {
+            stateEngine.setContextMenuMode(mode);
+        },
+        toggleContextMenuMode: () => {
+            stateEngine.toggleContextMenuMode();
         }
     };
 });

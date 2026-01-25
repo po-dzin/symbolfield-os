@@ -22,6 +22,12 @@ const CommandPalette = () => {
                 <input
                     autoFocus
                     placeholder="Type a command..."
+                    onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                            e.preventDefault();
+                            closePalette();
+                        }
+                    }}
                     className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-text-primary outline-none"
                 />
                 <div className="text-xs text-text-meta">

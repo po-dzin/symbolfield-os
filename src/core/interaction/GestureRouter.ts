@@ -12,6 +12,7 @@ import { graphEngine } from '../graph/GraphEngine';
 import { selectionState } from '../state/SelectionState';
 import { useCameraStore } from '../../store/useCameraStore';
 import { useEdgeSelectionStore } from '../../store/useEdgeSelectionStore';
+import { useAreaStore } from '../../store/useAreaStore';
 import { asEdgeId, asNodeId, type NodeId } from '../types';
 import { GRID_METRICS, NODE_SIZES } from '../../utils/layoutMetrics';
 
@@ -35,6 +36,7 @@ interface PointerGesture {
     modifiers: PointerModifiers;
     targetType: TargetType;
     targetId?: string | null;
+    targetPart?: string | null;
 }
 
 interface MoveGesture {
@@ -56,7 +58,7 @@ class GestureRouter {
     private pendingLinkAssociative: boolean;
     private activeEdgeId: string | null;
     private lastPointer: { x: number; y: number; has: boolean };
-    private lastClick: { time: number; targetId: string | null };
+    private lastClick: { time: number; targetId: string | null; targetType: 'node' | null };
 
     constructor() {
         this.activeInteraction = null; // { type, startX, startY, ...data }
@@ -64,7 +66,55 @@ class GestureRouter {
         this.pendingLinkAssociative = false;
         this.activeEdgeId = null;
         this.lastPointer = { x: 0, y: 0, has: false };
-        this.lastClick = { time: 0, targetId: null };
+        this.lastClick = { time: 0, targetId: null, targetType: null };
+    }
+
+    startLinkPreview(sourceId: NodeId, associative = false) {
+        const sourceNode = graphEngine.getNode(sourceId);
+        if (!sourceNode) return;
+        const getNodeRadius = (node: typeof sourceNode) => {
+            if (node.type === 'root' || node.type === 'core') return NODE_SIZES.root / 2;
+            if (node.type === 'cluster') return NODE_SIZES.cluster / 2;
+            return NODE_SIZES.base / 2;
+        };
+        this.pendingLinkSource = sourceId;
+        this.pendingLinkAssociative = associative;
+        this.activeInteraction = {
+            type: 'LINK_PREVIEW',
+            sourceId,
+            startX: sourceNode.position.x,
+            startY: sourceNode.position.y,
+            associative
+        };
+        eventBus.emit('UI_INTERACTION_START', { type: 'LINK_DRAG' });
+        const targetX = this.lastPointer.has ? this.lastPointer.x : sourceNode.position.x;
+        const targetY = this.lastPointer.has ? this.lastPointer.y : sourceNode.position.y;
+        const lx = targetX - sourceNode.position.x;
+        const ly = targetY - sourceNode.position.y;
+        const lDist = Math.sqrt(lx * lx + ly * ly);
+        const radius = getNodeRadius(sourceNode);
+        let x1 = sourceNode.position.x;
+        let y1 = sourceNode.position.y;
+        const safeDist = lDist > 0.0001 ? lDist : 1;
+        const ux = lDist > 0.0001 ? lx / safeDist : 1;
+        const uy = lDist > 0.0001 ? ly / safeDist : 0;
+        x1 += ux * radius;
+        y1 += uy * radius;
+        const edgeDist = radius + 0.01;
+        const x2 = lDist > edgeDist ? targetX : x1;
+        const y2 = lDist > edgeDist ? targetY : y1;
+        eventBus.emit('UI_INTERACTION_UPDATE', {
+            type: 'LINK_DRAG',
+            line: { x1, y1, x2, y2 },
+            associative
+        });
+    }
+
+    private clearLinkPreview() {
+        if (this.activeInteraction?.type === 'LINK_PREVIEW') {
+            this.activeInteraction = null;
+            eventBus.emit('UI_INTERACTION_END', { type: 'LINK_DRAG' });
+        }
     }
 
     /**
@@ -82,53 +132,59 @@ class GestureRouter {
             if (!gesture.modifiers.shift) {
                 selectionState.clear();
                 useEdgeSelectionStore.getState().select(edgeId, false);
+                useAreaStore.getState().clearSelectedAreas();
             } else {
                 useEdgeSelectionStore.getState().toggle(edgeId);
             }
             return;
         }
+        if (gesture.targetType === 'empty' && gesture.button === 0 && !gesture.modifiers.shift) {
+            selectionState.clear();
+            useEdgeSelectionStore.getState().clear();
+            useAreaStore.getState().clearSelectedAreas();
+        }
         if (gesture.targetType === 'node' && !gesture.modifiers.shift) {
             useEdgeSelectionStore.getState().clear();
             this.activeEdgeId = null;
         }
+        if (gesture.targetType === 'empty' && gesture.modifiers.doubleClick) {
+            const now = Date.now();
+            if (this.lastClick.targetType === 'node' && now - this.lastClick.time < 350) {
+                return;
+            }
+        }
         if (gesture.targetType === 'node' && gesture.targetId) {
+            // Prevent Enter-Now on Label (reserved for edit)
+            if (gesture.targetPart === 'label') {
+                return;
+            }
+
             const now = Date.now();
             const isDoubleTap = now - this.lastClick.time < 350 && this.lastClick.targetId === gesture.targetId;
-            this.lastClick = { time: now, targetId: gesture.targetId };
+            this.lastClick = { time: now, targetId: gesture.targetId, targetType: 'node' };
             if (isDoubleTap && context.activeTool === TOOLS.POINTER) {
                 this._executeAction({ type: 'ENTER_NOW', nodeId: toNodeId(gesture.targetId) });
                 return;
             }
         }
-        if (context.activeTool === TOOLS.LINK && gesture.targetType === 'node') {
-            const targetId = gesture.targetId;
-            if (this.pendingLinkSource && targetId && this.pendingLinkSource !== targetId) {
-                const type = (gesture.modifiers.alt || this.pendingLinkAssociative) ? 'associative' : 'default';
-                graphEngine.addEdge(toNodeId(this.pendingLinkSource), toNodeId(targetId), type);
-                eventBus.emit('UI_SIGNAL', { x: gesture.x, y: gesture.y, id: targetId });
-                this.pendingLinkSource = null;
-                this.pendingLinkAssociative = false;
+        if (context.activeTool === TOOLS.LINK && this.pendingLinkSource && gesture.targetType === 'node') {
+            if (gesture.targetId && gesture.targetId === this.pendingLinkSource) {
                 return;
             }
-        }
-
-        if (context.activeTool === TOOLS.LINK && gesture.targetType === 'empty' && this.pendingLinkSource) {
-            // Click-to-Create-and-Link (User Request)
-            const newNode = graphEngine.addNode({
-                position: { x: gesture.x, y: gesture.y },
-                data: { label: 'Empty' }
-            });
-            const type = (gesture.modifiers.alt || this.pendingLinkAssociative) ? 'associative' : 'default';
-            graphEngine.addEdge(toNodeId(this.pendingLinkSource), newNode.id, type);
-
-            // Emit signal (wrapped to ensure store updates first)
-            setTimeout(() => {
-                eventBus.emit('UI_SIGNAL', { x: gesture.x, y: gesture.y, id: newNode.id });
-            }, 0);
-
-            this.pendingLinkSource = null;
-            this.pendingLinkAssociative = false;
-            return;
+            if (gesture.targetId && gesture.targetId !== this.pendingLinkSource) {
+                const sourceId = toNodeId(this.pendingLinkSource);
+                const targetId = toNodeId(gesture.targetId);
+                const associative = this.pendingLinkAssociative || gesture.modifiers.alt;
+                graphEngine.addEdge(sourceId, targetId, associative ? 'associative' : 'default');
+                const node = graphEngine.getNode(targetId);
+                if (node) {
+                    eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, id: targetId, sourceId });
+                }
+                this.pendingLinkSource = null;
+                this.pendingLinkAssociative = false;
+                this.clearLinkPreview();
+                return;
+            }
         }
         const intent = this._interpretIntent(gesture, context);
 
@@ -153,6 +209,26 @@ class GestureRouter {
             };
             eventBus.emit('UI_INTERACTION_UPDATE', { type: 'BOX_SELECT', rect });
         }
+        else if (interaction.type === 'REGION_DRAW') {
+            if (interaction.shape === 'circle') {
+                const dx = x - interaction.startX;
+                const dy = y - interaction.startY;
+                const r = Math.sqrt(dx * dx + dy * dy);
+                eventBus.emit('UI_INTERACTION_UPDATE', {
+                    type: 'REGION_DRAW',
+                    shape: 'circle',
+                    circle: { cx: interaction.startX, cy: interaction.startY, r }
+                });
+            } else {
+                const rect = {
+                    x: Math.min(interaction.startX, x),
+                    y: Math.min(interaction.startY, y),
+                    width: Math.abs(x - interaction.startX),
+                    height: Math.abs(y - interaction.startY)
+                };
+                eventBus.emit('UI_INTERACTION_UPDATE', { type: 'REGION_DRAW', rect, shape: 'rect' });
+            }
+        }
         else if (interaction.type === 'DRAG_NODES') {
             const zoom = useCameraStore.getState().zoom;
             const dx = (gesture.screenX - interaction.lastScreenX) / zoom;
@@ -169,6 +245,30 @@ class GestureRouter {
                     });
                 }
             });
+            const areaState = useAreaStore.getState();
+            if (areaState.selectedAreaIds.length > 0) {
+                areaState.selectedAreaIds.forEach(areaId => {
+                    const area = areaState.areas.find(item => item.id === areaId);
+                    if (!area || area.locked) return;
+                    if (area.shape === 'rect' && area.rect) {
+                        areaState.updateArea(area.id, {
+                            rect: {
+                                x: area.rect.x + dx,
+                                y: area.rect.y + dy,
+                                w: area.rect.w,
+                                h: area.rect.h
+                            }
+                        });
+                    }
+                    if (area.shape === 'circle' && area.circle) {
+                        const cx = area.circle.cx ?? 0;
+                        const cy = area.circle.cy ?? 0;
+                        areaState.updateArea(area.id, {
+                            circle: { cx: cx + dx, cy: cy + dy, r: area.circle.r }
+                        });
+                    }
+                });
+            }
         }
         else if (interaction.type === 'PAN') {
             const dx = gesture.screenX - interaction.lastScreenX;
@@ -177,6 +277,32 @@ class GestureRouter {
             interaction.lastScreenY = gesture.screenY;
 
             useCameraStore.getState().updatePan(dx, dy);
+        }
+        else if (interaction.type === 'LINK_ARM') {
+            const dx = gesture.screenX - interaction.startScreenX;
+            const dy = gesture.screenY - interaction.startScreenY;
+            if (!interaction.hasDragged && (dx * dx + dy * dy) > 16) {
+                interaction.hasDragged = true;
+            }
+            if (!interaction.hasDragged) {
+                return;
+            }
+            this.activeInteraction = {
+                type: 'LINK_DRAG',
+                sourceId: interaction.sourceId,
+                startX: interaction.startX,
+                startY: interaction.startY,
+                associative: interaction.associative,
+                startScreenX: interaction.startScreenX,
+                startScreenY: interaction.startScreenY,
+                hasDragged: true
+            };
+            eventBus.emit('UI_INTERACTION_START', {
+                type: 'LINK_DRAG',
+                fromId: interaction.sourceId,
+                associative: interaction.associative
+            });
+            return;
         }
         else if (interaction.type === 'LINK_DRAG') {
             const dx = gesture.screenX - interaction.startScreenX;
@@ -189,24 +315,57 @@ class GestureRouter {
             const lx = x - interaction.startX;
             const ly = y - interaction.startY;
             const lDist = Math.sqrt(lx * lx + ly * ly);
-            const radius = 22;
+            const sourceNode = graphEngine.getNode(interaction.sourceId as NodeId);
+            const radius = sourceNode
+                ? (sourceNode.type === 'root' || sourceNode.type === 'core')
+                    ? NODE_SIZES.root / 2
+                    : sourceNode.type === 'cluster'
+                        ? NODE_SIZES.cluster / 2
+                        : NODE_SIZES.base / 2
+                : NODE_SIZES.base / 2;
             let x1 = interaction.startX;
             let y1 = interaction.startY;
 
-            if (lDist > radius) {
-                const ux = lx / lDist;
-                const uy = ly / lDist;
-                x1 += ux * radius;
-                y1 += uy * radius;
-            } else {
-                // Inside node: start line at mouse position (effectively hiding it)
-                x1 = x;
-                y1 = y;
-            }
+            const safeDist = lDist > 0.0001 ? lDist : 1;
+            const ux = lDist > 0.0001 ? lx / safeDist : 1;
+            const uy = lDist > 0.0001 ? ly / safeDist : 0;
+            x1 += ux * radius;
+            y1 += uy * radius;
 
+            const edgeDist = radius + 0.01;
+            const x2 = lDist > edgeDist ? x : x1;
+            const y2 = lDist > edgeDist ? y : y1;
             eventBus.emit('UI_INTERACTION_UPDATE', {
                 type: 'LINK_DRAG',
-                line: { x1, y1, x2: x, y2: y },
+                line: { x1, y1, x2, y2 },
+                associative: interaction.associative
+            });
+        }
+        else if (interaction.type === 'LINK_PREVIEW') {
+            const lx = x - interaction.startX;
+            const ly = y - interaction.startY;
+            const lDist = Math.sqrt(lx * lx + ly * ly);
+            const sourceNode = graphEngine.getNode(interaction.sourceId as NodeId);
+            const radius = sourceNode
+                ? (sourceNode.type === 'root' || sourceNode.type === 'core')
+                    ? NODE_SIZES.root / 2
+                    : sourceNode.type === 'cluster'
+                        ? NODE_SIZES.cluster / 2
+                        : NODE_SIZES.base / 2
+                : NODE_SIZES.base / 2;
+            let x1 = interaction.startX;
+            let y1 = interaction.startY;
+            const safeDist = lDist > 0.0001 ? lDist : 1;
+            const ux = lDist > 0.0001 ? lx / safeDist : 1;
+            const uy = lDist > 0.0001 ? ly / safeDist : 0;
+            x1 += ux * radius;
+            y1 += uy * radius;
+            const edgeDist = radius + 0.01;
+            const x2 = lDist > edgeDist ? x : x1;
+            const y2 = lDist > edgeDist ? y : y1;
+            eventBus.emit('UI_INTERACTION_UPDATE', {
+                type: 'LINK_DRAG',
+                line: { x1, y1, x2, y2 },
                 associative: interaction.associative
             });
         }
@@ -218,8 +377,12 @@ class GestureRouter {
         const interaction = this.activeInteraction as Record<string, any>;
         const toNodeId = (id: NodeId | string) => (typeof id === 'string' ? asNodeId(id) : id);
 
+        if (interaction.type === 'LINK_ARM') {
+            this._executeAction({ type: 'SELECT_SINGLE', nodeId: interaction.sourceId });
+            this.clearLinkPreview();
+        }
         if (interaction.type === 'LINK_DRAG') {
-            const targetId = gesture.targetId;
+            const targetId = gesture.targetType === 'node' ? gesture.targetId : null;
             const sourceId = interaction.sourceId as NodeId;
             const associative = !!interaction.associative || !!gesture.modifiers.alt;
 
@@ -236,7 +399,7 @@ class GestureRouter {
                         if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, id: targetId, sourceId: sid });
                     }
                 });
-            } else if (!targetId) {
+            } else if (!targetId && gesture.targetType === 'empty') {
                 // Link to Empty Field: Create new node and link it
                 const newNode = graphEngine.addNode({
                     position: { x: gesture.x, y: gesture.y },
@@ -247,16 +410,35 @@ class GestureRouter {
             }
             eventBus.emit('UI_INTERACTION_END', { type: 'LINK_DRAG' });
         }
+        if (interaction.type === 'LINK_PREVIEW') {
+            this.activeInteraction = null;
+            eventBus.emit('UI_INTERACTION_END', { type: 'LINK_DRAG' });
+        }
 
         if (interaction.type === 'DRAG_NODES') {
             const dx = gesture.screenX - interaction.startX;
             const dy = gesture.screenY - interaction.startY;
             const dist = Math.sqrt(dx * dx + dy * dy);
+            const nodeIds = interaction.nodeIds as NodeId[];
+            const startPositions = interaction.startPositions as Record<string, { x: number; y: number }> | undefined;
+            const endPositions: Record<string, { x: number; y: number }> = {};
+            nodeIds?.forEach((id) => {
+                const node = graphEngine.getNode(id);
+                if (node) {
+                    endPositions[id] = { x: node.position.x, y: node.position.y };
+                }
+            });
 
             if (dist < 5 && interaction.startNodeId) {
                 this._executeAction({ type: 'SELECT_SINGLE', nodeId: interaction.startNodeId });
             }
-            eventBus.emit('UI_INTERACTION_END', { type: 'DRAG_NODES' });
+            eventBus.emit('UI_INTERACTION_END', {
+                type: 'DRAG_NODES',
+                nodeIds,
+                startPositions,
+                endPositions,
+                moved: dist >= 5
+            });
         }
 
         if (interaction.type === 'BOX_SELECT') {
@@ -305,7 +487,65 @@ class GestureRouter {
                 useEdgeSelectionStore.getState().setSelection(hitEdges);
             }
 
+            const areas = useAreaStore.getState().areas;
+            const hitAreas: string[] = [];
+            areas.forEach(area => {
+                if (area.shape === 'rect' && area.rect) {
+                    const ax1 = area.rect.x;
+                    const ay1 = area.rect.y;
+                    const ax2 = area.rect.x + area.rect.w;
+                    const ay2 = area.rect.y + area.rect.h;
+                    const intersects = rect.x <= ax2 && rect.x + rect.w >= ax1 && rect.y <= ay2 && rect.y + rect.h >= ay1;
+                    if (intersects) hitAreas.push(area.id);
+                } else if (area.shape === 'circle' && area.circle) {
+                    const cx = area.circle.cx ?? 0;
+                    const cy = area.circle.cy ?? 0;
+                    const r = area.circle.r;
+                    const ax1 = cx - r;
+                    const ay1 = cy - r;
+                    const ax2 = cx + r;
+                    const ay2 = cy + r;
+                    const intersects = rect.x <= ax2 && rect.x + rect.w >= ax1 && rect.y <= ay2 && rect.y + rect.h >= ay1;
+                    if (intersects) hitAreas.push(area.id);
+                }
+            });
+
+            if (interaction.append) {
+                const currentAreas = useAreaStore.getState().selectedAreaIds;
+                const areaSet = new Set([...currentAreas, ...hitAreas]);
+                useAreaStore.getState().setSelectedAreaIds(Array.from(areaSet));
+            } else {
+                useAreaStore.getState().setSelectedAreaIds(hitAreas);
+            }
+
             eventBus.emit('UI_INTERACTION_END', { type: 'BOX_SELECT' });
+        }
+
+        if (interaction.type === 'REGION_DRAW') {
+            const { x, y } = gesture;
+            const startX = interaction.startX;
+            const startY = interaction.startY;
+            if (interaction.shape === 'circle') {
+                const dx = x - startX;
+                const dy = y - startY;
+                const r = Math.sqrt(dx * dx + dy * dy);
+                if (r > 6) {
+                    useAreaStore.getState().addAreaCircle({ cx: startX, cy: startY, r });
+                }
+            } else {
+                const rect = {
+                    x: Math.min(startX, x),
+                    y: Math.min(startY, y),
+                    width: Math.abs(x - startX),
+                    height: Math.abs(y - startY)
+                };
+
+                if (rect.width > 8 && rect.height > 8) {
+                    useAreaStore.getState().addAreaRect({ x: rect.x, y: rect.y, w: rect.width, h: rect.height });
+                }
+            }
+            stateEngine.setTool(TOOLS.POINTER);
+            eventBus.emit('UI_INTERACTION_END', { type: 'REGION_DRAW' });
         }
 
         this.activeInteraction = null;
@@ -318,15 +558,15 @@ class GestureRouter {
         const activeTool = context.activeTool;
 
         if (activeTool === TOOLS.LINK && targetType === 'node') {
-            return { type: 'START_LINK', fromId: targetId, screenX: gesture.screenX, screenY: gesture.screenY, associative: modifiers.alt };
+            return { type: 'PREPARE_LINK', fromId: targetId, screenX: gesture.screenX, screenY: gesture.screenY, associative: modifiers.alt };
         }
 
-        if (activeTool === TOOLS.REGION && targetType === 'empty') {
-            return { type: 'START_REGION_DRAW', x, y };
+        if (activeTool === TOOLS.AREA && targetType === 'empty') {
+            return { type: 'START_REGION_DRAW', x, y, shape: modifiers.shift ? 'circle' : 'rect' };
         }
 
         if (targetType === 'empty') {
-            if (modifiers.doubleClick) return { type: 'CREATE_NODE', x, y };
+            if (modifiers.doubleClick && !modifiers.shift) return { type: 'CREATE_NODE', x, y };
             if (modifiers.space) return { type: 'PAN_CAMERA_START', x, y, screenX: gesture.screenX, screenY: gesture.screenY };
 
             // Default to Box Select in Pointer mode
@@ -355,7 +595,8 @@ class GestureRouter {
                 nodeId: nodeId,
                 screenX: gesture.screenX,
                 screenY: gesture.screenY,
-                dragNodes
+                dragNodes,
+                clearAreas: !isSelected && !isMulti
             };
         }
 
@@ -367,6 +608,7 @@ class GestureRouter {
             case 'SELECT_SINGLE':
                 useEdgeSelectionStore.getState().clear();
                 selectionState.select(intent.nodeId as NodeId);
+                useAreaStore.getState().clearSelectedAreas();
                 eventBus.emit('UI_FOCUS_NODE', { id: intent.nodeId as NodeId });
                 break;
 
@@ -389,6 +631,30 @@ class GestureRouter {
                     eventBus.emit('UI_INTERACTION_START', { type: 'BOX_SELECT', ...rest });
                 }
                 break;
+            case 'START_REGION_DRAW':
+                this.activeInteraction = { type: 'REGION_DRAW', startX: intent.x, startY: intent.y, shape: intent.shape ?? 'rect' };
+                {
+                    const { type: _type, ...rest } = intent;
+                    eventBus.emit('UI_INTERACTION_START', { type: 'REGION_DRAW', ...rest });
+                }
+                break;
+
+            case 'PREPARE_LINK': {
+                const sourceNode = graphEngine.getNode(intent.fromId as NodeId);
+                if (sourceNode) {
+                    this.activeInteraction = {
+                        type: 'LINK_ARM',
+                        sourceId: intent.fromId,
+                        startX: sourceNode.position.x,
+                        startY: sourceNode.position.y,
+                        associative: intent.associative,
+                        startScreenX: intent.screenX,
+                        startScreenY: intent.screenY,
+                        hasDragged: false
+                    };
+                }
+                break;
+            }
 
             case 'START_LINK': {
                 const sourceNode = graphEngine.getNode(intent.fromId as NodeId);
@@ -412,6 +678,22 @@ class GestureRouter {
             }
 
             case 'PREPARE_DRAG':
+                if (intent.clearAreas) {
+                    useAreaStore.getState().clearSelectedAreas();
+                    useEdgeSelectionStore.getState().clear();
+                }
+                const startPositions: Record<string, { x: number; y: number }> = {};
+                (intent.dragNodes as NodeId[]).forEach((id) => {
+                    const node = graphEngine.getNode(id);
+                    if (node) {
+                        startPositions[id] = { x: node.position.x, y: node.position.y };
+                    }
+                });
+                eventBus.emit('UI_INTERACTION_START', {
+                    type: 'DRAG_NODES',
+                    nodeIds: intent.dragNodes as NodeId[],
+                    startPositions
+                });
                 this.activeInteraction = {
                     type: 'DRAG_NODES',
                     nodeIds: intent.dragNodes,
@@ -419,7 +701,8 @@ class GestureRouter {
                     startX: intent.screenX,
                     startY: intent.screenY,
                     lastScreenX: intent.screenX,
-                    lastScreenY: intent.screenY
+                    lastScreenY: intent.screenY,
+                    startPositions
                 };
                 break;
 
@@ -439,6 +722,9 @@ class GestureRouter {
                 {
                     const x = intent.x as number;
                     const y = intent.y as number;
+                    const focusId = stateEngine.getState().fieldScopeId;
+                    const focusNode = focusId ? graphEngine.getNode(focusId) : null;
+                    const focusClusterId = focusNode?.type === 'cluster' ? focusId : null;
 
                     // IF we are near (0,0) and graph is empty, this IS Source materialization.
                     // We should let CanvasView handle it or use initialize logic here.
@@ -461,10 +747,14 @@ class GestureRouter {
                     if (hitNode) {
                         return;
                     }
-                    graphEngine.addNode({
+                    const createdNode = graphEngine.addNode({
                         position: { x, y },
-                        data: { label: 'Empty' }
+                        data: { label: 'Empty' },
+                        meta: focusClusterId ? { parentClusterId: focusClusterId } : undefined
                     });
+                    if (createdNode && focusClusterId) {
+                        graphEngine.addEdge(asNodeId(focusClusterId), createdNode.id, 'associative');
+                    }
                     eventBus.emit('UI_SIGNAL', { x, y });
                 }
                 break;
@@ -576,13 +866,29 @@ class GestureRouter {
             stateEngine.setTool(current === TOOLS.LINK ? TOOLS.POINTER : TOOLS.LINK);
             this.pendingLinkSource = null;
             this.pendingLinkAssociative = false;
+            if (current === TOOLS.LINK) {
+                this.clearLinkPreview();
+            } else {
+                const selection = selectionState.getSelection();
+                if (selection.length === 1) {
+                    this.startLinkPreview(selection[0]);
+                }
+            }
             return;
         }
-        if ((e.key === 'z' || e.key === 'Z' || isKey('Z')) && !isMod) {
-            const current = stateEngine.getState().activeTool;
-            stateEngine.setTool(current === TOOLS.REGION ? TOOLS.POINTER : TOOLS.REGION);
+        if ((e.key === 'p' || e.key === 'P' || isKey('P')) && !isMod) {
+            stateEngine.setTool(TOOLS.POINTER);
             this.pendingLinkSource = null;
             this.pendingLinkAssociative = false;
+            this.clearLinkPreview();
+            return;
+        }
+        if ((e.key === 'a' || e.key === 'A' || isKey('A')) && !isMod) {
+            const current = stateEngine.getState().activeTool;
+            stateEngine.setTool(current === TOOLS.AREA ? TOOLS.POINTER : TOOLS.AREA);
+            this.pendingLinkSource = null;
+            this.pendingLinkAssociative = false;
+            this.clearLinkPreview();
             return;
         }
         if (e.key === 'n' || e.key === 'N' || isKey('N')) {
@@ -618,6 +924,15 @@ class GestureRouter {
                 const selectedId = selection[0];
                 if (!selectedId) return;
                 const node = graphEngine.getNode(selectedId);
+                if (node?.type === 'cluster') {
+                    const currentScope = stateEngine.getState().fieldScopeId;
+                    if (currentScope === node.id) {
+                        stateEngine.setFieldScope(null);
+                    } else {
+                        stateEngine.setFieldScope(node.id);
+                    }
+                    return;
+                }
                 if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'ENTER_NOW' });
                 stateEngine.enterNow(selectedId);
             }
@@ -625,6 +940,10 @@ class GestureRouter {
         }
 
         // 6. UI Toggles
+        if (e.key.toLowerCase() === 'r' && !isShift && !isAlt && !isMeta && !isCtrl) {
+            stateEngine.toggleContextMenuMode();
+            return;
+        }
         if (e.key === '\\' || isBackslash) {
             eventBus.emit('UI_DRAWER_TOGGLE', { side: 'right' });
             return;
@@ -633,10 +952,21 @@ class GestureRouter {
         // 7. Cancellation
         if (e.key === 'Escape' || code === 'Escape') {
             const state = stateEngine.getState();
+            if (useAreaStore.getState().focusedAreaId) {
+                useAreaStore.getState().clearFocusedArea();
+                if (state.activeTool !== TOOLS.POINTER) {
+                    stateEngine.setTool(TOOLS.POINTER);
+                    this.pendingLinkSource = null;
+                    this.pendingLinkAssociative = false;
+                    this.clearLinkPreview();
+                }
+                return;
+            }
             if (state.activeTool !== TOOLS.POINTER) {
                 stateEngine.setTool(TOOLS.POINTER);
                 this.pendingLinkSource = null;
                 this.pendingLinkAssociative = false;
+                this.clearLinkPreview();
                 return;
             }
             if (state.paletteOpen) {
@@ -651,6 +981,10 @@ class GestureRouter {
                 stateEngine.exitNow();
                 return;
             }
+            if (useAreaStore.getState().selectedAreaIds.length > 0) {
+                useAreaStore.getState().clearSelectedAreas();
+                return;
+            }
             if (useEdgeSelectionStore.getState().selectedEdgeIds.length > 0) {
                 useEdgeSelectionStore.getState().clear();
                 return;
@@ -663,6 +997,40 @@ class GestureRouter {
 
         // 8. Deletion
         if (e.key === 'Delete' || e.key === 'Backspace' || code === 'Delete' || code === 'Backspace') {
+            const requestClusterAction = () => {
+                const label = 'Delete';
+                const response = window.prompt(
+                    `${label} cluster?\n` +
+                    `1 — ${label} cluster and delete children\n` +
+                    `2 — ${label} cluster and keep children (release to field)\n` +
+                    `Cancel — abort`,
+                    '2'
+                );
+                if (!response) return null;
+                const choice = response.trim();
+                if (choice === '1') return 'with';
+                if (choice === '2') return 'keep';
+                return null;
+            };
+            const getClusterChildren = (clusterId: NodeId) => (
+                graphEngine.getNodes().filter(node => node.meta?.parentClusterId === clusterId)
+            );
+            const releaseClusterChildren = (clusterId: NodeId) => {
+                getClusterChildren(clusterId).forEach(child => {
+                    graphEngine.updateNode(child.id, {
+                        meta: {
+                            ...(child.meta ?? {}),
+                            parentClusterId: null,
+                            isHidden: false
+                        }
+                    });
+                });
+            };
+            const deleteClusterChildren = (clusterId: NodeId) => {
+                getClusterChildren(clusterId).forEach(child => {
+                    graphEngine.removeNode(child.id);
+                });
+            };
             const edgeSelection = useEdgeSelectionStore.getState().selectedEdgeIds;
             if (edgeSelection.length > 0) {
                 edgeSelection.forEach((id: string) => graphEngine.removeEdge(asEdgeId(id)));
@@ -674,16 +1042,39 @@ class GestureRouter {
                 this.activeEdgeId = null;
                 return;
             }
+            const selectedAreaIds = useAreaStore.getState().selectedAreaIds;
+            if (selectedAreaIds.length > 0) {
+                selectedAreaIds.forEach(id => useAreaStore.getState().removeArea(id));
+                useAreaStore.getState().clearSelectedAreas();
+            }
             const selection = selectionState.getSelection();
             if (selection.length > 0) {
+                const selectedClusters = selection
+                    .map(id => graphEngine.getNode(id))
+                    .filter((node): node is NonNullable<ReturnType<typeof graphEngine.getNode>> =>
+                        Boolean(node && node.type === 'cluster')
+                    );
+                if (selectedClusters.length > 0) {
+                    const choice = requestClusterAction();
+                    if (!choice) return;
+                    selectedClusters.forEach(cluster => {
+                        if (choice === 'with') {
+                            deleteClusterChildren(cluster.id);
+                        } else {
+                            releaseClusterChildren(cluster.id);
+                        }
+                        graphEngine.removeNode(cluster.id);
+                    });
+                }
                 selection.forEach(id => {
                     const node = graphEngine.getNode(id);
                     // Protect Core/Root nodes from deletion (User Request)
-                    if (node && node.type !== 'core' && node.type !== 'root') {
+                    if (node && node.type !== 'core' && node.type !== 'root' && node.type !== 'cluster') {
                         graphEngine.removeNode(id);
                     }
                 });
                 selectionState.clear();
+                return;
             }
         }
     }

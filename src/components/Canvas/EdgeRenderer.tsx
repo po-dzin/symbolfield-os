@@ -36,7 +36,18 @@ const EdgeRenderer = ({ edge }: EdgeRendererProps) => {
     const targetNode = nodes.find(n => n.id === edge.target);
 
     if (!sourceNode || !targetNode) return null;
-    if (sourceNode.meta?.isHidden || targetNode.meta?.isHidden) return null;
+    const sourceHidden = sourceNode.meta?.isHidden;
+    const targetHidden = targetNode.meta?.isHidden;
+    if (sourceHidden || targetHidden) return null;
+    const sourceFocusHidden = sourceNode.meta?.focusHidden;
+    const targetFocusHidden = targetNode.meta?.focusHidden;
+    const sourceGhost = Boolean(sourceNode.meta?.focusGhost);
+    const targetGhost = Boolean(targetNode.meta?.focusGhost);
+
+    if ((sourceFocusHidden && !sourceGhost) || (targetFocusHidden && !targetGhost)) return null;
+    if (sourceGhost && targetGhost) return null;
+
+    const isGhostLink = sourceGhost || targetGhost;
 
     // Center coords
     const cx1 = sourceNode.position.x;
@@ -85,34 +96,38 @@ const EdgeRenderer = ({ edge }: EdgeRendererProps) => {
     return (
         <g>
             {/* 0. Hit Area (Invisible, Thick) */}
-            <line
-                data-edge-id={edge.id}
-                x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke="transparent"
-                strokeWidth="20"
-                style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
-            />
+            {!isGhostLink && (
+                <line
+                    data-edge-id={edge.id}
+                    x1={x1} y1={y1} x2={x2} y2={y2}
+                    stroke="transparent"
+                    strokeWidth="20"
+                    style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
+                />
+            )}
 
             {/* 1. Base Laser Line */}
             <line
                 data-edge-id={edge.id}
                 x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke={isSelected
-                    ? "rgba(255,255,255,0.9)"
-                    : isHovered
-                        ? "rgba(255,255,255,0.75)"
-                        : edge.type === 'associative'
-                            ? "rgba(255,255,255,0.3)"
-                            : "rgba(255,255,255,0.5)"
+                stroke={isGhostLink
+                    ? "rgba(255,255,255,0.2)"
+                    : isSelected
+                        ? "rgba(255,255,255,0.9)"
+                        : isHovered
+                            ? "rgba(255,255,255,0.75)"
+                            : edge.type === 'associative'
+                                ? "rgba(255,255,255,0.3)"
+                                : "rgba(255,255,255,0.5)"
                 }
-                strokeWidth={isSelected ? "2.2" : isHovered ? "2.0" : "1.5"}
+                strokeWidth={isGhostLink ? "1.2" : isSelected ? "2.2" : isHovered ? "2.0" : "1.5"}
                 strokeLinecap="round"
-                strokeDasharray={edge.type === 'associative' ? "4 4" : "0"}
-                style={{ pointerEvents: 'stroke' }}
+                strokeDasharray={isGhostLink || edge.type === 'associative' ? "4 4" : "0"}
+                style={{ pointerEvents: isGhostLink ? 'none' : 'stroke' }}
             />
 
             {/* 2. Glow Blur (The "Laser" Effect) - Not for associative (make them subtler?) */}
-            {edge.type !== 'associative' && (
+            {!isGhostLink && edge.type !== 'associative' && (
                 <line
                     x1={x1} y1={y1} x2={x2} y2={y2}
                     stroke={isSelected ? "rgba(255,255,255,0.25)" : isHovered ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.15)"}

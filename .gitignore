@@ -1,5 +1,37 @@
+# Dependencies / environments
+/node_modules/
+/.venv/
+__pycache__/
+*.pyc
+
+# Build and test artifacts
+/dist/
+/test-results/
+/playwright-report/
+smoke-results.json
+test-results.json
+unit-results.json
+*.local
+
+# Local configs (do not track)
+playwright.config.ts
+vitest.config.ts
+
+# Local docs / agents / archives
+/docs/
+/agents/
+/archive/
+/symbolfield-crew/
+/e2e/
+/.agent/
+
+# Env files
+.env
+.env.*
+!.env.example
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,35 +39,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-.env
-.env.*
-!.env.example
-
-.venv
-__pycache__
-*.pyc
-
-output
-reports
-test-results
-playwright-report
-e2e
-
-# specs
-spec.md
-test_spec.md
-qa_contract.md
-
-agents
-memory
-
-
-# Editor directories and files
+# Editor / OS
 .vscode/*
 !.vscode/extensions.json
 .idea

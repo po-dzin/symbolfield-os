@@ -5,13 +5,14 @@
 
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import GlyphIcon from '../Icon/GlyphIcon';
 
-type ToolId = 'pointer' | 'link' | 'region';
+type ToolId = 'pointer' | 'link' | 'area';
 
-const TOOLS: Array<{ id: ToolId; label: string; icon: string }> = [
-    { id: 'pointer', label: 'Pointer', icon: '↗' },
-    { id: 'link', label: 'Link', icon: '⚡' },
-    { id: 'region', label: 'Region', icon: '☷' },
+const TOOLS: Array<{ id: ToolId; label: string; glyphId: string; hotkey?: string }> = [
+    { id: 'pointer', label: 'Pointer', glyphId: 'pointer', hotkey: 'P' },
+    { id: 'link', label: 'Link', glyphId: 'link-action', hotkey: 'L' },
+    { id: 'area', label: 'Area', glyphId: 'area', hotkey: 'A' },
     // { id: 'zone', label: 'Zone', icon: 'Z' }
 ];
 
@@ -34,9 +35,9 @@ const ToolDock = () => {
                             : 'text-text-secondary hover:bg-white/10 hover:text-text-primary'
                         }
           `}
-                    title={tool.label}
+                    title={tool.hotkey ? `${tool.label} (${tool.hotkey})` : tool.label}
                 >
-                    {tool.icon}
+                    <GlyphIcon id={tool.glyphId} size={26} className="text-current" />
                 </button>
             ))}
 
