@@ -6,9 +6,6 @@ __pycache__/
 
 # Build/outputs
 /dist/
-/dist-ssr/
-/output/
-/reports/
 /test-results/
 /playwright-report/
 *.local
@@ -37,14 +34,12 @@ playwright.config.ts
 vitest.config.ts
 
 # Specs/docs (local)
-/specs/
-spec.md
+/docs/
 test_spec.md
 qa_contract.md
 MIGRATION.md
 
 # Legacy/archives
-/src_v0_legacy/
 /symbolfield-crew/
 /archive/
 /e2e/
