@@ -7,7 +7,7 @@
  * - OverlayEvents (high-frequency, visual only)
  */
 
-import type { Edge, NodeBase, NodeId, EdgeId, GraphAddress } from '../types';
+import type { Edge, NodeBase, NodeId, EdgeId, GraphAddress, Area, Position } from '../types';
 
 // Event Types Constants
 export const EVENTS = {
@@ -33,6 +33,7 @@ export const EVENTS = {
     EDGE_SELECTED: 'EdgeSelected',
     SPACE_CHANGED: 'SpaceChanged',
     FIELD_SCOPE_CHANGED: 'FieldScopeChanged',
+    CONTEXT_MENU_MODE_CHANGED: 'ContextMenuModeChanged',
     SPACE_CREATED: 'SpaceCreated',
     SPACE_RENAMED: 'SpaceRenamed',
     SPACE_DELETED: 'SpaceDeleted',
@@ -40,6 +41,9 @@ export const EVENTS = {
     PORTAL_HOVERED: 'PortalHovered',
     ADDRESS_RESOLVED: 'AddressResolved',
     ADDRESS_FAILED: 'AddressFailed',
+    REGION_CREATED: 'RegionCreated',
+    REGION_UPDATED: 'RegionUpdated',
+    REGION_DELETED: 'RegionDeleted',
 
     // Onboarding & Playground
     PLAYGROUND_CREATED: 'PlaygroundCreated',
@@ -50,20 +54,27 @@ export const EVENTS = {
     // Overlay (Transient)
     LINK_PREVIEW_UPDATED: 'LinkPreviewUpdated',
     SELECTION_PREVIEW_UPDATED: 'SelectionPreviewUpdated',
-    GRAPH_CLEARED: 'GraphCleared'
+    GRAPH_CLEARED: 'GraphCleared',
+    UI_REQ_EDIT_LABEL: 'UIReqEditLabel'
 } as const;
 
 type EventCategory = 'DOMAIN' | 'ERROR' | 'OVERLAY' | 'UI';
 
 export interface InteractionPayload {
-    type: 'BOX_SELECT' | 'LINK_DRAG' | 'PAN' | 'DRAG_NODES';
+    type: 'BOX_SELECT' | 'LINK_DRAG' | 'PAN' | 'DRAG_NODES' | 'REGION_DRAW';
     x?: number;
     y?: number;
     rect?: { x: number; y: number; width: number; height: number };
+    circle?: { cx: number; cy: number; r: number };
+    shape?: 'rect' | 'circle';
     line?: { x1: number; y1: number; x2: number; y2: number };
     associative?: boolean;
     screenX?: number;
     screenY?: number;
+    nodeIds?: NodeId[];
+    startPositions?: Record<string, Position>;
+    endPositions?: Record<string, Position>;
+    moved?: boolean;
 }
 
 export interface UISignalPayload {
@@ -98,6 +109,7 @@ export interface EventMap {
     [EVENTS.EDGE_SELECTED]: { id: EdgeId } | undefined;
     [EVENTS.SPACE_CHANGED]: { spaceId: string };
     [EVENTS.FIELD_SCOPE_CHANGED]: { hubId: NodeId | null };
+    [EVENTS.CONTEXT_MENU_MODE_CHANGED]: { mode: 'bar' | 'radial' };
     [EVENTS.SPACE_CREATED]: { spaceId: string; name: string; kind?: string };
     [EVENTS.SPACE_RENAMED]: { spaceId: string; name: string };
     [EVENTS.SPACE_DELETED]: { spaceId: string; deletedAt: number };
@@ -109,6 +121,9 @@ export interface EventMap {
     [EVENTS.PLAYGROUND_RESET]: { archivedCount: number; newSpaceId: string };
     [EVENTS.ONBOARDING_STARTED]: undefined;
     [EVENTS.ONBOARDING_COMPLETED]: undefined;
+    [EVENTS.REGION_CREATED]: { region: Area };
+    [EVENTS.REGION_UPDATED]: { regionId: string; before: Area; after: Area };
+    [EVENTS.REGION_DELETED]: { region: Area };
     [EVENTS.LINK_PREVIEW_UPDATED]: undefined;
     [EVENTS.SELECTION_PREVIEW_UPDATED]: undefined;
     GRAPH_UNDO: undefined;
@@ -119,6 +134,7 @@ export interface EventMap {
     UI_INTERACTION_END: InteractionPayload;
     UI_FOCUS_NODE: { id: NodeId };
     UI_DRAWER_TOGGLE: { side: 'right' | 'left' };
+    [EVENTS.UI_REQ_EDIT_LABEL]: { nodeId: NodeId };
     [EVENTS.GRAPH_CLEARED]: undefined;
 }
 
@@ -247,7 +263,7 @@ class EventBus {
      */
     private _categorize(type: string): EventCategory {
         // Defined in UI_INTERACTION_PIPELINE_SoT_v0.5
-        if (type.startsWith('Node') || type.startsWith('Link') || type.startsWith('Hub') || type.startsWith('Session') || type.startsWith('Playground') || type.startsWith('Onboarding') || type.startsWith('Space')) return 'DOMAIN';
+        if (type.startsWith('Node') || type.startsWith('Link') || type.startsWith('Hub') || type.startsWith('Region') || type.startsWith('Session') || type.startsWith('Playground') || type.startsWith('Onboarding') || type.startsWith('Space')) return 'DOMAIN';
         if (type.startsWith('Limit') || type.startsWith('Constraint')) return 'ERROR';
         if (type.includes('Preview') || type.includes('Hint')) return 'OVERLAY';
         return 'UI';

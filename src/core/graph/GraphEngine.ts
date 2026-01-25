@@ -52,6 +52,17 @@ class GraphEngine {
 
     // --- Node Operations ---
 
+    private getNextLabelIndex(prefix: string) {
+        const re = new RegExp(`^${prefix}\\s+(\\d+)$`, 'i');
+        let max = 0;
+        this.nodes.forEach(node => {
+            const label = typeof node.data?.label === 'string' ? node.data.label.trim() : '';
+            const match = label.match(re);
+            if (match) max = Math.max(max, Number(match[1]));
+        });
+        return max + 1;
+    }
+
     addNode(data: NodeInput) {
         const id = asNodeId(data.id || crypto.randomUUID());
         const guardRadius = (NODE_SIZES.base / 2) + (GRID_METRICS.cell / 2);
@@ -59,11 +70,17 @@ class GraphEngine {
             const hitNode = this.findNodeAt(data.position.x, data.position.y, guardRadius);
             if (hitNode) return hitNode;
         }
+        const rawLabel = typeof data.data?.label === 'string' ? data.data.label.trim() : '';
+        const label = (!rawLabel || rawLabel.toLowerCase() === 'empty')
+            ? `Empty ${this.getNextLabelIndex('Empty')}`
+            : rawLabel;
+        const nodeData = { ...(data.data || {}) };
+        if (label) nodeData.label = label;
         const node: GraphNode = {
             id,
             type: data.type || 'node',
             position: data.position || { x: 0, y: 0 },
-            data: data.data || {},
+            data: nodeData,
             style: data.style || {},
             meta: data.meta || {},
             created_at: Date.now(),

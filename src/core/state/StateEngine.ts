@@ -6,7 +6,7 @@
  * - Current App Mode (Deep/Flow/Luma)
  * - View Context (Home / SpaceField / Now)
  * - Active Session State (Focus/Rest)
- * - Tool State (Pointer/Link/Region)
+ * - Tool State (Pointer/Link/Area)
  */
 
 import { eventBus, EVENTS } from '../events/EventBus';
@@ -27,7 +27,7 @@ export const VIEW_CONTEXTS = {
 export const TOOLS = {
     POINTER: 'pointer',
     LINK: 'link',
-    REGION: 'region'
+    AREA: 'area'
 } as const;
 
 type AppMode = typeof APP_MODES[keyof typeof APP_MODES];
@@ -49,6 +49,7 @@ interface StateSnapshot {
     activeScope: NodeId | null;
     settingsOpen: boolean;
     paletteOpen: boolean;
+    contextMenuMode: 'bar' | 'radial';
     session: SessionState;
 }
 
@@ -66,6 +67,7 @@ class StateEngine {
             activeScope: null, // If in NOW, which node ID
             settingsOpen: false,
             paletteOpen: false,
+            contextMenuMode: 'bar',
 
             // Session (HUD)
             session: {
@@ -107,6 +109,14 @@ class StateEngine {
         this.state.currentSpaceId = spaceId;
         // When setting space, we typically enter SPACE context unless hidden
         this.state.viewContext = VIEW_CONTEXTS.SPACE;
+        if (this.state.activeTool !== TOOLS.POINTER) {
+            this.state.activeTool = TOOLS.POINTER;
+            eventBus.emit(EVENTS.TOOL_CHANGED, { tool: TOOLS.POINTER });
+        }
+        if (this.state.fieldScopeId) {
+            this.state.fieldScopeId = null;
+            eventBus.emit(EVENTS.FIELD_SCOPE_CHANGED, { hubId: null });
+        }
         eventBus.emit(EVENTS.SPACE_CHANGED, { spaceId });
         this._emitChange();
     }
@@ -126,6 +136,17 @@ class StateEngine {
             this.state.currentSpaceId = null;
         }
         this._emitChange();
+    }
+
+    setContextMenuMode(mode: 'bar' | 'radial') {
+        if (this.state.contextMenuMode === mode) return;
+        this.state.contextMenuMode = mode;
+        eventBus.emit(EVENTS.CONTEXT_MENU_MODE_CHANGED, { mode });
+        this._emitChange();
+    }
+
+    toggleContextMenuMode() {
+        this.setContextMenuMode(this.state.contextMenuMode === 'bar' ? 'radial' : 'bar');
     }
 
     enterNow(nodeId: NodeId) {

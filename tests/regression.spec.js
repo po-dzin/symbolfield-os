@@ -4,9 +4,43 @@
  */
 import { test, expect } from '@playwright/test';
 
+const seedSpace = async (page) => {
+    await page.waitForFunction(() => window.__APP_STORE__ && window.__GRAPH_STORE__);
+    await page.evaluate(() => {
+        const graph = window.__GRAPH_STORE__?.getState();
+        const app = window.__APP_STORE__?.getState();
+        const selection = window.__SELECTION_STORE__?.getState();
+        const areas = window.__AREA_STORE__?.getState();
+
+        try {
+            localStorage.setItem('sf_onboarding_state', JSON.stringify({
+                isCompleted: true,
+                hasSeenWelcome: true,
+                playgroundCreated: true,
+                completedSteps: []
+            }));
+        } catch {
+            // Ignore storage errors in tests.
+        }
+
+        graph?.clearGraph();
+        graph?.addNode({ id: 'root', type: 'root', position: { x: 400, y: 300 }, data: { label: 'Core' } });
+
+        app?.setViewContext('space');
+        app?.setTool('pointer');
+        app?.closePalette?.();
+        app?.closeSettings?.();
+
+        selection?.clear?.();
+        areas?.clearRegions?.();
+        areas?.clearFocusedArea?.();
+    });
+};
+
 test.describe('Regression: Critical Flows', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
+        await seedSpace(page);
     });
 
     test('Selection should trigger Context Toolbar', async ({ page }) => {
@@ -23,7 +57,7 @@ test.describe('Regression: Critical Flows', () => {
         await expect(page.getByText('Core').first()).toBeVisible();
 
         // 4. Verify Context Actions
-        await expect(page.getByRole('button', { name: 'Enter Now' })).toBeVisible();
+        await expect(page.locator('button[title="Enter Node"]')).toBeVisible();
     });
 
     test('Dive/Enter NOW works via Double Click', async ({ page }) => {
@@ -43,5 +77,127 @@ test.describe('Regression: Critical Flows', () => {
         // Action: Exit
         await page.getByRole('button', { name: '←' }).click();
         await expect(overlay).not.toBeVisible();
+    });
+
+    test('Settings drawer toggles and context menu mode switches', async ({ page }) => {
+        await page.getByTitle('Settings').click();
+        await expect(page.getByText('Settings', { exact: true })).toBeVisible();
+
+        await page.getByRole('button', { name: 'Radial' }).click();
+        let mode = await page.evaluate(() => window.__APP_STORE__?.getState().contextMenuMode);
+        expect(mode).toBe('radial');
+
+        await page.getByRole('button', { name: 'Bar' }).click();
+        mode = await page.evaluate(() => window.__APP_STORE__?.getState().contextMenuMode);
+        expect(mode).toBe('bar');
+
+        const settingsPanel = page.locator('.glass-panel', { hasText: 'Settings' });
+        await settingsPanel.getByRole('button', { name: '✕' }).click();
+        await expect(page.getByText('Settings', { exact: true })).not.toBeVisible();
+    });
+
+    test('Command palette opens and closes via UI', async ({ page }) => {
+        await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
+        await expect(page.getByText('Command Palette')).toBeVisible();
+
+        const palette = page.locator('.glass-panel', { hasText: 'Command Palette' });
+        await palette.getByRole('button', { name: '✕' }).click();
+        await expect(page.getByText('Command Palette')).not.toBeVisible();
+    });
+
+    test('Time chip toggles log drawer and scale buttons respond', async ({ page }) => {
+        const timeChip = page.locator('.os-shell .absolute.bottom-4.right-4');
+        await timeChip.click();
+        await expect(page.getByText('Temporal Log')).toBeVisible();
+        await page.getByRole('button', { name: '✕' }).click();
+        await expect(page.getByText('Temporal Log')).not.toBeVisible();
+
+        const weekButton = page.getByRole('button', { name: 'w' });
+        await weekButton.click();
+        await expect(weekButton).toHaveClass(/bg-white\/20/);
+    });
+
+    test('Area tool creates rect + circle regions and focus toggles', async ({ page }) => {
+        const canvas = page.locator('.w-full.h-full.bg-os-dark');
+        const box = await canvas.boundingBox();
+
+        await page.getByTitle('Area (A)').click();
+        let activeTool = await page.evaluate(() => window.__APP_STORE__?.getState().activeTool);
+        expect(activeTool).toBe('area');
+
+        const startX = box.x + box.width * 0.65;
+        const startY = box.y + box.height * 0.55;
+        const endX = box.x + box.width * 0.82;
+        const endY = box.y + box.height * 0.7;
+
+        await page.mouse.move(startX, startY);
+        await page.mouse.down();
+        await page.mouse.move(endX, endY);
+        await page.mouse.up();
+
+        const areas = page.locator('[data-area-id]');
+        await expect(areas).toHaveCount(1);
+
+        activeTool = await page.evaluate(() => window.__APP_STORE__?.getState().activeTool);
+        expect(activeTool).toBe('pointer');
+
+        await page.getByTitle('Area (A)').click();
+        await page.keyboard.down('Shift');
+        await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.35);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.5);
+        await page.mouse.up();
+        await page.keyboard.up('Shift');
+
+        await expect(areas).toHaveCount(2);
+        const shapes = await page.evaluate(() => window.__AREA_STORE__?.getState().areas.map(area => area.shape));
+        expect(shapes).toContain('circle');
+
+        await page.evaluate(() => {
+            document.querySelector('[data-area-id] svg')?.dispatchEvent(
+                new MouseEvent('dblclick', { bubbles: true })
+            );
+        });
+        await page.waitForFunction(() => window.__AREA_STORE__?.getState().focusedAreaId !== null);
+        let focusedAreaId = await page.evaluate(() => window.__AREA_STORE__?.getState().focusedAreaId);
+        expect(focusedAreaId).not.toBeNull();
+
+        await page.evaluate(() => {
+            document.querySelector('[data-area-id] svg')?.dispatchEvent(
+                new MouseEvent('dblclick', { bubbles: true })
+            );
+        });
+        await page.waitForFunction(() => window.__AREA_STORE__?.getState().focusedAreaId === null);
+        focusedAreaId = await page.evaluate(() => window.__AREA_STORE__?.getState().focusedAreaId);
+        expect(focusedAreaId).toBeNull();
+    });
+
+    test('Station navigation returns to home and back to space', async ({ page }) => {
+        await page.getByTitle('Return to Station').click();
+        await expect(page.getByPlaceholder('Search or dive...')).toBeVisible();
+
+        await page.getByRole('button', { name: 'New Space' }).click();
+        const viewContext = await page.evaluate(() => window.__APP_STORE__?.getState().viewContext);
+        expect(viewContext).toBe('space');
+        await expect(page.locator('.nodes-layer')).toBeAttached();
+    });
+
+    test('Station recents and templates open spaces', async ({ page }) => {
+        await page.evaluate(() => {
+            window.__APP_STORE__?.getState().setViewContext('home');
+        });
+        await expect(page.getByText('Recent', { exact: true })).toBeVisible();
+
+        await page.getByRole('button', { name: /Playground/i }).click();
+        let viewContext = await page.evaluate(() => window.__APP_STORE__?.getState().viewContext);
+        expect(viewContext).toBe('space');
+
+        await page.evaluate(() => {
+            window.__APP_STORE__?.getState().setViewContext('home');
+        });
+        await expect(page.getByText('Templates', { exact: true })).toBeVisible();
+        await page.getByRole('button', { name: /Default Space/i }).click();
+        viewContext = await page.evaluate(() => window.__APP_STORE__?.getState().viewContext);
+        expect(viewContext).toBe('space');
     });
 });

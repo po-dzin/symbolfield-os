@@ -5,7 +5,8 @@
 
 import { eventBus, EVENTS, type AnyBusEvent } from '../events/EventBus';
 import { graphEngine } from '../graph/GraphEngine';
-import type { Edge, NodeBase } from '../types';
+import { useAreaStore } from '../../store/useAreaStore';
+import type { Edge, NodeBase, NodeId, Position } from '../types';
 
 const cloneNode = (node: NodeBase) => ({
     id: node.id,
@@ -27,11 +28,13 @@ export class UndoManager {
     private undoStack: UndoCommand[];
     private redoStack: UndoCommand[];
     private isApplying: boolean;
+    private activeDrag: { nodeIds: Set<NodeId>; startPositions: Record<string, Position> } | null;
 
     constructor() {
         this.undoStack = [];
         this.redoStack = [];
         this.isApplying = false;
+        this.activeDrag = null;
     }
 
     push(command: UndoCommand) {
@@ -67,6 +70,49 @@ export class UndoManager {
         if (this.isApplying) return;
 
         switch (e.type) {
+            case 'UI_INTERACTION_START': {
+                if (e.payload.type !== 'DRAG_NODES') return;
+                const nodeIds = e.payload.nodeIds ?? [];
+                const startPositions = e.payload.startPositions ?? {};
+                if (nodeIds.length === 0) return;
+                this.activeDrag = {
+                    nodeIds: new Set(nodeIds),
+                    startPositions
+                };
+                break;
+            }
+            case 'UI_INTERACTION_END': {
+                if (e.payload.type !== 'DRAG_NODES') return;
+                const moved = e.payload.moved ?? false;
+                const nodeIds = e.payload.nodeIds ?? [];
+                const startPositions = e.payload.startPositions ?? {};
+                const endPositions = e.payload.endPositions ?? {};
+                if (!this.activeDrag || !moved || nodeIds.length === 0) {
+                    this.activeDrag = null;
+                    return;
+                }
+                const ids = nodeIds.filter(id => startPositions[id] && endPositions[id]);
+                if (ids.length === 0) {
+                    this.activeDrag = null;
+                    return;
+                }
+                this.push({
+                    undo: () => {
+                        ids.forEach(id => {
+                            const pos = startPositions[id];
+                            graphEngine.updateNode(id, { position: { ...pos } });
+                        });
+                    },
+                    redo: () => {
+                        ids.forEach(id => {
+                            const pos = endPositions[id];
+                            graphEngine.updateNode(id, { position: { ...pos } });
+                        });
+                    }
+                });
+                this.activeDrag = null;
+                break;
+            }
             case EVENTS.NODE_CREATED: {
                 const node = cloneNode(e.payload);
                 this.push({
@@ -91,6 +137,9 @@ export class UndoManager {
                 break;
             }
             case EVENTS.NODE_UPDATED: {
+                if (this.activeDrag && this.activeDrag.nodeIds.has(e.payload.id)) {
+                    return;
+                }
                 const before = cloneNode(e.payload.before);
                 const after = cloneNode(e.payload.after);
                 this.push({
@@ -126,6 +175,49 @@ export class UndoManager {
                 });
                 break;
             }
+            case EVENTS.REGION_CREATED: {
+                const region = { ...e.payload.region };
+                this.push({
+                    undo: () => {
+                        const store = useAreaStore.getState();
+                        store.setAreas(store.areas.filter(r => r.id !== region.id));
+                    },
+                    redo: () => {
+                        const store = useAreaStore.getState();
+                        store.setAreas([...store.areas, region]);
+                    }
+                });
+                break;
+            }
+            case EVENTS.REGION_DELETED: {
+                const region = { ...e.payload.region };
+                this.push({
+                    undo: () => {
+                        const store = useAreaStore.getState();
+                        store.setAreas([...store.areas, region]);
+                    },
+                    redo: () => {
+                        const store = useAreaStore.getState();
+                        store.setAreas(store.areas.filter(r => r.id !== region.id));
+                    }
+                });
+                break;
+            }
+            case EVENTS.REGION_UPDATED: {
+                const before = { ...e.payload.before };
+                const after = { ...e.payload.after };
+                this.push({
+                    undo: () => {
+                        const store = useAreaStore.getState();
+                        store.setAreas(store.areas.map(r => (r.id === before.id ? before : r)));
+                    },
+                    redo: () => {
+                        const store = useAreaStore.getState();
+                        store.setAreas(store.areas.map(r => (r.id === after.id ? after : r)));
+                    }
+                });
+                break;
+            }
         }
     }
 }
@@ -138,6 +230,11 @@ export const initUndoManager = () => {
         eventBus.on(EVENTS.NODE_UPDATED, (e) => manager.handleEvent(e)),
         eventBus.on(EVENTS.LINK_CREATED, (e) => manager.handleEvent(e)),
         eventBus.on(EVENTS.LINK_DELETED, (e) => manager.handleEvent(e)),
+        eventBus.on(EVENTS.REGION_CREATED, (e) => manager.handleEvent(e)),
+        eventBus.on(EVENTS.REGION_UPDATED, (e) => manager.handleEvent(e)),
+        eventBus.on(EVENTS.REGION_DELETED, (e) => manager.handleEvent(e)),
+        eventBus.on('UI_INTERACTION_START', (e) => manager.handleEvent(e)),
+        eventBus.on('UI_INTERACTION_END', (e) => manager.handleEvent(e)),
         eventBus.on('GRAPH_UNDO', () => manager.undo()),
         eventBus.on('GRAPH_REDO', () => manager.redo())
     ];

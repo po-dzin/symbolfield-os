@@ -11,6 +11,8 @@ import { NODE_SIZES } from '../../utils/layoutMetrics';
 
 const InteractionLayer = () => {
     const [box, setBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+    const [regionBox, setRegionBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+    const [regionCircle, setRegionCircle] = useState<{ cx: number; cy: number; r: number } | null>(null);
     const [linkDraft, setLinkDraft] = useState<{ x1: number; y1: number; x2: number; y2: number; associative?: boolean } | null>(null);
     const [ripples, setRipples] = useState<Array<{ id: number; x: number; y: number; size: number; duration: number }>>([]);
     const [signals, setSignals] = useState<Array<{ id: number; from: { x: number; y: number }; to: { x: number; y: number }; t: number }>>([]);
@@ -147,6 +149,16 @@ const InteractionLayer = () => {
                 if (payload.x === undefined || payload.y === undefined) return;
                 setBox({ x: payload.x, y: payload.y, width: 0, height: 0 });
             }
+            if (payload.type === 'REGION_DRAW') {
+                if (payload.x === undefined || payload.y === undefined) return;
+                if (payload.shape === 'circle') {
+                    setRegionCircle({ cx: payload.x, cy: payload.y, r: 0 });
+                    setRegionBox(null);
+                } else {
+                    setRegionBox({ x: payload.x, y: payload.y, width: 0, height: 0 });
+                    setRegionCircle(null);
+                }
+            }
             if (payload.type === 'LINK_DRAG') {
                 // Initialize logic if needed
             }
@@ -157,6 +169,15 @@ const InteractionLayer = () => {
             if (payload.type === 'BOX_SELECT') {
                 if (!payload.rect) return;
                 setBox(payload.rect);
+            }
+            if (payload.type === 'REGION_DRAW') {
+                if (payload.shape === 'circle' && payload.circle) {
+                    setRegionCircle(payload.circle);
+                    setRegionBox(null);
+                    return;
+                }
+                if (!payload.rect) return;
+                setRegionBox(payload.rect);
             }
             if (payload.type === 'LINK_DRAG') {
                 if (!payload.line) return;
@@ -169,6 +190,8 @@ const InteractionLayer = () => {
 
         const onEnd = () => {
             setBox(null);
+            setRegionBox(null);
+            setRegionCircle(null);
             setLinkDraft(null);
         };
 
@@ -179,7 +202,7 @@ const InteractionLayer = () => {
         return () => { unsub1(); unsub2(); unsub3(); unsubSig(); };
     }, []);
 
-    if (!box && !linkDraft && signals.length === 0) return null;
+    if (!box && !regionBox && !regionCircle && !linkDraft && signals.length === 0) return null;
 
     return (
         <div className="absolute inset-0 pointer-events-none z-[var(--z-overlay)]">
@@ -191,6 +214,30 @@ const InteractionLayer = () => {
                         top: box.y,
                         width: box.width,
                         height: box.height
+                    }}
+                />
+            )}
+
+            {regionBox && (
+                <div
+                    className="absolute border border-dashed border-white/40 bg-white/5 backdrop-blur-[1px]"
+                    style={{
+                        left: regionBox.x,
+                        top: regionBox.y,
+                        width: regionBox.width,
+                        height: regionBox.height
+                    }}
+                />
+            )}
+
+            {regionCircle && (
+                <div
+                    className="absolute rounded-full border border-dashed border-white/40 bg-white/5 backdrop-blur-[1px]"
+                    style={{
+                        left: regionCircle.cx - regionCircle.r,
+                        top: regionCircle.cy - regionCircle.r,
+                        width: regionCircle.r * 2,
+                        height: regionCircle.r * 2
                     }}
                 />
             )}
