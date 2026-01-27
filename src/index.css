@@ -255,20 +255,60 @@ html, #root {
 
 @keyframes node-bloom {
     from {
-        transform: scale(0.6) translateY(10px);
+        transform: scale(0.6);
         opacity: 0;
         filter: blur(8px);
     }
 
     to {
-        transform: scale(1) translateY(0);
+        transform: scale(1);
         opacity: 1;
         filter: blur(0);
     }
 }
 
 .animate-bloom {
-    animation: node-bloom 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: node-bloom 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes core-materialize {
+    0% {
+        transform: scale(0.08);
+        opacity: 0;
+        filter: blur(10px);
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+        filter: blur(0);
+    }
+}
+
+.animate-core-materialize {
+    animation: core-materialize 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform-origin: center;
+}
+
+@keyframes core-glyph-in {
+    0% {
+        opacity: 0;
+        transform: scale(0.9);
+        filter: blur(6px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+        filter: blur(0);
+    }
+}
+
+.core-glyph-appear {
+    opacity: 0;
+    animation: core-glyph-in 0.5s ease-out forwards;
+    animation-delay: 0.9s;
+    transform-origin: center;
 }
 
 @keyframes source-pulse-spread {

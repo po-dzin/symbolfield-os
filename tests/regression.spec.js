@@ -4,9 +4,11 @@
  */
 import { test, expect } from '@playwright/test';
 
+const CORE_ID = 'core';
+
 const seedSpace = async (page) => {
     await page.waitForFunction(() => window.__APP_STORE__ && window.__GRAPH_STORE__);
-    await page.evaluate(() => {
+    await page.evaluate((coreId) => {
         const graph = window.__GRAPH_STORE__?.getState();
         const app = window.__APP_STORE__?.getState();
         const selection = window.__SELECTION_STORE__?.getState();
@@ -24,7 +26,7 @@ const seedSpace = async (page) => {
         }
 
         graph?.clearGraph();
-        graph?.addNode({ id: 'root', type: 'root', position: { x: 400, y: 300 }, data: { label: 'Core' } });
+        graph?.addNode({ id: coreId, type: 'core', position: { x: 400, y: 300 }, data: { label: 'Core' } });
 
         app?.setViewContext('space');
         app?.setTool('pointer');
@@ -34,7 +36,7 @@ const seedSpace = async (page) => {
         selection?.clear?.();
         areas?.clearRegions?.();
         areas?.clearFocusedArea?.();
-    });
+    }, CORE_ID);
 };
 
 test.describe('Regression: Critical Flows', () => {
@@ -44,12 +46,12 @@ test.describe('Regression: Critical Flows', () => {
     });
 
     test('Selection should trigger Context Toolbar', async ({ page }) => {
-        // 1. Locate root node
-        const rootNode = page.locator('[data-node-id="root"]');
-        await expect(rootNode).toBeVisible();
+        // 1. Locate core node
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        await expect(coreNode).toBeVisible();
 
         // 2. Click it
-        await rootNode.click();
+        await coreNode.click();
 
         // 3. Verify selection visual state (border/scale)
         // (This is harder to test via styles without screenshot, but we can check if it has the "selected" class logic)
@@ -61,11 +63,11 @@ test.describe('Regression: Critical Flows', () => {
     });
 
     test('Dive/Enter NOW works via Double Click', async ({ page }) => {
-        const rootNode = page.locator('[data-node-id="root"]');
-        await expect(rootNode).toBeVisible();
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        await expect(coreNode).toBeVisible();
 
         // Action: Double Click
-        await rootNode.dblclick();
+        await coreNode.dblclick();
 
         // Expect: Now Overlay Presence
         const overlay = page.getByText('Now Focus');

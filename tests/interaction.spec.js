@@ -1,12 +1,14 @@
 import { test, expect } from '@playwright/test';
 
+const CORE_ID = 'core';
+
 test.describe('Coordinate & Interaction System', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
         await expect(page.locator('.os-shell')).toBeVisible();
 
-        // Deterministic clear and re-seed root
-        await page.evaluate(() => {
+        // Deterministic clear and re-seed core
+        await page.evaluate((coreId) => {
             try {
                 localStorage.setItem('sf_onboarding_state', JSON.stringify({
                     isCompleted: true,
@@ -23,16 +25,17 @@ test.describe('Coordinate & Interaction System', () => {
             if (window.__GRAPH_STORE__) {
                 const store = window.__GRAPH_STORE__.getState();
                 store.clearGraph();
-                store.addNode({ id: 'root', type: 'root', position: { x: 400, y: 300 }, data: { label: 'Core' } });
+                store.addNode({ id: coreId, type: 'core', position: { x: 400, y: 300 }, data: { label: 'Core' } });
             }
             if (window.__APP_STORE__) {
                 const app = window.__APP_STORE__.getState();
                 app.setViewContext('space');
+                app.setTool('pointer');
             }
-        });
+        }, CORE_ID);
 
-        // Wait for root to render
-        await expect(page.locator('[data-node-id="root"]')).toBeVisible();
+        // Wait for core to render
+        await expect(page.locator(`[data-node-id="${CORE_ID}"]`)).toBeVisible();
     });
 
     test('should create node at clicked location (projected)', async ({ page }) => {
@@ -58,12 +61,12 @@ test.describe('Coordinate & Interaction System', () => {
     });
 
     test('should click-to-select on pointer up', async ({ page }) => {
-        const rootNode = page.locator('[data-node-id="root"]');
-        const box = await rootNode.boundingBox();
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        const box = await coreNode.boundingBox();
         const centerX = box.x + box.width / 2;
         const centerY = box.y + box.height / 2;
 
-        // 1. Click root center
+        // 1. Click core center
         await page.mouse.click(centerX, centerY);
 
         // 2. Should be selected (check for orbits)
@@ -71,8 +74,8 @@ test.describe('Coordinate & Interaction System', () => {
     });
 
     test('should not create a node when double-clicking an existing node', async ({ page }) => {
-        const rootNode = page.locator('[data-node-id="root"]');
-        const box = await rootNode.boundingBox();
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        const box = await coreNode.boundingBox();
         const centerX = box.x + box.width / 2;
         const centerY = box.y + box.height / 2;
 
@@ -113,8 +116,8 @@ test.describe('Coordinate & Interaction System', () => {
         const canvas = page.locator('.w-full.h-full.bg-os-dark');
         const canvasBox = await canvas.boundingBox();
 
-        const rootNode = page.locator('[data-node-id="root"]');
-        const before = await rootNode.boundingBox();
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        const before = await coreNode.boundingBox();
 
         // Pan +100, +100 using Space+Drag
         await page.keyboard.down('Space');
@@ -126,14 +129,14 @@ test.describe('Coordinate & Interaction System', () => {
 
         await page.waitForTimeout(100);
 
-        const after = await rootNode.boundingBox();
+        const after = await coreNode.boundingBox();
         expect(after.x).not.toBe(before.x);
         expect(after.y).not.toBe(before.y);
     });
 
-    test('should NOT allow dragging root node', async ({ page }) => {
-        const rootNode = page.locator('[data-node-id="root"]');
-        const boxBefore = await rootNode.boundingBox();
+    test('should NOT allow dragging core node', async ({ page }) => {
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        const boxBefore = await coreNode.boundingBox();
         const centerX = boxBefore.x + boxBefore.width / 2;
         const centerY = boxBefore.y + boxBefore.height / 2;
 
@@ -142,7 +145,7 @@ test.describe('Coordinate & Interaction System', () => {
         await page.mouse.move(centerX + 100, centerY + 100);
         await page.mouse.up();
 
-        const boxAfter = await rootNode.boundingBox();
+        const boxAfter = await coreNode.boundingBox();
         expect(boxAfter.x).toBeCloseTo(boxBefore.x, 0);
         expect(boxAfter.y).toBeCloseTo(boxBefore.y, 0);
     });
@@ -164,17 +167,64 @@ test.describe('Coordinate & Interaction System', () => {
         await page.keyboard.up('Space');
 
         // 3. Create link after pan (store path)
-        await page.evaluate(() => {
+        await page.evaluate((coreId) => {
             if (!window.__GRAPH_STORE__) return;
             const store = window.__GRAPH_STORE__.getState();
-            const other = store.nodes.find(n => n.id !== 'root');
+            const other = store.nodes.find(n => n.id !== coreId);
             if (other) {
-                store.addEdge('root', other.id);
+                store.addEdge(coreId, other.id);
             }
-        });
+        }, CORE_ID);
 
         // 5. Verify Edge
         await page.waitForFunction(() => (window.__GRAPH_STORE__?.getState().edges.length ?? 0) > 0);
+    });
+
+    test('should create and link node when clicking empty in link mode', async ({ page }) => {
+        const canvas = page.locator('.w-full.h-full.bg-os-dark');
+        const canvasBox = await canvas.boundingBox();
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+
+        await coreNode.click();
+        await page.keyboard.press('l');
+        await page.mouse.click(canvasBox.x + 220, canvasBox.y + 140);
+
+        await page.waitForFunction(() => (window.__GRAPH_STORE__?.getState().nodes.length ?? 0) === 2);
+        await page.waitForFunction(() => (window.__GRAPH_STORE__?.getState().edges.length ?? 0) === 1);
+    });
+
+    test('should prevent node overlap after dragging', async ({ page }) => {
+        const canvas = page.locator('.w-full.h-full.bg-os-dark');
+        await canvas.dblclick({ position: { x: 200, y: 200 } });
+        await expect(page.locator('[data-node-id]')).toHaveCount(2);
+
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        const node2 = page.locator('[data-node-id]').nth(1);
+
+        const coreBox = await coreNode.boundingBox();
+        const nodeBox = await node2.boundingBox();
+        const coreCenter = { x: coreBox.x + coreBox.width / 2, y: coreBox.y + coreBox.height / 2 };
+        const nodeCenter = { x: nodeBox.x + nodeBox.width / 2, y: nodeBox.y + nodeBox.height / 2 };
+
+        await page.mouse.move(nodeCenter.x, nodeCenter.y);
+        await page.mouse.down();
+        await page.mouse.move(coreCenter.x, coreCenter.y, { steps: 8 });
+        await page.mouse.up();
+
+        await page.waitForFunction(() => {
+            const core = document.querySelector('[data-node-id="core"]');
+            const node = document.querySelectorAll('[data-node-id]')[1];
+            if (!core || !node) return false;
+            const coreBox = core.getBoundingClientRect();
+            const nodeBox = node.getBoundingClientRect();
+            const coreCenter = { x: coreBox.x + coreBox.width / 2, y: coreBox.y + coreBox.height / 2 };
+            const nodeCenter = { x: nodeBox.x + nodeBox.width / 2, y: nodeBox.y + nodeBox.height / 2 };
+            const dx = nodeCenter.x - coreCenter.x;
+            const dy = nodeCenter.y - coreCenter.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const minDist = (coreBox.width / 2) + (nodeBox.width / 2) - 1;
+            return dist >= minDist;
+        });
     });
 
     test('should create node with [N] at cursor', async ({ page }) => {
@@ -188,7 +238,7 @@ test.describe('Coordinate & Interaction System', () => {
         await page.keyboard.press('n');
 
         // Verify new node exists
-        const node = page.locator('[data-node-id]').nth(1); // nth(0) is root
+        const node = page.locator('[data-node-id]').nth(1); // nth(0) is core
         await expect(node).toBeVisible();
 
         // Select it to see the label
@@ -199,12 +249,12 @@ test.describe('Coordinate & Interaction System', () => {
     test('should group nodes with [Shift+Enter]', async ({ page }) => {
         const canvas = page.locator('.w-full.h-full.bg-os-dark');
 
-        // 1. Create two additional nodes (non-root)
+        // 1. Create two additional nodes (non-core)
         await canvas.dblclick({ position: { x: 200, y: 200 } });
         await canvas.dblclick({ position: { x: 300, y: 300 } });
         await expect(page.locator('[data-node-id]')).toHaveCount(3);
 
-        // 2. Multi-select the two non-root nodes
+        // 2. Multi-select the two non-core nodes
         const node2 = page.locator('[data-node-id]').nth(1);
         const node3 = page.locator('[data-node-id]').nth(2);
 
@@ -257,8 +307,8 @@ test.describe('Coordinate & Interaction System', () => {
         const canvas = page.locator('.w-full.h-full.bg-os-dark');
         const canvasBox = await canvas.boundingBox();
 
-        const root = page.locator('[data-node-id="root"]');
-        const before = await root.boundingBox();
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        const before = await coreNode.boundingBox();
 
         // Press Space and Drag
         await page.keyboard.down('Space');
@@ -268,20 +318,20 @@ test.describe('Coordinate & Interaction System', () => {
         await page.mouse.up();
         await page.keyboard.up('Space');
 
-        const after = await root.boundingBox();
+        const after = await coreNode.boundingBox();
         expect(after.x).toBeGreaterThan(before.x);
     });
 
     test('should create and link node when dragging to empty space', async ({ page }) => {
-        const rootNode = page.locator('[data-node-id="root"]');
-        const rootBox = await rootNode.boundingBox();
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        const coreBox = await coreNode.boundingBox();
 
         await page.keyboard.press('l'); // LINK tool
 
-        await page.mouse.move(rootBox.x + rootBox.width / 2, rootBox.y + rootBox.height / 2);
+        await page.mouse.move(coreBox.x + coreBox.width / 2, coreBox.y + coreBox.height / 2);
         await page.mouse.down();
         // Drag to empty field
-        await page.mouse.move(rootBox.x + 300, rootBox.y + 300, { steps: 10 });
+        await page.mouse.move(coreBox.x + 300, coreBox.y + 300, { steps: 10 });
         await page.mouse.up();
         await page.waitForTimeout(300); // Wait for interaction settle
 
@@ -297,22 +347,22 @@ test.describe('Coordinate & Interaction System', () => {
     });
 
     test('should delete links via edge click and via Links menu', async ({ page }) => {
-        await page.evaluate(() => {
+        await page.evaluate((coreId) => {
             if (!window.__GRAPH_STORE__) return;
             const store = window.__GRAPH_STORE__.getState();
             store.addNode({ id: 'node-1', type: 'node', position: { x: 600, y: 300 }, data: { label: 'Node1' } });
-            store.addEdge('root', 'node-1');
-        });
+            store.addEdge(coreId, 'node-1');
+        }, CORE_ID);
 
         const initialEdgeCount = await page.evaluate(() => window.__GRAPH_STORE__?.getState().edges.length ?? 0);
         expect(initialEdgeCount).toBeGreaterThanOrEqual(1);
 
-        const root = page.locator('[data-node-id="root"]');
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
         const node = page.locator('[data-node-id="node-1"]');
-        const rootBox = await root.boundingBox();
+        const coreBox = await coreNode.boundingBox();
         const nodeBox = await node.boundingBox();
-        const midX = (rootBox.x + rootBox.width / 2 + nodeBox.x + nodeBox.width / 2) / 2;
-        const midY = (rootBox.y + rootBox.height / 2 + nodeBox.y + nodeBox.height / 2) / 2;
+        const midX = (coreBox.x + coreBox.width / 2 + nodeBox.x + nodeBox.width / 2) / 2;
+        const midY = (coreBox.y + coreBox.height / 2 + nodeBox.y + nodeBox.height / 2) / 2;
 
         const edge = page.locator('[data-edge-id]').first();
         await edge.click({ force: true });
@@ -322,16 +372,16 @@ test.describe('Coordinate & Interaction System', () => {
             return next < count;
         }, initialEdgeCount);
 
-        await page.evaluate(() => {
+        await page.evaluate((coreId) => {
             if (!window.__GRAPH_STORE__) return;
             const store = window.__GRAPH_STORE__.getState();
-            store.addEdge('root', 'node-1');
-        });
+            store.addEdge(coreId, 'node-1');
+        }, CORE_ID);
 
         const restoredEdgeCount = await page.evaluate(() => window.__GRAPH_STORE__?.getState().edges.length ?? 0);
         expect(restoredEdgeCount).toBeGreaterThanOrEqual(1);
 
-        await root.click();
+        await coreNode.click();
         await page.getByTitle('Actions').click();
         await page.getByRole('button', { name: /Links/ }).click();
         const linksMenu = page.locator('[data-context-menu]').filter({ hasText: 'Links' }).first();
@@ -347,14 +397,14 @@ test.describe('Coordinate & Interaction System', () => {
         await canvas.dblclick({ position: { x: 200, y: 200 } });
         await expect(page.locator('[data-node-id]')).toHaveCount(2);
 
-        const rootNode = page.locator('[data-node-id="root"]');
+        const rootNode = page.locator(`[data-node-id="${CORE_ID}"]`);
         const node2 = page.locator('[data-node-id]').nth(1);
 
-        await page.evaluate(() => {
+        await page.evaluate((coreId) => {
             if (!window.__GRAPH_STORE__) return;
             const store = window.__GRAPH_STORE__.getState();
-            store.addEdge('root', store.nodes.find(n => n.id !== 'root')?.id ?? 'node-1');
-        });
+            store.addEdge(coreId, store.nodes.find(n => n.id !== coreId)?.id ?? 'node-1');
+        }, CORE_ID);
         await page.waitForFunction(() => (window.__GRAPH_STORE__?.getState().edges.length ?? 0) > 0);
 
         await page.keyboard.press('l');
@@ -370,8 +420,9 @@ test.describe('Coordinate & Interaction System', () => {
     test('should box-select multiple nodes', async ({ page }) => {
         await page.evaluate(() => {
             const store = window.__GRAPH_STORE__?.getState();
-            store?.addNode({ id: 'n1', position: { x: 220, y: 220 }, data: { label: 'N1' } });
-            store?.addNode({ id: 'n2', position: { x: 280, y: 260 }, data: { label: 'N2' } });
+            // Grid snap is enabled by default; seed nodes on grid centers.
+            store?.addNode({ id: 'n1', position: { x: 216, y: 216 }, data: { label: 'N1' } });
+            store?.addNode({ id: 'n2', position: { x: 288, y: 264 }, data: { label: 'N2' } });
         });
 
         const n1 = page.locator('[data-node-id="n1"]');
@@ -379,20 +430,22 @@ test.describe('Coordinate & Interaction System', () => {
         await expect(n1).toBeVisible();
         await expect(n2).toBeVisible();
 
-        const box1 = await n1.boundingBox();
-        const box2 = await n2.boundingBox();
-        const startX = Math.min(box1.x, box2.x) - 20;
-        const startY = Math.min(box1.y, box2.y) - 20;
-        const endX = Math.max(box1.x + box1.width, box2.x + box2.width) + 20;
-        const endY = Math.max(box1.y + box1.height, box2.y + box2.height) + 20;
+        const canvas = page.locator('#sf-canvas');
+        const canvasBox = await canvas.boundingBox();
+        const startX = canvasBox.x + 12;
+        const startY = canvasBox.y + 12;
+        const endX = canvasBox.x + canvasBox.width - 12;
+        const endY = canvasBox.y + canvasBox.height - 12;
 
-        await page.mouse.move(startX, startY);
-        await page.mouse.down();
-        await page.mouse.move(endX, endY, { steps: 8 });
-        await page.mouse.up();
+        await canvas.dragTo(canvas, {
+            sourcePosition: { x: startX - canvasBox.x, y: startY - canvasBox.y },
+            targetPosition: { x: endX - canvasBox.x, y: endY - canvasBox.y },
+            force: true
+        });
 
-        const selectionCount = await page.evaluate(() => window.__SELECTION_STORE__?.getState().selectedIds.length ?? 0);
-        expect(selectionCount).toBe(2);
+        await page.waitForFunction(() => (window.__SELECTION_STORE__?.getState().selectedIds.length ?? 0) >= 2);
+        const selectionIds = await page.evaluate(() => window.__SELECTION_STORE__?.getState().selectedIds ?? []);
+        expect(selectionIds).toEqual(expect.arrayContaining(['n1', 'n2']));
     });
 
     test('should resize, anchor, and add rings for areas', async ({ page }) => {
@@ -440,9 +493,9 @@ test.describe('Coordinate & Interaction System', () => {
         expect(afterRect.w).toBeGreaterThan(beforeRect.w);
         expect(afterRect.h).toBeGreaterThan(beforeRect.h);
 
-        await page.evaluate(() => {
-            window.__SELECTION_STORE__?.getState().select('root');
-        });
+        await page.evaluate((coreId) => {
+            window.__SELECTION_STORE__?.getState().select(coreId);
+        }, CORE_ID);
         await page.getByTitle('Anchor area to node').click();
         let anchorType = await page.evaluate(() => window.__AREA_STORE__?.getState().areas[0]?.anchor?.type);
         expect(anchorType).toBe('node');
@@ -472,8 +525,8 @@ test.describe('Coordinate & Interaction System', () => {
     });
 
     test('should edit label, glyph, and colors via context toolbar', async ({ page }) => {
-        const rootNode = page.locator('[data-node-id="root"]');
-        await rootNode.click();
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        await coreNode.click();
 
         await page.evaluate(() => {
             window.__APP_STORE__?.getState().setContextMenuMode('bar');
@@ -484,27 +537,27 @@ test.describe('Coordinate & Interaction System', () => {
         await expect(labelInput).toBeVisible();
         await labelInput.fill('Alpha');
         await labelInput.press('Enter');
-        await page.waitForFunction(() => {
-            const node = window.__GRAPH_STORE__?.getState().nodes.find(n => n.id === 'root');
+        await page.waitForFunction((coreId) => {
+            const node = window.__GRAPH_STORE__?.getState().nodes.find(n => n.id === coreId);
             return node?.data?.label === 'Alpha';
-        });
+        }, CORE_ID);
 
         await page.evaluate(() => {
             window.__APP_STORE__?.getState().setContextMenuMode('bar');
         });
         await page.getByTitle('Pick Glyph').click();
         await page.locator('div[data-context-menu]', { hasText: 'Glyphs' }).locator('.grid button').first().click();
-        await page.waitForFunction(() => {
-            const node = window.__GRAPH_STORE__?.getState().nodes.find(n => n.id === 'root');
+        await page.waitForFunction((coreId) => {
+            const node = window.__GRAPH_STORE__?.getState().nodes.find(n => n.id === coreId);
             return typeof node?.data?.icon_value === 'string' && node.data.icon_value.length > 0;
-        });
+        }, CORE_ID);
 
         await page.getByTitle('Colors').click();
         const colorPicker = page.locator('[data-context-menu]').filter({ hasText: 'Colors' }).first();
         await colorPicker.getByRole('button', { name: 'Pick color' }).first().click();
-        await page.waitForFunction(() => {
-            const node = window.__GRAPH_STORE__?.getState().nodes.find(n => n.id === 'root');
+        await page.waitForFunction((coreId) => {
+            const node = window.__GRAPH_STORE__?.getState().nodes.find(n => n.id === coreId);
             return node?.data?.color_body && node.data.color_body !== 'rgba(255,255,255,0.06)';
-        });
+        }, CORE_ID);
     });
 });

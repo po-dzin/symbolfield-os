@@ -13,8 +13,10 @@ import { selectionState } from '../state/SelectionState';
 import { useCameraStore } from '../../store/useCameraStore';
 import { useEdgeSelectionStore } from '../../store/useEdgeSelectionStore';
 import { useAreaStore } from '../../store/useAreaStore';
+import { useAppStore } from '../../store/useAppStore';
 import { asEdgeId, asNodeId, type NodeId } from '../types';
 import { GRID_METRICS, NODE_SIZES } from '../../utils/layoutMetrics';
+import { snapPointToGrid, snapValueToGrid } from '../../utils/gridSnap';
 
 type TargetType = 'node' | 'edge' | 'empty';
 
@@ -69,11 +71,90 @@ class GestureRouter {
         this.lastClick = { time: 0, targetId: null, targetType: null };
     }
 
+    private _isGridSnapEnabled() {
+        return useAppStore.getState().gridSnapEnabled;
+    }
+
+    private _snapPoint(x: number, y: number) {
+        return this._isGridSnapEnabled() ? snapPointToGrid({ x, y }) : { x, y };
+    }
+
+    private _getNodeRadius(node: { type?: string }) {
+        if (node.type === 'core') return NODE_SIZES.root / 2;
+        if (node.type === 'cluster') return NODE_SIZES.cluster / 2;
+        return NODE_SIZES.base / 2;
+    }
+
+    private _isOverlapping(x: number, y: number, radius: number, others: Array<{ x: number; y: number; r: number }>) {
+        for (const other of others) {
+            const dx = x - other.x;
+            const dy = y - other.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const minDist = radius + other.r;
+            if (dist < (minDist - 0.5)) return true;
+        }
+        return false;
+    }
+
+    private _findFreePosition(
+        x: number,
+        y: number,
+        radius: number,
+        others: Array<{ x: number; y: number; r: number }>,
+        step: number
+    ) {
+        if (!this._isOverlapping(x, y, radius, others)) {
+            return { x, y };
+        }
+        let nearest: { x: number; y: number; r: number } | null = null;
+        let nearestDist = Infinity;
+        for (const other of others) {
+            const dx = x - other.x;
+            const dy = y - other.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const minDist = radius + other.r;
+            if (dist < minDist && dist < nearestDist) {
+                nearest = other;
+                nearestDist = dist;
+            }
+        }
+        if (nearest) {
+            const dx = x - nearest.x;
+            const dy = y - nearest.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const minDist = radius + nearest.r;
+            const ux = dist > 0.001 ? dx / dist : 1;
+            const uy = dist > 0.001 ? dy / dist : 0;
+            const candX = nearest.x + (ux * minDist);
+            const candY = nearest.y + (uy * minDist);
+            if (!this._isOverlapping(candX, candY, radius, others)) {
+                return { x: candX, y: candY };
+            }
+        }
+        const offsets = [
+            [0, -1], [1, 0], [0, 1], [-1, 0],
+            [1, -1], [1, 1], [-1, 1], [-1, -1]
+        ];
+        for (let ring = 1; ring <= 12; ring += 1) {
+            for (const offset of offsets) {
+                const ox = offset[0];
+                const oy = offset[1];
+                if (ox === undefined || oy === undefined) continue;
+                const candX = x + (ox * step * ring);
+                const candY = y + (oy * step * ring);
+                if (!this._isOverlapping(candX, candY, radius, others)) {
+                    return { x: candX, y: candY };
+                }
+            }
+        }
+        return { x, y };
+    }
+
     startLinkPreview(sourceId: NodeId, associative = false) {
         const sourceNode = graphEngine.getNode(sourceId);
         if (!sourceNode) return;
         const getNodeRadius = (node: typeof sourceNode) => {
-            if (node.type === 'root' || node.type === 'core') return NODE_SIZES.root / 2;
+            if (node.type === 'core') return NODE_SIZES.root / 2;
             if (node.type === 'cluster') return NODE_SIZES.cluster / 2;
             return NODE_SIZES.base / 2;
         };
@@ -239,7 +320,7 @@ class GestureRouter {
 
             interaction.nodeIds.forEach((id: NodeId) => {
                 const node = graphEngine.getNode(id);
-                if (node && node.type !== 'root' && node.type !== 'core') {
+                if (node && node.type !== 'core') {
                     graphEngine.updateNode(id, {
                         position: { x: node.position.x + dx, y: node.position.y + dy }
                     });
@@ -317,7 +398,7 @@ class GestureRouter {
             const lDist = Math.sqrt(lx * lx + ly * ly);
             const sourceNode = graphEngine.getNode(interaction.sourceId as NodeId);
             const radius = sourceNode
-                ? (sourceNode.type === 'root' || sourceNode.type === 'core')
+                ? (sourceNode.type === 'core')
                     ? NODE_SIZES.root / 2
                     : sourceNode.type === 'cluster'
                         ? NODE_SIZES.cluster / 2
@@ -347,7 +428,7 @@ class GestureRouter {
             const lDist = Math.sqrt(lx * lx + ly * ly);
             const sourceNode = graphEngine.getNode(interaction.sourceId as NodeId);
             const radius = sourceNode
-                ? (sourceNode.type === 'root' || sourceNode.type === 'core')
+                ? (sourceNode.type === 'core')
                     ? NODE_SIZES.root / 2
                     : sourceNode.type === 'cluster'
                         ? NODE_SIZES.cluster / 2
@@ -401,16 +482,37 @@ class GestureRouter {
                 });
             } else if (!targetId && gesture.targetType === 'empty') {
                 // Link to Empty Field: Create new node and link it
+                const snapped = this._snapPoint(gesture.x, gesture.y);
+                const others = graphEngine.getNodes()
+                    .map(node => ({ x: node.position.x, y: node.position.y, r: this._getNodeRadius(node) }));
+                const step = this._isGridSnapEnabled() ? GRID_METRICS.cell : NODE_SIZES.base / 2;
+                const placed = this._findFreePosition(snapped.x, snapped.y, NODE_SIZES.base / 2, others, step);
                 const newNode = graphEngine.addNode({
-                    position: { x: gesture.x, y: gesture.y },
+                    position: { x: placed.x, y: placed.y },
                     data: { label: 'Empty' }
                 });
                 graphEngine.addEdge(toNodeId(sourceId), newNode.id, associative ? 'associative' : 'default');
-                eventBus.emit('UI_SIGNAL', { x: gesture.x, y: gesture.y, id: newNode.id, sourceId: sourceId });
+                eventBus.emit('UI_SIGNAL', { x: placed.x, y: placed.y, id: newNode.id, sourceId: sourceId });
             }
             eventBus.emit('UI_INTERACTION_END', { type: 'LINK_DRAG' });
         }
         if (interaction.type === 'LINK_PREVIEW') {
+            if (gesture.targetType === 'empty' && interaction.sourceId) {
+                const snapped = this._snapPoint(gesture.x, gesture.y);
+                const others = graphEngine.getNodes()
+                    .map(node => ({ x: node.position.x, y: node.position.y, r: this._getNodeRadius(node) }));
+                const step = this._isGridSnapEnabled() ? GRID_METRICS.cell : NODE_SIZES.base / 2;
+                const placed = this._findFreePosition(snapped.x, snapped.y, NODE_SIZES.base / 2, others, step);
+                const newNode = graphEngine.addNode({
+                    position: { x: placed.x, y: placed.y },
+                    data: { label: 'Empty' }
+                });
+                const associative = !!interaction.associative || !!gesture.modifiers.alt;
+                graphEngine.addEdge(toNodeId(interaction.sourceId as NodeId), newNode.id, associative ? 'associative' : 'default');
+                eventBus.emit('UI_SIGNAL', { x: placed.x, y: placed.y, id: newNode.id, sourceId: interaction.sourceId });
+                this.pendingLinkSource = null;
+                this.pendingLinkAssociative = false;
+            }
             this.activeInteraction = null;
             eventBus.emit('UI_INTERACTION_END', { type: 'LINK_DRAG' });
         }
@@ -421,6 +523,34 @@ class GestureRouter {
             const dist = Math.sqrt(dx * dx + dy * dy);
             const nodeIds = interaction.nodeIds as NodeId[];
             const startPositions = interaction.startPositions as Record<string, { x: number; y: number }> | undefined;
+
+            if (dist < 5 && interaction.startNodeId) {
+                this._executeAction({ type: 'SELECT_SINGLE', nodeId: interaction.startNodeId });
+            }
+            if (dist >= 5) {
+                const staticNodes = graphEngine.getNodes()
+                    .filter(node => !nodeIds?.includes(node.id))
+                    .map(node => ({ x: node.position.x, y: node.position.y, r: this._getNodeRadius(node) }));
+                const resolved: Array<{ x: number; y: number; r: number }> = [];
+                const step = this._isGridSnapEnabled() ? GRID_METRICS.cell : NODE_SIZES.base / 2;
+                nodeIds?.forEach((id) => {
+                    const node = graphEngine.getNode(id);
+                    if (!node || node.type === 'core') return;
+                    const snapped = this._snapPoint(node.position.x, node.position.y);
+                    const radius = this._getNodeRadius(node);
+                    const placed = this._findFreePosition(
+                        snapped.x,
+                        snapped.y,
+                        radius,
+                        [...staticNodes, ...resolved],
+                        step
+                    );
+                    resolved.push({ x: placed.x, y: placed.y, r: radius });
+                    if (placed.x !== node.position.x || placed.y !== node.position.y) {
+                        graphEngine.updateNode(id, { position: placed });
+                    }
+                });
+            }
             const endPositions: Record<string, { x: number; y: number }> = {};
             nodeIds?.forEach((id) => {
                 const node = graphEngine.getNode(id);
@@ -428,10 +558,6 @@ class GestureRouter {
                     endPositions[id] = { x: node.position.x, y: node.position.y };
                 }
             });
-
-            if (dist < 5 && interaction.startNodeId) {
-                this._executeAction({ type: 'SELECT_SINGLE', nodeId: interaction.startNodeId });
-            }
             eventBus.emit('UI_INTERACTION_END', {
                 type: 'DRAG_NODES',
                 nodeIds,
@@ -566,6 +692,9 @@ class GestureRouter {
         }
 
         if (targetType === 'empty') {
+            if (activeTool === TOOLS.LINK && this.pendingLinkSource) {
+                return null;
+            }
             if (modifiers.doubleClick && !modifiers.shift) return { type: 'CREATE_NODE', x, y };
             if (modifiers.space) return { type: 'PAN_CAMERA_START', x, y, screenX: gesture.screenX, screenY: gesture.screenY };
 
@@ -720,8 +849,11 @@ class GestureRouter {
 
             case 'CREATE_NODE':
                 {
-                    const x = intent.x as number;
-                    const y = intent.y as number;
+                    const xRaw = intent.x as number;
+                    const yRaw = intent.y as number;
+                    const snapped = this._snapPoint(xRaw, yRaw);
+                    const x = snapped.x;
+                    const y = snapped.y;
                     const focusId = stateEngine.getState().fieldScopeId;
                     const focusNode = focusId ? graphEngine.getNode(focusId) : null;
                     const focusClusterId = focusNode?.type === 'cluster' ? focusId : null;
@@ -747,15 +879,19 @@ class GestureRouter {
                     if (hitNode) {
                         return;
                     }
+                    const others = graphEngine.getNodes()
+                        .map(node => ({ x: node.position.x, y: node.position.y, r: this._getNodeRadius(node) }));
+                    const step = this._isGridSnapEnabled() ? GRID_METRICS.cell : NODE_SIZES.base / 2;
+                    const placed = this._findFreePosition(x, y, NODE_SIZES.base / 2, others, step);
                     const createdNode = graphEngine.addNode({
-                        position: { x, y },
+                        position: { x: placed.x, y: placed.y },
                         data: { label: 'Empty' },
                         meta: focusClusterId ? { parentClusterId: focusClusterId } : undefined
                     });
                     if (createdNode && focusClusterId) {
                         graphEngine.addEdge(asNodeId(focusClusterId), createdNode.id, 'associative');
                     }
-                    eventBus.emit('UI_SIGNAL', { x, y });
+                    eventBus.emit('UI_SIGNAL', { x: placed.x, y: placed.y });
                 }
                 break;
 
@@ -764,13 +900,17 @@ class GestureRouter {
                 const nodes = nodeIds
                     .map(id => graphEngine.getNode(id))
                     .filter((n): n is NonNullable<ReturnType<typeof graphEngine.getNode>> =>
-                        Boolean(n && n.type !== 'root' && n.type !== 'core')
+                        Boolean(n && n.type !== 'core')
                     );
                 if (nodes.length < 2) break;
                 const xs = nodes.map(n => n.position.x);
                 const ys = nodes.map(n => n.position.y);
                 let clusterX = (Math.min(...xs) + Math.max(...xs)) / 2;
                 let clusterY = (Math.min(...ys) + Math.max(...ys)) / 2;
+                if (this._isGridSnapEnabled()) {
+                    clusterX = snapValueToGrid(clusterX);
+                    clusterY = snapValueToGrid(clusterY);
+                }
                 const guardRadius = (NODE_SIZES.base / 2) + (GRID_METRICS.cell / 2);
                 if (graphEngine.findNodeAt(clusterX, clusterY, guardRadius)) {
                     const step = GRID_METRICS.cell;
@@ -1068,8 +1208,8 @@ class GestureRouter {
                 }
                 selection.forEach(id => {
                     const node = graphEngine.getNode(id);
-                    // Protect Core/Root nodes from deletion (User Request)
-                    if (node && node.type !== 'core' && node.type !== 'root' && node.type !== 'cluster') {
+                    // Protect Core nodes from deletion (User Request)
+                    if (node && node.type !== 'core' && node.type !== 'cluster') {
                         graphEngine.removeNode(id);
                     }
                 });

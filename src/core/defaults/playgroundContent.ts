@@ -5,9 +5,10 @@
 
 import type { NodeId } from '../types';
 import { asNodeId } from '../types';
+import { getCoreId } from './coreIds';
 
 export const PLAYGROUND_SPACE_ID = 'playground' as NodeId;
-export const PLAYGROUND_CORE_ID = 'playground-core' as NodeId;
+export const PLAYGROUND_CORE_ID = getCoreId(PLAYGROUND_SPACE_ID) as NodeId;
 
 export interface PlaygroundNodeDef {
     id: NodeId;

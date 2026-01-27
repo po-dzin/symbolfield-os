@@ -14,7 +14,6 @@ const InteractionLayer = () => {
     const [regionBox, setRegionBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const [regionCircle, setRegionCircle] = useState<{ cx: number; cy: number; r: number } | null>(null);
     const [linkDraft, setLinkDraft] = useState<{ x1: number; y1: number; x2: number; y2: number; associative?: boolean } | null>(null);
-    const [ripples, setRipples] = useState<Array<{ id: number; x: number; y: number; size: number; duration: number }>>([]);
     const [signals, setSignals] = useState<Array<{ id: number; from: { x: number; y: number }; to: { x: number; y: number }; t: number }>>([]);
 
     const edges = useGraphStore(state => state.edges) as Edge[];
@@ -23,16 +22,26 @@ const InteractionLayer = () => {
     useEffect(() => {
         let lastTime = Date.now();
         let frameId: number;
+        let acc = 0;
+        const STEP_MS = 33; // ~30fps is enough for these signals and reduces UI thrash.
 
         const loop = () => {
             const now = Date.now();
-            const dt = (now - lastTime) / 1000;
+            const elapsed = now - lastTime;
             lastTime = now;
+            acc += elapsed;
 
-            setSignals(prev => prev
-                .map(s => ({ ...s, t: s.t + dt * 1.2 })) // speed 1.2 units per sec (1.5x Faster)
-                .filter(s => s.t < 1)
-            );
+            if (acc >= STEP_MS) {
+                const dt = (acc / 1000);
+                acc = 0;
+
+                setSignals(prev => {
+                    if (prev.length === 0) return prev;
+                    return prev
+                        .map(s => ({ ...s, t: s.t + dt * 1.2 })) // speed 1.2 units per sec (1.5x Faster)
+                        .filter(s => s.t < 1);
+                });
+        }
 
             frameId = requestAnimationFrame(loop);
         };
@@ -64,25 +73,6 @@ const InteractionLayer = () => {
             lastSignal.id = payload.id ?? '';
             lastSignal.sourceId = payload.sourceId ?? '';
 
-            // Ripple Signal
-            if (payload.x !== undefined && payload.y !== undefined) {
-                const id = Date.now() + Math.random();
-                const isEnter = payload.type === 'ENTER_NOW';
-                setRipples(prev => [
-                    ...prev,
-                    {
-                        id,
-                        x: payload.x!,
-                        y: payload.y!,
-                        size: isEnter ? 120 : 60,
-                        duration: isEnter ? 1.2 : 0.6
-                    }
-                ]);
-                setTimeout(() => {
-                    setRipples(prev => prev.filter(r => r.id !== id));
-                }, (isEnter ? 1200 : 600));
-            }
-
             // Edge Signals
             if (payload.type === 'EMIT_EDGE_SIGNALS' || payload.id) {
                 const nodeId = payload.id;
@@ -112,29 +102,29 @@ const InteractionLayer = () => {
                     const ux = dx / dist;
                     const uy = dy / dist;
 
-                    const startRaw = {
+                    const aEdge = {
                         x: fromNode.position.x + ux * radius,
                         y: fromNode.position.y + uy * radius
                     };
-                    const endRaw = {
+                    const bEdge = {
                         x: toNode.position.x - ux * radius,
                         y: toNode.position.y - uy * radius
                     };
 
-                    // Send Signal A -> B (Transfer of Life)
+                    // Send Signal A -> B (first signal from sender)
                     setSignals(prev => [...prev, {
                         id: Math.random(),
-                        from: startRaw,
-                        to: endRaw,
+                        from: aEdge,
+                        to: bEdge,
                         t: 0
                     }]);
 
-                    // 2. Schedule Return Signal B -> A (Target to Source - "Life Response")
+                    // 2. Schedule Return Signal B -> A
                     setTimeout(() => {
                         setSignals(prev => [...prev, {
                             id: Math.random() + 1,
-                            from: endRaw,
-                            to: startRaw,
+                            from: bEdge,
+                            to: aEdge,
                             t: 0
                         }]);
                     }, 850);
@@ -256,21 +246,6 @@ const InteractionLayer = () => {
                 </svg>
             )}
 
-            {/* Ripples (Ripples) */}
-            {ripples.map(s => (
-                <div
-                    key={s.id}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80 animate-ping pointer-events-none"
-                    style={{
-                        left: s.x,
-                        top: s.y,
-                        width: `${s.size}px`,
-                        height: `${s.size}px`,
-                        animationDuration: `${s.duration}s`
-                    }}
-                />
-            ))}
-
             {/* Edge Signals */}
             <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none">
                 {signals.map(s => {
@@ -290,7 +265,7 @@ const InteractionLayer = () => {
                             cx={x} cy={y} r={3 * scale}
                             fill="#FFFFFF"
                             fillOpacity={opacity}
-                            className="drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+                            opacity={0.9}
                         />
                     );
                 })}

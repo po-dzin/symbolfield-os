@@ -42,10 +42,10 @@ describe('GestureRouter Logic', () => {
             expect(selectionState.clear).toHaveBeenCalled();
         });
 
-        test('should not delete root nodes', () => {
-            // Setup: Selection contains a 'root' node
-            (selectionState.getSelection as any).mockReturnValue(['root-1']);
-            (graphEngine.getNode as any).mockReturnValue({ id: 'root-1', type: 'root' });
+        test('should not delete core nodes', () => {
+            // Setup: Selection contains a core node
+            (selectionState.getSelection as any).mockReturnValue(['core-1']);
+            (graphEngine.getNode as any).mockReturnValue({ id: 'core-1', type: 'core' });
 
             const event = { code: 'Delete', preventDefault: vi.fn() } as any;
             gestureRouter.handleKeyDown(event);

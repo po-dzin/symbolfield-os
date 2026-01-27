@@ -135,13 +135,11 @@ const ContextToolbar = () => {
     const nodeIconValueRaw = typeof primaryNodeData?.icon_value === 'string' ? primaryNodeData.icon_value.trim() : '';
     const nodeIconValue = nodeIconValueRaw === '•' ? '' : nodeIconValueRaw;
     const nodeGlyphIsCustom = nodeIconValue ? getGlyphById(nodeIconValue) : undefined;
-    const nodeGlyphFallback = primaryNode?.type === 'root'
-        ? 'archecore'
-        : primaryNode?.type === 'core'
-            ? 'core'
-            : primaryNode?.type === 'cluster'
-                ? 'cluster'
-                : '';
+    const nodeGlyphFallback = primaryNode?.type === 'core'
+        ? (primaryNode.id === 'archecore' ? 'archecore' : 'core')
+        : primaryNode?.type === 'cluster'
+            ? 'cluster'
+            : '';
     const nodeGlyphDisplay = nodeGlyphIsCustom ? nodeIconValue : nodeIconValue;
     const nodeGlyphResolved = nodeGlyphDisplay || nodeGlyphFallback;
     const areaPalette = [
@@ -272,7 +270,7 @@ const ContextToolbar = () => {
         const groupNodes = selectedIds
             .map(id => graphEngine.getNode(id))
             .filter((n): n is NonNullable<ReturnType<typeof graphEngine.getNode>> =>
-                Boolean(n && n.type !== 'root' && n.type !== 'core')
+                Boolean(n && n.type !== 'core')
             );
         if (groupNodes.length < 2) return;
 
@@ -299,14 +297,14 @@ const ContextToolbar = () => {
     const handleAreaFromSelection = () => {
         const selectionNodes = selectedIds
             .map(id => nodes.find(node => node.id === id))
-            .filter((node): node is NodeBase => Boolean(node && node.type !== 'root' && node.type !== 'core'));
+            .filter((node): node is NodeBase => Boolean(node && node.type !== 'core'));
         const selectionAreas = selectedAreaIds
             .map(id => areas.find(area => area.id === id))
             .filter((area): area is NonNullable<typeof area> => Boolean(area));
         if (selectionNodes.length === 0 && selectionAreas.length === 0) return;
         const padding = GRID_METRICS.cell;
         const nodeBounds = selectionNodes.map(node => {
-            const radius = node.type === 'root' || node.type === 'core'
+            const radius = node.type === 'core'
                 ? NODE_SIZES.root / 2
                 : node.type === 'cluster'
                     ? NODE_SIZES.cluster / 2
@@ -600,7 +598,7 @@ const ContextToolbar = () => {
             selectedIds.forEach(id => {
                 const node = nodes.find(item => item.id === id);
                 if (!node) return;
-                const radius = (node.type === 'root' || node.type === 'core')
+                const radius = node.type === 'core'
                     ? NODE_SIZES.root / 2
                     : node.type === 'cluster'
                         ? NODE_SIZES.cluster / 2
@@ -643,7 +641,7 @@ const ContextToolbar = () => {
             worldX = (minX + maxX) / 2;
             worldY = minY - offset;
         } else if (hasNodes && primaryNode) {
-            const radius = (primaryNode.type === 'root' || primaryNode.type === 'core')
+            const radius = primaryNode.type === 'core'
                 ? NODE_SIZES.root / 2
                 : primaryNode.type === 'cluster'
                     ? NODE_SIZES.cluster / 2
@@ -896,7 +894,7 @@ const ContextToolbar = () => {
                         )}
                         </>
                     )}
-                    {count === 1 && hasAreas && !hasNodes && !hasEdges && (
+                    {primaryArea && count === 1 && hasAreas && !hasNodes && !hasEdges && (
                         <>
                             <button
                                 onClick={() => {

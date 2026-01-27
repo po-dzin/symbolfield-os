@@ -50,6 +50,7 @@ interface StateSnapshot {
     settingsOpen: boolean;
     paletteOpen: boolean;
     contextMenuMode: 'bar' | 'radial';
+    gridSnapEnabled: boolean;
     session: SessionState;
 }
 
@@ -68,6 +69,7 @@ class StateEngine {
             settingsOpen: false,
             paletteOpen: false,
             contextMenuMode: 'bar',
+            gridSnapEnabled: true,
 
             // Session (HUD)
             session: {
@@ -206,6 +208,13 @@ class StateEngine {
         if (!this.state.settingsOpen) return;
         this.state.settingsOpen = false;
         eventBus.emit(EVENTS.SETTINGS_TOGGLED, { open: false });
+        this._emitChange();
+    }
+
+    setGridSnapEnabled(enabled: boolean) {
+        if (this.state.gridSnapEnabled === enabled) return;
+        this.state.gridSnapEnabled = enabled;
+        eventBus.emit(EVENTS.GRID_SNAP_CHANGED, { enabled });
         this._emitChange();
     }
 
