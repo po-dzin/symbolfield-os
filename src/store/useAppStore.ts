@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { stateEngine } from '../core/state/StateEngine';
 import { eventBus, EVENTS } from '../core/events/EventBus';
 import type { NodeId } from '../core/types';
+import { spaceManager } from '../core/state/SpaceManager';
 
 // Matches StateEngine constants
 type AppModeType = 'deep' | 'flow' | 'luma';
@@ -29,6 +30,7 @@ interface AppState {
     settingsOpen: boolean;
     paletteOpen: boolean;
     contextMenuMode: 'bar' | 'radial';
+    gridSnapEnabled: boolean;
     session: Session;
 }
 
@@ -48,6 +50,8 @@ interface AppStoreState extends AppState {
     closeSettings: () => void;
     setContextMenuMode: (mode: 'bar' | 'radial') => void;
     toggleContextMenuMode: () => void;
+    setGridSnapEnabled: (enabled: boolean) => void;
+    toggleGridSnap: () => void;
 }
 
 export const useAppStore = create<AppStoreState>((set) => {
@@ -66,6 +70,7 @@ export const useAppStore = create<AppStoreState>((set) => {
     eventBus.on(EVENTS.SPACE_CHANGED, sync);
     eventBus.on(EVENTS.FIELD_SCOPE_CHANGED, sync);
     eventBus.on(EVENTS.CONTEXT_MENU_MODE_CHANGED, sync);
+    eventBus.on(EVENTS.GRID_SNAP_CHANGED, sync);
 
     return {
         ...initialState,
@@ -120,6 +125,26 @@ export const useAppStore = create<AppStoreState>((set) => {
         },
         toggleContextMenuMode: () => {
             stateEngine.toggleContextMenuMode();
+        }
+        ,
+        setGridSnapEnabled: (enabled: boolean) => {
+            const spaceId = stateEngine.getState().currentSpaceId;
+            if (spaceId) {
+                spaceManager.setGridSnapEnabled(spaceId, enabled);
+            } else {
+                stateEngine.setGridSnapEnabled(enabled);
+            }
+            sync();
+        },
+        toggleGridSnap: () => {
+            const enabled = !stateEngine.getState().gridSnapEnabled;
+            const spaceId = stateEngine.getState().currentSpaceId;
+            if (spaceId) {
+                spaceManager.setGridSnapEnabled(spaceId, enabled);
+            } else {
+                stateEngine.setGridSnapEnabled(enabled);
+            }
+            sync();
         }
     };
 });

@@ -2,8 +2,9 @@ import { graphEngine } from '../graph/GraphEngine';
 import { stateEngine } from './StateEngine';
 import { eventBus, EVENTS } from '../events/EventBus';
 import { PLAYGROUND_EDGES, PLAYGROUND_NODES, PLAYGROUND_SPACE_ID } from '../defaults/playgroundContent';
-import type { Edge, NodeBase } from '../types';
+import { asNodeId, type Edge, type NodeBase } from '../types';
 import { useCameraStore } from '../../store/useCameraStore';
+import { ARCHECORE_ID, getCoreId, getCoreLabel } from '../defaults/coreIds';
 
 export interface SpaceMeta {
     id: string;
@@ -11,6 +12,8 @@ export interface SpaceMeta {
     createdAt: number;
     updatedAt: number;
     lastAccessedAt: number;
+    coreNodeId?: string;
+    gridSnapEnabled?: boolean;
     parentSpaceId?: string;
     kind?: 'user' | 'playground';
     trashed?: boolean;
@@ -27,20 +30,35 @@ const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 class SpaceManager {
     private spaces: Map<string, SpaceMeta>;
+    private saveTimer: number | null;
+    private interactionDepth: number;
 
     constructor() {
         this.spaces = new Map();
+        this.saveTimer = null;
+        this.interactionDepth = 0;
         this.loadIndex(); // Load metadata
         this.purgeTrashedSpaces();
 
         // Subscribe to changes for auto-persistence
-        eventBus.on(EVENTS.NODE_CREATED, () => this.saveCurrentSpace());
-        eventBus.on(EVENTS.NODE_UPDATED, () => this.saveCurrentSpace()); // Note: UpdateNode might be frequent during drag
-        eventBus.on(EVENTS.NODE_DELETED, () => this.saveCurrentSpace());
-        eventBus.on(EVENTS.LINK_CREATED, () => this.saveCurrentSpace());
-        eventBus.on(EVENTS.LINK_DELETED, () => this.saveCurrentSpace());
-        eventBus.on(EVENTS.HUB_CREATED, () => this.saveCurrentSpace());
-        eventBus.on(EVENTS.GRAPH_CLEARED, () => this.saveCurrentSpace());
+        eventBus.on(EVENTS.NODE_CREATED, () => this.scheduleSave());
+        eventBus.on(EVENTS.NODE_UPDATED, () => this.scheduleSave()); // Note: UpdateNode might be frequent during drag
+        eventBus.on(EVENTS.NODE_DELETED, () => this.scheduleSave());
+        eventBus.on(EVENTS.LINK_CREATED, () => this.scheduleSave());
+        eventBus.on(EVENTS.LINK_DELETED, () => this.scheduleSave());
+        eventBus.on(EVENTS.HUB_CREATED, () => this.scheduleSave());
+        eventBus.on(EVENTS.GRAPH_CLEARED, () => this.scheduleSave());
+        eventBus.on('UI_INTERACTION_START', (e) => {
+            if (e.payload?.type === 'LINK_DRAG') {
+                this.interactionDepth += 1;
+            }
+        });
+        eventBus.on('UI_INTERACTION_END', (e) => {
+            if (e.payload?.type === 'LINK_DRAG') {
+                this.interactionDepth = Math.max(0, this.interactionDepth - 1);
+                this.scheduleSave(200);
+            }
+        });
     }
 
     private loadIndex() {
@@ -105,18 +123,35 @@ class SpaceManager {
         return candidate;
     }
 
-    createSpace(name = 'New Space', parentId = 'archecore', options: { id?: string; kind?: 'user' | 'playground' } = {}): string {
+    private buildCoreNode(spaceId: string, spaceName: string, coreNodeId = getCoreId(spaceId)): NodeBase {
+        const now = Date.now();
+        return {
+            id: asNodeId(coreNodeId),
+            type: 'core',
+            position: { x: 0, y: 0 },
+            data: { label: getCoreLabel(spaceName) },
+            style: {},
+            meta: { spaceId, role: 'core' },
+            created_at: now,
+            updated_at: now
+        };
+    }
+
+    createSpace(name = 'New Space', parentId = ARCHECORE_ID, options: { id?: string; kind?: 'user' | 'playground' } = {}): string {
         const id = options.id ?? crypto.randomUUID();
         const existing = this.spaces.get(id);
         if (existing) return existing.id;
         const uniqueName = options.kind === 'playground' ? name : this.generateUniqueName(name);
         const now = Date.now();
+        const coreNodeId = getCoreId(id);
         const space: SpaceMeta = {
             id,
             name: uniqueName,
             createdAt: now,
             updatedAt: now,
             lastAccessedAt: now,
+            coreNodeId,
+            gridSnapEnabled: true,
             parentSpaceId: parentId,
             kind: options.kind ?? 'user',
             trashed: false,
@@ -125,7 +160,7 @@ class SpaceManager {
         this.spaces.set(id, space);
         this.saveIndex();
 
-        // Initialize empty storage for this space
+        // Initialize empty storage for this space; core is created from Source.
         localStorage.setItem(
             STORAGE_KEYS.SPACE_PREFIX + id,
             JSON.stringify({ spaceId: id, nodes: [], edges: [] })
@@ -168,6 +203,26 @@ class SpaceManager {
         this.hardDeleteSpace(id);
     }
 
+    setGridSnapEnabled(id: string, enabled: boolean) {
+        const meta = this.spaces.get(id);
+        if (!meta) {
+            stateEngine.setGridSnapEnabled(enabled);
+            return;
+        }
+        if (meta.gridSnapEnabled === enabled) {
+            if (stateEngine.getState().currentSpaceId === id) {
+                stateEngine.setGridSnapEnabled(enabled);
+            }
+            return;
+        }
+        meta.gridSnapEnabled = enabled;
+        meta.updatedAt = Date.now();
+        this.saveIndex();
+        if (stateEngine.getState().currentSpaceId === id) {
+            stateEngine.setGridSnapEnabled(enabled);
+        }
+    }
+
     restoreSpace(id: string) {
         const meta = this.spaces.get(id);
         if (!meta || !meta.trashed) return;
@@ -192,6 +247,11 @@ class SpaceManager {
         const currentId = stateEngine.getState().currentSpaceId;
         const meta = this.spaces.get(id);
         if (meta?.trashed) return;
+        if (meta && meta.gridSnapEnabled === undefined) {
+            meta.gridSnapEnabled = true;
+            this.saveIndex();
+        }
+        stateEngine.setGridSnapEnabled(meta?.gridSnapEnabled ?? true);
 
         // 1. Save current if exists
         if (currentId && this.spaces.has(currentId)) {
@@ -229,6 +289,63 @@ class SpaceManager {
             localStorage.setItem(STORAGE_KEYS.SPACE_PREFIX + id, JSON.stringify(data));
         }
 
+        const expectedCoreId = getCoreId(id);
+        let nodes = data.nodes ?? [];
+        let edges = data.edges ?? [];
+        const coreNodes = nodes.filter(node => node.type === 'core');
+        const coreCandidate = coreNodes.find(node => String(node.id) !== ARCHECORE_ID) ?? coreNodes[0];
+        let storageChanged = false;
+
+        // Migrate legacy core ids to the space-tied `${spaceId}-core` scheme.
+        if (coreCandidate && String(coreCandidate.id) !== expectedCoreId) {
+            const oldCoreId = String(coreCandidate.id);
+            const migratedCore: NodeBase = {
+                ...coreCandidate,
+                id: asNodeId(expectedCoreId),
+                type: 'core',
+                data: {
+                    ...coreCandidate.data,
+                    label: coreCandidate.data?.label ?? getCoreLabel(meta?.name ?? 'Space')
+                },
+                meta: {
+                    ...coreCandidate.meta,
+                    spaceId: id,
+                    role: 'core'
+                },
+                updated_at: Date.now()
+            };
+            nodes = nodes.map(node => (String(node.id) === oldCoreId ? migratedCore : node));
+            edges = edges.map(edge => ({
+                ...edge,
+                source: String(edge.source) === oldCoreId ? asNodeId(expectedCoreId) : edge.source,
+                target: String(edge.target) === oldCoreId ? asNodeId(expectedCoreId) : edge.target
+            }));
+            storageChanged = true;
+        }
+
+        const hasExpectedCore = nodes.some(node => node.type === 'core' && String(node.id) === expectedCoreId);
+        let indexChanged = false;
+
+        if (!hasExpectedCore && nodes.length > 0) {
+            const coreNode = this.buildCoreNode(id, meta?.name ?? 'Space', expectedCoreId);
+            nodes = [...nodes, coreNode];
+            storageChanged = true;
+        }
+
+        if (meta && meta.coreNodeId !== expectedCoreId) {
+            meta.coreNodeId = expectedCoreId;
+            indexChanged = true;
+        }
+
+        if (storageChanged) {
+            data = { ...data, nodes, edges };
+            localStorage.setItem(STORAGE_KEYS.SPACE_PREFIX + id, JSON.stringify(data));
+        }
+
+        if (indexChanged) {
+            this.saveIndex();
+        }
+
         graphEngine.importData({ nodes: (data.nodes ?? []) as any, edges: (data.edges ?? []) as any });
 
         // Update access time
@@ -246,6 +363,17 @@ class SpaceManager {
         if (currentId) {
             this.saveSpaceInternal(currentId);
         }
+    }
+
+    private scheduleSave(delayMs = 120) {
+        if (this.interactionDepth > 0) return;
+        if (this.saveTimer) {
+            window.clearTimeout(this.saveTimer);
+        }
+        this.saveTimer = window.setTimeout(() => {
+            this.saveTimer = null;
+            this.saveCurrentSpace();
+        }, delayMs);
     }
 
     private saveSpaceInternal(id: string) {
@@ -275,7 +403,7 @@ class SpaceManager {
         const playgroundMeta = this.getPlaygroundSpace();
         if (legacySandbox && !playgroundMeta) {
             const legacyData = this.getSpaceData(legacySandbox.id);
-            this.createSpace('Playground', 'archecore', { id: PLAYGROUND_SPACE_ID, kind: 'playground' });
+            this.createSpace('Playground', ARCHECORE_ID, { id: PLAYGROUND_SPACE_ID, kind: 'playground' });
             if (legacyData) {
                 localStorage.setItem(STORAGE_KEYS.SPACE_PREFIX + PLAYGROUND_SPACE_ID, JSON.stringify(legacyData));
             } else {
@@ -285,7 +413,7 @@ class SpaceManager {
             return;
         }
         if (!playgroundMeta) {
-            this.createSpace('Playground', 'archecore', { id: PLAYGROUND_SPACE_ID, kind: 'playground' });
+            this.createSpace('Playground', ARCHECORE_ID, { id: PLAYGROUND_SPACE_ID, kind: 'playground' });
             this.seedPlaygroundSpace();
             return;
         }

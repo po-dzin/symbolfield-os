@@ -66,7 +66,7 @@ const buildClusters = (): SpaceCluster[] => {
     return spaces.map((space, index) => {
         const data = spaceManager.getSpaceData(space.id);
         const coreNodes = (data?.nodes ?? []).filter(n => n.type === 'core');
-        const nodes = (data?.nodes ?? []).filter(n => n.type !== 'core' && n.type !== 'root');
+        const nodes = (data?.nodes ?? []).filter(n => n.type !== 'core');
 
         // Calculate bounds for ALL nodes including core to preserve relative structure
         const allNodes = [...coreNodes, ...nodes];

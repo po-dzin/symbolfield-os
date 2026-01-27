@@ -8,7 +8,7 @@ export const getClusterChildren = (clusterId: string, nodes: NodeBase[], edges: 
     edges.forEach(edge => {
         if (edge.source === clusterId) linkedIds.add(edge.target);
     });
-    return nodes.filter(n => n.id !== clusterId && n.type !== 'root' && (n.meta?.parentClusterId === clusterId || linkedIds.has(n.id)));
+    return nodes.filter(n => n.id !== clusterId && n.type !== 'core' && (n.meta?.parentClusterId === clusterId || linkedIds.has(n.id)));
 };
 
 const hideClusterChildren = (clusterId: string, nodes: NodeBase[], edges: Edge[], updateNode: UpdateNode) => {

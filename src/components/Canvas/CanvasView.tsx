@@ -23,6 +23,8 @@ import { useAreaStore } from '../../store/useAreaStore';
 import { selectionState } from '../../core/state/SelectionState';
 import GlyphIcon from '../Icon/GlyphIcon';
 import { asNodeId, type Edge, type NodeId } from '../../core/types';
+import { spaceManager } from '../../core/state/SpaceManager';
+import { getCoreId, getCoreLabel } from '../../core/defaults/coreIds';
 
 const CanvasView = () => {
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -48,6 +50,23 @@ const CanvasView = () => {
     const setZoom = useCameraStore(state => state.setZoom);
     const [isSmooth, setIsSmooth] = React.useState(false);
     const [undoSmooth, setUndoSmooth] = React.useState(false);
+    const sourceSize = NODE_SIZES.root;
+
+    const handleSourceDoubleClick = React.useCallback(() => {
+        if (!currentSpaceId) return;
+        const coreId = getCoreId(currentSpaceId);
+        if (graphEngine.getNode(asNodeId(coreId))) return;
+        const spaceName = spaceManager.getSpaceMeta(currentSpaceId)?.name ?? 'Space';
+        const coreNodeId = asNodeId(coreId);
+        graphEngine.addNode({
+            id: coreNodeId,
+            type: 'core',
+            position: { x: 0, y: 0 },
+            data: { label: getCoreLabel(spaceName) },
+            meta: { spaceId: currentSpaceId, role: 'core' }
+        });
+        selectionState.select(coreNodeId);
+    }, [currentSpaceId]);
     const [zoomPulse, setZoomPulse] = React.useState<'out' | 'reset' | 'in' | 'fit' | null>(null);
     const lastHoverEdgeId = useRef<string | null>(null);
     const [hoverAreaId, setHoverAreaId] = React.useState<string | null>(null);
@@ -284,7 +303,7 @@ const CanvasView = () => {
         selection.forEach(id => {
             const node = graphEngine.getNode(id);
             if (!node) return;
-            const radius = (node.type === 'root' || node.type === 'core')
+            const radius = node.type === 'core'
                 ? NODE_SIZES.root / 2
                 : node.type === 'cluster'
                     ? NODE_SIZES.cluster / 2
@@ -371,6 +390,7 @@ const CanvasView = () => {
         const nodeSelection = selectionState.getSelection();
         const startNodes = nodeSelection.map(id => {
             const node = graphEngine.getNode(id);
+            if (!node || node.type === 'core') return null;
             return node ? { id, x: node.position.x, y: node.position.y } : null;
         }).filter((item): item is { id: NodeId; x: number; y: number } => Boolean(item));
         const activeAreaIds = preserveSelection ? selectedAreaIds : [areaId];
@@ -456,7 +476,7 @@ const CanvasView = () => {
         const nodeMap = new Map(nodes.map(n => [n.id, n]));
 
         // Helper: Find the nearest visible ancestor (or self if visible)
-        // Returns null if the entire branch is hidden (shouldn't happen for valid graph) or root is hidden
+        // Returns null if the entire branch is hidden (shouldn't happen for valid graph) or core is hidden
         const getVisibleAncestor = (nodeId: string): string | null => {
             let current = nodeMap.get(asNodeId(nodeId));
             const visited = new Set<string>();
@@ -833,6 +853,19 @@ const CanvasView = () => {
 
     const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
         if (stateEngine.getState().viewContext === 'now') return;
+        if (nodes.length === 0 && currentSpaceId && containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            const { pan, zoom } = useCameraStore.getState();
+            const sourceScreenX = rect.left + pan.x;
+            const sourceScreenY = rect.top + pan.y;
+            const dx = e.clientX - sourceScreenX;
+            const dy = e.clientY - sourceScreenY;
+            const sourceHitRadiusPx = (sourceSize / 2) * zoom;
+            if ((dx * dx + dy * dy) <= sourceHitRadiusPx * sourceHitRadiusPx) {
+                handleSourceDoubleClick();
+                return;
+            }
+        }
         const proj = getProjection(e);
         const hitEl = document.elementFromPoint(e.clientX, e.clientY);
 
@@ -846,7 +879,7 @@ const CanvasView = () => {
         if (!nodeId) {
             const { pan, zoom } = useCameraStore.getState();
             for (const node of nodes) {
-                const sizePx = node.type === 'root' ? NODE_SIZES.root : node.type === 'cluster' ? NODE_SIZES.cluster : NODE_SIZES.base;
+                const sizePx = node.type === 'core' ? NODE_SIZES.root : node.type === 'cluster' ? NODE_SIZES.cluster : NODE_SIZES.base;
                 const screenX = node.position.x * zoom + pan.x;
                 const screenY = node.position.y * zoom + pan.y;
                 const radius = (sizePx / 2) * zoom;
@@ -890,8 +923,8 @@ const CanvasView = () => {
 
     const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
         if (!containerRef.current) return;
-        e.preventDefault();
         if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
             const rect = containerRef.current.getBoundingClientRect();
             zoomAt(e.clientX, e.clientY, e.deltaY, rect);
             return;
@@ -971,7 +1004,7 @@ const CanvasView = () => {
         }
 
         const getRadius = (nodeType: string) => {
-            if (nodeType === 'root' || nodeType === 'core') return NODE_SIZES.root / 2;
+            if (nodeType === 'core') return NODE_SIZES.root / 2;
             if (nodeType === 'cluster') return NODE_SIZES.cluster / 2;
             return NODE_SIZES.base / 2;
         };
@@ -1119,7 +1152,7 @@ const CanvasView = () => {
         if (viewContext !== 'space' || !currentSpaceId || !containerRef.current) return;
         if (lastCenteredSpaceId.current === currentSpaceId) return;
 
-        const coreNode = nodes.find(node => node.type === 'core' || node.type === 'root');
+        const coreNode = nodes.find(node => node.type === 'core');
         if (!coreNode && nodes.length > 0) return;
 
         const rect = containerRef.current.getBoundingClientRect();
@@ -1168,7 +1201,7 @@ const CanvasView = () => {
                 neighbors.forEach(neighbor => {
                     if (visited.has(neighbor)) return;
                     const neighborType = nodeTypeMap.get(neighbor);
-                    if (neighborType === 'core' || neighborType === 'root') return;
+                    if (neighborType === 'core') return;
                     const nextDepth = current.depth + 1;
                     if (nextDepth > maxDepth) return;
                     visited.add(neighbor);
@@ -1183,8 +1216,8 @@ const CanvasView = () => {
         }
 
         nodes.forEach(node => {
-            const isCoreOrRoot = node.type === 'core' || node.type === 'root';
-            const shouldGhost = currentScope ? ghostSet.has(node.id) && !isCoreOrRoot : false;
+            const isCore = node.type === 'core';
+            const shouldGhost = currentScope ? ghostSet.has(node.id) && !isCore : false;
             const shouldHide = currentScope ? (!focusSet.has(node.id) && !ghostSet.has(node.id)) : false;
             const nextFocusHidden = shouldHide;
             const nextFocusGhost = shouldGhost;
@@ -1861,15 +1894,17 @@ const CanvasView = () => {
                 {/* Cosmogenesis / New Space Source: Rendered in World Space at (0,0) (when empty) */}
                 {nodes.length === 0 && (
                     <div
-                        className="absolute flex items-start justify-center z-50 pointer-events-auto"
-                        style={{
-                            left: 0, top: 0, width: 0, height: 0,
-                        }}
+                        className="absolute top-0 left-0 z-50 pointer-events-auto"
+                        style={{ transform: 'translate(0px, 0px)' }}
                     >
-                        {/* Centered container for visual elements */}
                         <div
-                            className="absolute flex flex-col items-center cursor-pointer group"
-                            style={{ transform: 'translate(-50%, -50%)' }}
+                            className="relative flex flex-col items-center justify-center cursor-pointer group -translate-x-1/2 -translate-y-1/2 rounded-full"
+                            style={{ width: `${sourceSize}px`, height: `${sourceSize}px` }}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                handleSourceDoubleClick();
+                            }}
                         >
                             {/* Visual Source: The DOT is the center */}
                             <div className="relative flex items-center justify-center w-16 h-16">

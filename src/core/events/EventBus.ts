@@ -34,6 +34,7 @@ export const EVENTS = {
     SPACE_CHANGED: 'SpaceChanged',
     FIELD_SCOPE_CHANGED: 'FieldScopeChanged',
     CONTEXT_MENU_MODE_CHANGED: 'ContextMenuModeChanged',
+    GRID_SNAP_CHANGED: 'GridSnapChanged',
     SPACE_CREATED: 'SpaceCreated',
     SPACE_RENAMED: 'SpaceRenamed',
     SPACE_DELETED: 'SpaceDeleted',
@@ -110,6 +111,7 @@ export interface EventMap {
     [EVENTS.SPACE_CHANGED]: { spaceId: string };
     [EVENTS.FIELD_SCOPE_CHANGED]: { hubId: NodeId | null };
     [EVENTS.CONTEXT_MENU_MODE_CHANGED]: { mode: 'bar' | 'radial' };
+    [EVENTS.GRID_SNAP_CHANGED]: { enabled: boolean };
     [EVENTS.SPACE_CREATED]: { spaceId: string; name: string; kind?: string };
     [EVENTS.SPACE_RENAMED]: { spaceId: string; name: string };
     [EVENTS.SPACE_DELETED]: { spaceId: string; deletedAt: number };

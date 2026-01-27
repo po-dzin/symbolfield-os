@@ -11,6 +11,8 @@ const SettingsDrawer = () => {
     const closeSettings = useAppStore(state => state.closeSettings);
     const contextMenuMode = useAppStore(state => state.contextMenuMode);
     const setContextMenuMode = useAppStore(state => state.setContextMenuMode);
+    const gridSnapEnabled = useAppStore(state => state.gridSnapEnabled);
+    const setGridSnapEnabled = useAppStore(state => state.setGridSnapEnabled);
 
     if (!settingsOpen) return null;
 
@@ -40,6 +42,15 @@ const SettingsDrawer = () => {
                             Radial
                         </button>
                     </div>
+                </div>
+                <div className="flex items-center justify-between text-sm text-white/70">
+                    <span>Grid snap</span>
+                    <button
+                        className={`px-2 py-1 rounded text-[10px] uppercase tracking-wider ${gridSnapEnabled ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'}`}
+                        onClick={() => setGridSnapEnabled(!gridSnapEnabled)}
+                    >
+                        {gridSnapEnabled ? 'On' : 'Off'}
+                    </button>
                 </div>
             </div>
         </div>

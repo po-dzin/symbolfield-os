@@ -60,7 +60,7 @@ const EdgeRenderer = ({ edge }: EdgeRendererProps) => {
     const isTargetSelected = selectedNodeIds.includes(targetNode.id);
 
     const getRadius = (node: any, isSelected: boolean) => {
-        const baseSize = (node.type === 'root' || node.type === 'core')
+        const baseSize = (node.type === 'core')
             ? NODE_SIZES.root
             : node.type === 'cluster'
                 ? NODE_SIZES.cluster

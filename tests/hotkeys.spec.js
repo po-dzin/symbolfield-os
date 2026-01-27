@@ -1,11 +1,13 @@
 import { test, expect } from '@playwright/test';
 
+const CORE_ID = 'core';
+
 test.describe('Hotkeys: Canon v0.5', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
         await expect(page.locator('.os-shell')).toBeVisible();
 
-        await page.evaluate(() => {
+        await page.evaluate((coreId) => {
             try {
                 localStorage.setItem('sf_onboarding_state', JSON.stringify({
                     isCompleted: true,
@@ -20,7 +22,7 @@ test.describe('Hotkeys: Canon v0.5', () => {
             if (window.__GRAPH_STORE__) {
                 const store = window.__GRAPH_STORE__.getState();
                 store.clearGraph();
-                store.addNode({ id: 'root', type: 'root', position: { x: 400, y: 300 }, data: { label: 'Core' } });
+                store.addNode({ id: coreId, type: 'core', position: { x: 400, y: 300 }, data: { label: 'Core' } });
             }
             if (window.__APP_STORE__) {
                 const app = window.__APP_STORE__.getState();
@@ -29,9 +31,9 @@ test.describe('Hotkeys: Canon v0.5', () => {
                 app.closePalette?.();
                 app.closeSettings?.();
             }
-        });
+        }, CORE_ID);
 
-        await expect(page.locator('[data-node-id="root"]')).toBeVisible();
+        await expect(page.locator(`[data-node-id="${CORE_ID}"]`)).toBeVisible();
     });
 
     test('L toggles link tool, Esc exits', async ({ page }) => {
@@ -88,12 +90,52 @@ test.describe('Hotkeys: Canon v0.5', () => {
         await page.waitForTimeout(200);
     });
 
+    test('Undo removes a newly created node in a single step', async ({ page }) => {
+        const canvas = page.locator('.w-full.h-full.bg-os-dark');
+        const box = await canvas.boundingBox();
+
+        await page.mouse.move(box.x + 240, box.y + 240);
+        await page.keyboard.press('n');
+        await page.waitForFunction(() => (window.__GRAPH_STORE__?.getState().nodes.length ?? 0) === 2);
+
+        await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z');
+        await page.waitForFunction(() => (window.__GRAPH_STORE__?.getState().nodes.length ?? 0) === 1);
+    });
+
+    test('Undo removes a newly materialized core in a single step', async ({ page }) => {
+        await page.evaluate(() => {
+            const store = window.__GRAPH_STORE__?.getState();
+            store?.clearGraph();
+            const app = window.__APP_STORE__?.getState();
+            app?.setViewContext('space');
+            app?.setTool('pointer');
+        });
+
+        await page.waitForFunction(() => (window.__GRAPH_STORE__?.getState().nodes.length ?? 0) === 0);
+        await page.evaluate(() => {
+            const store = window.__GRAPH_STORE__?.getState();
+            const app = window.__APP_STORE__?.getState();
+            const spaceId = app?.currentSpaceId ?? 'playground';
+            store?.addNode({
+                id: `${spaceId}-core`,
+                type: 'core',
+                position: { x: 0, y: 0 },
+                data: { label: 'Core' },
+                meta: { spaceId, role: 'core' }
+            });
+        });
+        await page.waitForFunction(() => (window.__GRAPH_STORE__?.getState().nodes.length ?? 0) === 1);
+
+        await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z');
+        await page.waitForFunction(() => (window.__GRAPH_STORE__?.getState().nodes.length ?? 0) === 0);
+    });
+
     test('Shift+Click does not create links', async ({ page }) => {
         const canvas = page.locator('.w-full.h-full.bg-os-dark');
         await canvas.dblclick({ position: { x: 200, y: 200 } });
         await expect(page.locator('[data-node-id]')).toHaveCount(2);
 
-        const rootNode = page.locator('[data-node-id="root"]');
+        const rootNode = page.locator(`[data-node-id="${CORE_ID}"]`);
         const node2 = page.locator('[data-node-id]').nth(1);
 
         await rootNode.click();
@@ -110,7 +152,7 @@ test.describe('Hotkeys: Canon v0.5', () => {
         await expect(page.locator('[data-node-id]')).toHaveCount(2);
 
         await page.keyboard.press('l');
-        const rootNode = page.locator('[data-node-id="root"]');
+        const rootNode = page.locator(`[data-node-id="${CORE_ID}"]`);
         const node2 = page.locator('[data-node-id]').nth(1);
 
         const rootBox = await rootNode.boundingBox();
@@ -164,7 +206,7 @@ test.describe('Hotkeys: Canon v0.5', () => {
     });
 
     test('Enter opens NOW when one node is selected', async ({ page }) => {
-        const rootNode = page.locator('[data-node-id="root"]');
+        const rootNode = page.locator(`[data-node-id="${CORE_ID}"]`);
         await rootNode.click();
 
         await page.keyboard.press('Enter');
@@ -172,7 +214,7 @@ test.describe('Hotkeys: Canon v0.5', () => {
     });
 
     test('Esc exits NOW and closes command palette', async ({ page }) => {
-        const rootNode = page.locator('[data-node-id="root"]');
+        const rootNode = page.locator(`[data-node-id="${CORE_ID}"]`);
         await rootNode.click();
         await page.keyboard.press('Enter');
         await expect(page.getByText('Now Focus')).toBeVisible();
@@ -206,7 +248,7 @@ test.describe('Hotkeys: Canon v0.5', () => {
         await expect(page.locator('[data-node-id]')).toHaveCount(2);
 
         await page.keyboard.press('l');
-        const rootNode = page.locator('[data-node-id="root"]');
+        const rootNode = page.locator(`[data-node-id="${CORE_ID}"]`);
         const node2 = page.locator('[data-node-id]').nth(1);
 
         const rootBox = await rootNode.boundingBox();
@@ -227,7 +269,7 @@ test.describe('Hotkeys: Canon v0.5', () => {
         await canvas.dblclick({ position: { x: 200, y: 200 } });
         await expect(page.locator('[data-node-id]')).toHaveCount(2);
 
-        const rootNode = page.locator('[data-node-id="root"]');
+        const rootNode = page.locator(`[data-node-id="${CORE_ID}"]`);
         const node2 = page.locator('[data-node-id]').nth(1);
 
         await page.keyboard.press('l');

@@ -14,6 +14,7 @@ import { asEdgeId, asNodeId } from '../types';
 import { GRID_METRICS, NODE_SIZES } from '../../utils/layoutMetrics';
 import type { Edge, EdgeId, NodeBase, NodeId, Position } from '../types';
 import { PLAYGROUND_NODES, PLAYGROUND_EDGES, PLAYGROUND_SPACE_ID, PLAYGROUND_CORE_ID } from '../defaults/playgroundContent';
+import { ARCHECORE_ID } from '../defaults/coreIds';
 
 type GraphNode = NodeBase & {
     type: string;
@@ -105,7 +106,33 @@ class GraphEngine {
         };
 
         // Merge changes
-        if (patch.position) node.position = { ...node.position, ...patch.position };
+        if (patch.position) {
+            const next = { ...node.position, ...patch.position };
+            const getRadius = (n: GraphNode) => {
+                if (n.type === 'core') return NODE_SIZES.root / 2;
+                if (n.type === 'cluster') return NODE_SIZES.cluster / 2;
+                return NODE_SIZES.base / 2;
+            };
+            const radius = getRadius(node);
+            let adjusted = { ...next };
+            for (const other of this.nodes.values()) {
+                if (other.id === node.id) continue;
+                const otherRadius = getRadius(other);
+                const dx = adjusted.x - other.position.x;
+                const dy = adjusted.y - other.position.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const minDist = radius + otherRadius;
+                if (dist < (minDist - 0.5)) {
+                    const ux = dist > 0.001 ? dx / dist : 1;
+                    const uy = dist > 0.001 ? dy / dist : 0;
+                    adjusted = {
+                        x: other.position.x + ux * minDist,
+                        y: other.position.y + uy * minDist
+                    };
+                }
+            }
+            node.position = adjusted;
+        }
         if (patch.data) node.data = { ...node.data, ...patch.data };
         if (patch.style) node.style = { ...node.style, ...patch.style };
         if (patch.meta) node.meta = { ...node.meta, ...patch.meta };
@@ -173,7 +200,7 @@ class GraphEngine {
         eventBus.emit(EVENTS.LINK_CREATED, edge);
         const sourceNode = this.nodes.get(sourceId);
         const targetNode = this.nodes.get(targetId);
-        if (sourceNode?.type === 'cluster' && targetNode && targetNode.type !== 'root' && targetNode.type !== 'core') {
+        if (sourceNode?.type === 'cluster' && targetNode && targetNode.type !== 'core') {
             const currentParent = targetNode.meta?.parentClusterId;
             if (!currentParent || currentParent === sourceNode.id) {
                 this.updateNode(targetNode.id, { meta: { parentClusterId: sourceNode.id, isHidden: !!sourceNode.meta?.isFolded } });
@@ -231,7 +258,7 @@ class GraphEngine {
         this.clear();
 
         // 1. Create ArcheCore (The System Root)
-        const rootId = asNodeId('archecore');
+        const rootId = asNodeId(ARCHECORE_ID);
         this.addNode({
             id: rootId,
             type: 'core',

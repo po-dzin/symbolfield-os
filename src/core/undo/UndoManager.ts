@@ -22,6 +22,7 @@ const cloneNode = (node: NodeBase) => ({
 interface UndoCommand {
     undo: () => void;
     redo: () => void;
+    meta?: { type: 'NODE_CREATED'; nodeId: NodeId; nodeRef?: NodeBase };
 }
 
 export class UndoManager {
@@ -29,12 +30,18 @@ export class UndoManager {
     private redoStack: UndoCommand[];
     private isApplying: boolean;
     private activeDrag: { nodeIds: Set<NodeId>; startPositions: Record<string, Position> } | null;
+    private lastCreatedNodeId: NodeId | null;
+    private lastCreatedNodeRef: NodeBase | null;
+    private lastCreatedAt: number | null;
 
     constructor() {
         this.undoStack = [];
         this.redoStack = [];
         this.isApplying = false;
         this.activeDrag = null;
+        this.lastCreatedNodeId = null;
+        this.lastCreatedNodeRef = null;
+        this.lastCreatedAt = null;
     }
 
     push(command: UndoCommand) {
@@ -117,8 +124,12 @@ export class UndoManager {
                 const node = cloneNode(e.payload);
                 this.push({
                     undo: () => graphEngine.removeNode(node.id),
-                    redo: () => graphEngine.addNode({ ...node, type: node.type ?? 'node' })
+                    redo: () => graphEngine.addNode({ ...node, type: node.type ?? 'node' }),
+                    meta: { type: 'NODE_CREATED', nodeId: node.id, nodeRef: node }
                 });
+                this.lastCreatedNodeId = node.id;
+                this.lastCreatedNodeRef = node;
+                this.lastCreatedAt = Date.now();
                 break;
             }
             case EVENTS.NODE_DELETED: {
@@ -140,6 +151,33 @@ export class UndoManager {
                 if (this.activeDrag && this.activeDrag.nodeIds.has(e.payload.id)) {
                     return;
                 }
+                const patchKeys = Object.keys(e.payload.patch ?? {});
+                if (this.lastCreatedNodeId === e.payload.id && this.lastCreatedAt && Date.now() - this.lastCreatedAt < 500) {
+                    if (this.lastCreatedNodeRef) {
+                        this.lastCreatedNodeRef.position = { ...e.payload.after.position };
+                        this.lastCreatedNodeRef.updated_at = e.payload.after.updated_at;
+                        this.lastCreatedNodeRef.data = { ...e.payload.after.data };
+                        this.lastCreatedNodeRef.style = { ...e.payload.after.style };
+                        this.lastCreatedNodeRef.meta = { ...e.payload.after.meta };
+                    }
+                    return;
+                }
+                this.lastCreatedNodeId = null;
+                this.lastCreatedNodeRef = null;
+                const patchMeta = e.payload.patch?.meta as Record<string, unknown> | undefined;
+                if (patchMeta?.coreAnimated === true && patchKeys.length === 1 && patchKeys[0] === 'meta' && e.payload.after?.type === 'core') {
+                    const beforeMeta = (e.payload.before?.meta ?? {}) as Record<string, unknown>;
+                    const afterMeta = (e.payload.after?.meta ?? {}) as Record<string, unknown>;
+                    const metaKeys = new Set([...Object.keys(beforeMeta), ...Object.keys(afterMeta)]);
+                    let hasOtherChanges = false;
+                    metaKeys.forEach((key) => {
+                        if (key === 'coreAnimated') return;
+                        if (beforeMeta[key] !== afterMeta[key]) {
+                            hasOtherChanges = true;
+                        }
+                    });
+                    if (!hasOtherChanges) return;
+                }
                 const before = cloneNode(e.payload.before);
                 const after = cloneNode(e.payload.after);
                 this.push({
@@ -160,6 +198,15 @@ export class UndoManager {
             }
             case EVENTS.LINK_CREATED: {
                 const edge = { ...e.payload };
+                const last = this.undoStack[this.undoStack.length - 1];
+                if (last?.meta?.type === 'NODE_CREATED' && last.meta.nodeId === edge.target) {
+                    const prevRedo = last.redo;
+                    last.redo = () => {
+                        prevRedo();
+                        graphEngine.addEdge(edge.source, edge.target, edge.type, edge.id);
+                    };
+                    break;
+                }
                 this.push({
                     undo: () => graphEngine.removeEdge(edge.id),
                     redo: () => graphEngine.addEdge(edge.source, edge.target, edge.type, edge.id)

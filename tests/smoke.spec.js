@@ -4,9 +4,11 @@
  */
 import { test, expect } from '@playwright/test';
 
+const CORE_ID = 'core';
+
 const seedSpace = async (page) => {
     await page.waitForFunction(() => window.__APP_STORE__ && window.__GRAPH_STORE__);
-    await page.evaluate(() => {
+    await page.evaluate((coreId) => {
         const graph = window.__GRAPH_STORE__?.getState();
         const app = window.__APP_STORE__?.getState();
         const selection = window.__SELECTION_STORE__?.getState();
@@ -24,7 +26,7 @@ const seedSpace = async (page) => {
         }
 
         graph?.clearGraph();
-        graph?.addNode({ id: 'root', type: 'root', position: { x: 400, y: 300 }, data: { label: 'Core' } });
+        graph?.addNode({ id: coreId, type: 'core', position: { x: 400, y: 300 }, data: { label: 'Core' } });
 
         app?.setViewContext('space');
         app?.setTool('pointer');
@@ -34,7 +36,7 @@ const seedSpace = async (page) => {
         selection?.clear?.();
         areas?.clearRegions?.();
         areas?.clearFocusedArea?.();
-    });
+    }, CORE_ID);
 };
 
 test.describe('Smoke Test: App Loading', () => {
@@ -54,7 +56,7 @@ test.describe('Smoke Test: App Loading', () => {
         await expect(page.locator('button[title="Pointer (P)"]')).toBeVisible(); // Dock
 
         // Check for Initial Nodes (Core/Web/Life)
-        // We expect 1 seeded root node
+        // We expect 1 seeded core node
         const nodes = page.locator('[data-node-id]');
         await expect(nodes).toHaveCount(1);
     });
