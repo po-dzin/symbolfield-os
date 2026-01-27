@@ -44,9 +44,10 @@ const createSpaceViaStation = async (page) => {
     await page.evaluate(() => {
         window.__APP_STORE__?.getState().setViewContext('home');
     });
-    await expect(page.getByRole('button', { name: 'New Space' })).toBeVisible();
+    const newSpaceButton = page.getByRole('button', { name: /\+\s*New Space/i }).first();
+    await expect(newSpaceButton).toBeVisible();
 
-    await page.getByRole('button', { name: 'New Space' }).click();
+    await newSpaceButton.click();
     await expect(page.locator('.nodes-layer')).toBeAttached();
 
     const headerInput = page.locator('input[placeholder="Untitled"]').first();
@@ -269,5 +270,38 @@ test.describe('Regression: Critical Flows', () => {
         await page.getByTitle('Return to Station').click();
         await expect(page.getByText('Recent', { exact: true })).toBeVisible();
         await expect(page.getByRole('button', { name: new RegExp(newName) }).first()).toBeVisible();
+    });
+
+    test('Station rename enforces unique names', async ({ page }) => {
+        const first = await createSpaceViaStation(page);
+        const second = await createSpaceViaStation(page);
+
+        await page.getByTitle('Return to Station').click();
+        await expect(page.getByText('Recent', { exact: true })).toBeVisible();
+
+        const row = page
+            .locator('h3', { hasText: second.name })
+            .first()
+            .locator('xpath=ancestor::div[contains(@class,"relative")]')
+            .first();
+        await row.locator('button[aria-label="Space actions"]').first().click();
+
+        page.once('dialog', (dialog) => dialog.accept(first.name));
+        await page.getByRole('button', { name: 'Rename' }).click();
+
+        const renamed = await page.evaluate((spaceId) => {
+            try {
+                const raw = localStorage.getItem('sf_spaces_index');
+                if (!raw) return null;
+                const list = JSON.parse(raw);
+                return list.find(s => s.id === spaceId)?.name ?? null;
+            } catch {
+                return null;
+            }
+        }, second.spaceId);
+
+        expect(renamed).toBeTruthy();
+        expect(renamed).not.toBe(first.name);
+        expect(renamed.startsWith(first.name)).toBe(true);
     });
 });

@@ -227,6 +227,45 @@ test.describe('Coordinate & Interaction System', () => {
         });
     });
 
+    test('should prevent node overlap on creation near core', async ({ page }) => {
+        const canvas = page.locator('.w-full.h-full.bg-os-dark');
+        const canvasBox = await canvas.boundingBox();
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        const coreBox = await coreNode.boundingBox();
+
+        // Attempt to create a node just outside the core hit area but within overlap distance.
+        const coreCenterLocal = {
+            x: (coreBox.x - canvasBox.x) + coreBox.width / 2 + 50,
+            y: (coreBox.y - canvasBox.y) + coreBox.height / 2
+        };
+        await canvas.dblclick({
+            position: {
+                x: coreCenterLocal.x,
+                y: coreCenterLocal.y
+            }
+        });
+
+        await expect(page.locator('[data-node-id]')).toHaveCount(2);
+
+        const ok = await page.evaluate((coreId) => {
+            const { nodes } = window.__GRAPH_STORE__?.getState() ?? { nodes: [] };
+            const core = nodes.find(n => n.id === coreId);
+            const other = nodes.find(n => n.id !== coreId);
+            if (!core || !other) return false;
+
+            const cell = 24;
+            const baseRadius = (cell * 2) / 2;
+            const rootRadius = (cell * 3) / 2;
+            const dx = other.position.x - core.position.x;
+            const dy = other.position.y - core.position.y;
+            const dist = Math.hypot(dx, dy);
+            const minDist = baseRadius + rootRadius;
+            return dist >= (minDist - 1);
+        }, CORE_ID);
+
+        expect(ok).toBe(true);
+    });
+
     test('grid snap is on by default and snaps on pointer up', async ({ page }) => {
         const canvas = page.locator('.w-full.h-full.bg-os-dark');
         const canvasBox = await canvas.boundingBox();
@@ -407,6 +446,27 @@ test.describe('Coordinate & Interaction System', () => {
         const node2 = page.locator('[data-node-id]').nth(1);
         await node2.click();
         await expect(node2).toBeVisible();
+    });
+
+    test('link drag to empty creates one edge from the source node', async ({ page }) => {
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        const coreBox = await coreNode.boundingBox();
+
+        await page.keyboard.press('l');
+
+        const startX = coreBox.x + coreBox.width / 2;
+        const startY = coreBox.y + coreBox.height / 2;
+
+        await page.mouse.move(startX, startY);
+        await page.mouse.down();
+        await page.mouse.move(startX + 180, startY + 60, { steps: 12 });
+        await page.mouse.up();
+
+        await page.waitForFunction(() => (window.__GRAPH_STORE__?.getState().nodes.length ?? 0) === 2);
+        await page.waitForFunction(() => (window.__GRAPH_STORE__?.getState().edges.length ?? 0) === 1);
+
+        const edge = await page.evaluate(() => window.__GRAPH_STORE__?.getState().edges[0]);
+        expect(edge?.source).toBe(CORE_ID);
     });
 
     test('should delete links via edge click and via Links menu', async ({ page }) => {
