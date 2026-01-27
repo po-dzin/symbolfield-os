@@ -180,7 +180,7 @@ test.describe('Coordinate & Interaction System', () => {
         await page.waitForFunction(() => (window.__GRAPH_STORE__?.getState().edges.length ?? 0) > 0);
     });
 
-    test('should create and link node when clicking empty in link mode', async ({ page }) => {
+    test('should create and link node from selected node when clicking empty in link mode', async ({ page }) => {
         const canvas = page.locator('.w-full.h-full.bg-os-dark');
         const canvasBox = await canvas.boundingBox();
         const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
@@ -225,6 +225,69 @@ test.describe('Coordinate & Interaction System', () => {
             const minDist = (coreBox.width / 2) + (nodeBox.width / 2) - 1;
             return dist >= minDist;
         });
+    });
+
+    test('grid snap is on by default and snaps on pointer up', async ({ page }) => {
+        const canvas = page.locator('.w-full.h-full.bg-os-dark');
+        const canvasBox = await canvas.boundingBox();
+
+        const snapId = 'snap-default';
+        await page.evaluate((id) => {
+            const store = window.__GRAPH_STORE__?.getState();
+            store?.addNode({ id, position: { x: 205, y: 205 }, data: { label: id } });
+        }, snapId);
+        const node = page.locator(`[data-node-id="${snapId}"]`);
+        await expect(node).toBeVisible();
+
+        const nodeBox = await node.boundingBox();
+        await page.mouse.move(nodeBox.x + nodeBox.width / 2, nodeBox.y + nodeBox.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(canvasBox.x + 219, canvasBox.y + 227, { steps: 8 });
+        await page.mouse.up();
+
+        await page.waitForFunction((id) => {
+            const cell = 24;
+            const nodeState = window.__GRAPH_STORE__?.getState().nodes.find(n => n.id === id);
+            if (!nodeState) return false;
+            const snappedX = Math.round(nodeState.position.x / cell) * cell;
+            const snappedY = Math.round(nodeState.position.y / cell) * cell;
+            return nodeState.position.x === snappedX && nodeState.position.y === snappedY;
+        }, snapId);
+    });
+
+    test('grid snap toggle in settings disables snapping on pointer up', async ({ page }) => {
+        await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Comma' : 'Control+Comma');
+        await expect(page.getByText('Settings', { exact: true })).toBeVisible();
+        const gridSnapToggle = page.locator('text=Grid snap').locator('..').getByRole('button').first();
+        await gridSnapToggle.click();
+        const gridSnapEnabled = await page.evaluate(() => window.__APP_STORE__?.getState().gridSnapEnabled);
+        expect(gridSnapEnabled).toBe(false);
+
+        const canvas = page.locator('.w-full.h-full.bg-os-dark');
+        const canvasBox = await canvas.boundingBox();
+        const snapId = 'snap-off';
+        await page.evaluate((id) => {
+            const store = window.__GRAPH_STORE__?.getState();
+            store?.addNode({ id, position: { x: 240, y: 240 }, data: { label: id } });
+        }, snapId);
+        const node = page.locator(`[data-node-id="${snapId}"]`);
+        await expect(node).toBeVisible();
+
+        const nodeBox = await node.boundingBox();
+        await page.mouse.move(nodeBox.x + nodeBox.width / 2, nodeBox.y + nodeBox.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(canvasBox.x + 253, canvasBox.y + 247, { steps: 8 });
+        await page.mouse.up();
+
+        const snapped = await page.evaluate((id) => {
+            const cell = 24;
+            const nodeState = window.__GRAPH_STORE__?.getState().nodes.find(n => n.id === id);
+            if (!nodeState) return true;
+            const snappedX = Math.round(nodeState.position.x / cell) * cell;
+            const snappedY = Math.round(nodeState.position.y / cell) * cell;
+            return nodeState.position.x === snappedX && nodeState.position.y === snappedY;
+        }, snapId);
+        expect(snapped).toBe(false);
     });
 
     test('should create node with [N] at cursor', async ({ page }) => {

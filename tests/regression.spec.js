@@ -39,6 +39,24 @@ const seedSpace = async (page) => {
     }, CORE_ID);
 };
 
+const createSpaceViaStation = async (page) => {
+    // Ensure we are on Station view first.
+    await page.evaluate(() => {
+        window.__APP_STORE__?.getState().setViewContext('home');
+    });
+    await expect(page.getByRole('button', { name: 'New Space' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'New Space' }).click();
+    await expect(page.locator('.nodes-layer')).toBeAttached();
+
+    const headerInput = page.locator('input[placeholder="Untitled"]').first();
+    await expect(headerInput).toBeVisible();
+    const name = await headerInput.inputValue();
+
+    const spaceId = await page.evaluate(() => window.__APP_STORE__?.getState().currentSpaceId);
+    return { name, spaceId };
+};
+
 test.describe('Regression: Critical Flows', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
@@ -105,6 +123,20 @@ test.describe('Regression: Critical Flows', () => {
         const palette = page.locator('.glass-panel', { hasText: 'Command Palette' });
         await palette.getByRole('button', { name: '✕' }).click();
         await expect(page.getByText('Command Palette')).not.toBeVisible();
+    });
+
+    test('Tool dock buttons switch active tool', async ({ page }) => {
+        await page.getByTitle('Link (L)').click();
+        let activeTool = await page.evaluate(() => window.__APP_STORE__?.getState().activeTool);
+        expect(activeTool).toBe('link');
+
+        await page.getByTitle('Area (A)').click();
+        activeTool = await page.evaluate(() => window.__APP_STORE__?.getState().activeTool);
+        expect(activeTool).toBe('area');
+
+        await page.getByTitle('Pointer (P)').click();
+        activeTool = await page.evaluate(() => window.__APP_STORE__?.getState().activeTool);
+        expect(activeTool).toBe('pointer');
     });
 
     test('Time chip toggles log drawer and scale buttons respond', async ({ page }) => {
@@ -201,5 +233,41 @@ test.describe('Regression: Critical Flows', () => {
         await page.getByRole('button', { name: /Default Space/i }).click();
         viewContext = await page.evaluate(() => window.__APP_STORE__?.getState().viewContext);
         expect(viewContext).toBe('space');
+    });
+
+    test('Station dropdown rename updates space name', async ({ page }) => {
+        const created = await createSpaceViaStation(page);
+        const oldName = created.name;
+        const newName = `${oldName} Renamed`;
+
+        await page.getByTitle('Return to Station').click();
+        await expect(page.getByText('Recent', { exact: true })).toBeVisible();
+
+        const row = page
+            .locator('h3', { hasText: oldName })
+            .first()
+            .locator('xpath=ancestor::div[contains(@class,"relative")]')
+            .first();
+        await row.locator('button[aria-label="Space actions"]').first().click();
+
+        page.once('dialog', (dialog) => dialog.accept(newName));
+        await page.getByRole('button', { name: 'Rename' }).click();
+
+        await expect(page.getByRole('button', { name: new RegExp(newName) }).first()).toBeVisible();
+    });
+
+    test('Space header rename persists to Station recents', async ({ page }) => {
+        const created = await createSpaceViaStation(page);
+        const newName = `Core ${Date.now().toString().slice(-4)}`;
+
+        const headerInput = page.locator('input[placeholder="Untitled"]').first();
+        await headerInput.click();
+        await headerInput.fill(newName);
+        await headerInput.press('Enter');
+        await expect(headerInput).toHaveValue(newName);
+
+        await page.getByTitle('Return to Station').click();
+        await expect(page.getByText('Recent', { exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: new RegExp(newName) }).first()).toBeVisible();
     });
 });
