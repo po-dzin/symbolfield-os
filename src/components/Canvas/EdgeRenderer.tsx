@@ -8,6 +8,7 @@ import React from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { useEdgeSelectionStore } from '../../store/useEdgeSelectionStore';
 import { useSelectionStore } from '../../store/useSelectionStore';
+import { useCameraStore } from '../../store/useCameraStore';
 import type { Edge } from '../../core/types';
 import { NODE_SIZES } from '../../utils/layoutMetrics';
 
@@ -28,6 +29,7 @@ const EdgeRenderer = ({ edge }: EdgeRendererProps) => {
     const nodes = useGraphStore(state => state.nodes);
     const selectedEdgeIds = useEdgeSelectionStore(state => state.selectedEdgeIds);
     const hoverEdgeId = useEdgeSelectionStore(state => state.hoverEdgeId);
+    const zoom = useCameraStore(state => state.zoom);
 
     // Selection state for nodes to account for scaling
     const selectedNodeIds = useSelectionStore(state => state.selectedIds);
@@ -41,13 +43,16 @@ const EdgeRenderer = ({ edge }: EdgeRendererProps) => {
     if (sourceHidden || targetHidden) return null;
     const sourceFocusHidden = sourceNode.meta?.focusHidden;
     const targetFocusHidden = targetNode.meta?.focusHidden;
-    const sourceGhost = Boolean(sourceNode.meta?.focusGhost);
-    const targetGhost = Boolean(targetNode.meta?.focusGhost);
+    const sourceGhostLevel = sourceNode.meta?.focusGhostLevel ?? (sourceNode.meta?.focusGhost ? 1 : 0);
+    const targetGhostLevel = targetNode.meta?.focusGhostLevel ?? (targetNode.meta?.focusGhost ? 1 : 0);
+    const sourceGhost = sourceGhostLevel > 0;
+    const targetGhost = targetGhostLevel > 0;
 
     if ((sourceFocusHidden && !sourceGhost) || (targetFocusHidden && !targetGhost)) return null;
     if (sourceGhost && targetGhost) return null;
 
     const isGhostLink = sourceGhost || targetGhost;
+    const ghostLevel = Math.max(sourceGhostLevel, targetGhostLevel);
 
     // Center coords
     const cx1 = sourceNode.position.x;
@@ -92,6 +97,9 @@ const EdgeRenderer = ({ edge }: EdgeRendererProps) => {
 
     const isSelected = selectedEdgeIds.includes(edge.id);
     const isHovered = hoverEdgeId === edge.id;
+    const blurScale = Math.max(0.5, 1 / Math.max(zoom, 0.25));
+    const baseBlur = isSelected ? 5 : isHovered ? 4.5 : 4;
+    const glowBlur = Math.max(1.2, baseBlur * blurScale);
 
     return (
         <g>
@@ -111,7 +119,7 @@ const EdgeRenderer = ({ edge }: EdgeRendererProps) => {
                 data-edge-id={edge.id}
                 x1={x1} y1={y1} x2={x2} y2={y2}
                 stroke={isGhostLink
-                    ? "rgba(255,255,255,0.2)"
+                    ? (ghostLevel > 1 ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.2)")
                     : isSelected
                         ? "rgba(255,255,255,0.9)"
                         : isHovered
@@ -132,7 +140,7 @@ const EdgeRenderer = ({ edge }: EdgeRendererProps) => {
                     x1={x1} y1={y1} x2={x2} y2={y2}
                     stroke={isSelected ? "rgba(255,255,255,0.25)" : isHovered ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.15)"}
                     strokeWidth={isSelected ? "8" : isHovered ? "7" : "6"}
-                    style={{ filter: isSelected ? 'blur(5px)' : isHovered ? 'blur(4.5px)' : 'blur(4px)' }}
+                    style={{ filter: `blur(${glowBlur}px)` }}
                     pointerEvents="none"
                 />
             )}

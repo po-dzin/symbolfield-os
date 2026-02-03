@@ -11,6 +11,7 @@
 
 import { eventBus, EVENTS } from '../events/EventBus';
 import type { NodeId } from '../types';
+import { settingsStorage } from '../storage/SettingsStorage';
 
 export const APP_MODES = {
     DEEP: 'deep',
@@ -51,6 +52,15 @@ interface StateSnapshot {
     paletteOpen: boolean;
     contextMenuMode: 'bar' | 'radial';
     gridSnapEnabled: boolean;
+    gridStepMul: number;
+    showGrid: boolean;
+    showEdges: boolean;
+    showHud: boolean;
+    showCounters: boolean;
+    focusDimEnabled: boolean;
+    subspaceLod: 1 | 2 | 3;
+    showStationLabels: boolean;
+    showPlaygroundOnStation: boolean;
     session: SessionState;
 }
 
@@ -70,6 +80,15 @@ class StateEngine {
             paletteOpen: false,
             contextMenuMode: 'bar',
             gridSnapEnabled: true,
+            gridStepMul: 1,
+            showGrid: true,
+            showEdges: true,
+            showHud: true,
+            showCounters: true,
+            focusDimEnabled: true,
+            subspaceLod: 2,
+            showStationLabels: true,
+            showPlaygroundOnStation: true,
 
             // Session (HUD)
             session: {
@@ -78,6 +97,8 @@ class StateEngine {
                 label: null
             }
         };
+
+        this._loadPersistedSettings();
     }
 
     // --- Actions ---
@@ -123,6 +144,13 @@ class StateEngine {
         this._emitChange();
     }
 
+    setSubspaceLod(level: 1 | 2 | 3) {
+        if (this.state.subspaceLod === level) return;
+        this.state.subspaceLod = level;
+        eventBus.emit(EVENTS.SUBSPACE_LOD_CHANGED, { level });
+        this._emitChange();
+    }
+
     setFieldScope(hubId: NodeId | null) {
         if (this.state.fieldScopeId === hubId) return;
         this.state.fieldScopeId = hubId;
@@ -143,6 +171,7 @@ class StateEngine {
     setContextMenuMode(mode: 'bar' | 'radial') {
         if (this.state.contextMenuMode === mode) return;
         this.state.contextMenuMode = mode;
+        this._persistSettings({ contextMenuMode: mode });
         eventBus.emit(EVENTS.CONTEXT_MENU_MODE_CHANGED, { mode });
         this._emitChange();
     }
@@ -204,6 +233,13 @@ class StateEngine {
         this._emitChange();
     }
 
+    openSettings() {
+        if (this.state.settingsOpen) return;
+        this.state.settingsOpen = true;
+        eventBus.emit(EVENTS.SETTINGS_TOGGLED, { open: true });
+        this._emitChange();
+    }
+
     closeSettings() {
         if (!this.state.settingsOpen) return;
         this.state.settingsOpen = false;
@@ -214,7 +250,72 @@ class StateEngine {
     setGridSnapEnabled(enabled: boolean) {
         if (this.state.gridSnapEnabled === enabled) return;
         this.state.gridSnapEnabled = enabled;
+        this._persistSettings({ gridSnapEnabled: enabled });
         eventBus.emit(EVENTS.GRID_SNAP_CHANGED, { enabled });
+        this._emitChange();
+    }
+
+    setGridStepMul(multiplier: number) {
+        if (this.state.gridStepMul === multiplier) return;
+        this.state.gridStepMul = multiplier;
+        this._persistSettings({ gridStepMul: multiplier });
+        eventBus.emit(EVENTS.GRID_STEP_CHANGED, { multiplier });
+        this._emitChange();
+    }
+
+    setShowGrid(enabled: boolean) {
+        if (this.state.showGrid === enabled) return;
+        this.state.showGrid = enabled;
+        this._persistSettings({ showGrid: enabled });
+        eventBus.emit(EVENTS.GRID_VISIBILITY_CHANGED, { enabled });
+        this._emitChange();
+    }
+
+    setShowEdges(enabled: boolean) {
+        if (this.state.showEdges === enabled) return;
+        this.state.showEdges = enabled;
+        this._persistSettings({ showEdges: enabled });
+        eventBus.emit(EVENTS.EDGES_VISIBILITY_CHANGED, { enabled });
+        this._emitChange();
+    }
+
+    setShowHud(enabled: boolean) {
+        if (this.state.showHud === enabled) return;
+        this.state.showHud = enabled;
+        this._persistSettings({ showHud: enabled });
+        eventBus.emit(EVENTS.HUD_VISIBILITY_CHANGED, { enabled });
+        this._emitChange();
+    }
+
+    setShowCounters(enabled: boolean) {
+        if (this.state.showCounters === enabled) return;
+        this.state.showCounters = enabled;
+        this._persistSettings({ showCounters: enabled });
+        eventBus.emit(EVENTS.COUNTERS_VISIBILITY_CHANGED, { enabled });
+        this._emitChange();
+    }
+
+    setFocusDimEnabled(enabled: boolean) {
+        if (this.state.focusDimEnabled === enabled) return;
+        this.state.focusDimEnabled = enabled;
+        this._persistSettings({ focusDimEnabled: enabled });
+        eventBus.emit(EVENTS.FOCUS_DIM_CHANGED, { enabled });
+        this._emitChange();
+    }
+
+    setShowStationLabels(enabled: boolean) {
+        if (this.state.showStationLabels === enabled) return;
+        this.state.showStationLabels = enabled;
+        this._persistSettings({ showStationLabels: enabled });
+        eventBus.emit(EVENTS.STATION_LABELS_VISIBILITY_CHANGED, { enabled });
+        this._emitChange();
+    }
+
+    setShowPlaygroundOnStation(enabled: boolean) {
+        if (this.state.showPlaygroundOnStation === enabled) return;
+        this.state.showPlaygroundOnStation = enabled;
+        this._persistSettings({ showPlaygroundOnStation: enabled });
+        eventBus.emit(EVENTS.STATION_PLAYGROUND_VISIBILITY_CHANGED, { enabled });
         this._emitChange();
     }
 
@@ -232,6 +333,44 @@ class StateEngine {
         // However, for React syncing, we might need a signal.
         // For v0.5, we will let the Zustand store handle the reactivity by
         // polling or manually triggering updates when calling these methods.
+    }
+
+    private _loadPersistedSettings() {
+        const data = settingsStorage.load();
+        if (data.contextMenuMode === 'bar' || data.contextMenuMode === 'radial') {
+            this.state.contextMenuMode = data.contextMenuMode;
+        }
+        if (typeof data.gridSnapEnabled === 'boolean') {
+            this.state.gridSnapEnabled = data.gridSnapEnabled;
+        }
+        if (typeof data.gridStepMul === 'number') {
+            this.state.gridStepMul = data.gridStepMul;
+        }
+        if (typeof data.showGrid === 'boolean') {
+            this.state.showGrid = data.showGrid;
+        }
+        if (typeof data.showEdges === 'boolean') {
+            this.state.showEdges = data.showEdges;
+        }
+        if (typeof data.showHud === 'boolean') {
+            this.state.showHud = data.showHud;
+        }
+        if (typeof data.showCounters === 'boolean') {
+            this.state.showCounters = data.showCounters;
+        }
+        if (typeof data.focusDimEnabled === 'boolean') {
+            this.state.focusDimEnabled = data.focusDimEnabled;
+        }
+        if (typeof data.showStationLabels === 'boolean') {
+            this.state.showStationLabels = data.showStationLabels;
+        }
+        if (typeof data.showPlaygroundOnStation === 'boolean') {
+            this.state.showPlaygroundOnStation = data.showPlaygroundOnStation;
+        }
+    }
+
+    private _persistSettings(patch: Partial<StateSnapshot>) {
+        settingsStorage.save(patch);
     }
 }
 

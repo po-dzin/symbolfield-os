@@ -54,7 +54,7 @@ test.describe('Hotkeys: Canon v0.5', () => {
 
     test('Cmd/Ctrl+K toggles command palette event', async ({ page }) => {
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
-        await expect(page.getByText('Command Palette')).toBeVisible();
+        await expect(page.getByText('Omni Input')).toBeVisible();
     });
 
     test('Backslash toggles right drawer event', async ({ page }) => {
@@ -224,10 +224,10 @@ test.describe('Hotkeys: Canon v0.5', () => {
         expect(nowVisible).toBe(false);
 
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
-        await expect(page.getByText('Command Palette')).toBeVisible();
+        await expect(page.getByText('Omni Input')).toBeVisible();
 
         await page.keyboard.press('Escape');
-        await expect(page.getByText('Command Palette')).not.toBeVisible();
+        await expect(page.getByText('Omni Input')).not.toBeVisible();
     });
 
     test('Settings hotkey toggles open state', async ({ page }) => {

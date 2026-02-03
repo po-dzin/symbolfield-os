@@ -35,7 +35,8 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
     const displayLabel = labelText.length > 12 ? labelText.slice(0, 12) : labelText;
     const iconValueRaw = typeof nodeData?.icon_value === 'string' ? nodeData.icon_value.trim() : '';
     const iconValue = iconValueRaw === '•' ? '' : iconValueRaw;
-    const isFocusGhost = Boolean(node.meta?.focusGhost);
+    const focusGhostLevel = node.meta?.focusGhostLevel ?? (node.meta?.focusGhost ? 1 : 0);
+    const isFocusGhost = focusGhostLevel > 0;
     const parentClusterId = node.meta?.parentClusterId;
     const parentCluster = parentClusterId ? allNodes.find(item => item.id === parentClusterId) : null;
     const isParentFolded = Boolean(parentCluster?.meta?.isFolded);
@@ -56,6 +57,12 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
     const dashInset = Math.round(sizePx * 0.17);
     const orbit1Inset = Math.round(sizePx * 0.29);
     const orbit2Inset = Math.round(sizePx * 0.42);
+    const radialLabelAngle = -150 * (Math.PI / 180);
+    const radialLabelRadius = (sizePx / 2) + 48;
+    const radialLabelOffset = {
+        x: Math.cos(radialLabelAngle) * radialLabelRadius,
+        y: Math.sin(radialLabelAngle) * radialLabelRadius
+    };
 
     const ringClasses = isArchecore
         ? 'border shadow-[0_0_30px_rgba(255,255,255,0.12)]'
@@ -115,10 +122,10 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
             className={`absolute top-0 left-0 ${(isFocusGhost || isHidden) ? 'pointer-events-none' : 'pointer-events-auto'}`}
             data-node-id={node.id}
             data-node-type={node.type}
-            style={{
-                transform: `translate(${node.position.x}px, ${node.position.y}px)`
-            }}
-        >
+                style={{
+                    transform: `translate3d(${node.position.x}px, ${node.position.y}px, 0)`
+                }}
+            >
             <div
                 className={`relative -translate-x-1/2 -translate-y-1/2 ${bloomClass}`}
                 style={{ width: `${sizePx}px`, height: `${sizePx}px` }}
@@ -153,13 +160,13 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
                         height: '100%',
                         backgroundColor: isFocusGhost ? 'transparent' : bodyColor,
                         borderColor: isFocusGhost
-                            ? 'rgba(255,255,255,0.3)'
+                            ? (focusGhostLevel > 1 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.3)')
                             : (isSelected || isHover ? hoverStrokeColor : strokeColor),
                         borderStyle: isFocusGhost ? 'dashed' : undefined,
                         boxShadow: isFocusGhost
                             ? 'none'
                             : `0 6px 30px -2px rgba(0,0,0,0.5), inset 0 0 18px rgba(255,255,255,0.09), 0 0 ${isSelected ? 14 : 6}px ${glowColor}`,
-                        opacity: isHidden ? 0 : (isFocusGhost ? 0.55 : 1),
+                        opacity: isHidden ? 0 : (isFocusGhost ? (focusGhostLevel > 1 ? 0.35 : 0.55) : 1),
                         transition: isCore ? 'border-color 220ms ease' : undefined
                     }}
                 >
@@ -186,48 +193,16 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
                                     id={resolvedGlyphId}
                                     size={glyphSize * glyphScale}
                                     className="text-white/90"
-                                    style={{ color: isFocusGhost ? 'rgba(255,255,255,0.5)' : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}
+                                    style={{ color: isFocusGhost ? (focusGhostLevel > 1 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)') : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}
                                 />
                             ) : (
-                                <span style={{ fontSize: `${glyphSize * glyphScale}px`, lineHeight: 1, display: 'block', color: isFocusGhost ? 'rgba(255,255,255,0.5)' : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}>
+                                <span style={{ fontSize: `${glyphSize * glyphScale}px`, lineHeight: 1, display: 'block', color: isFocusGhost ? (focusGhostLevel > 1 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)') : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}>
                                     {iconValue || '○'}
                                 </span>
                             )}
                         </span>
                     )}
 
-                    {/* Label in radial mode */}
-                    {isSelected && contextMenuMode === 'radial' ? (
-                        <div
-                            className="absolute top-full mt-6 left-1/2 -translate-x-1/2 flex justify-center z-50 pointer-events-auto"
-                            data-part="label"
-                            onPointerDown={(e) => {
-                                e.stopPropagation();
-                            }}
-                        >
-                            {isEditing ? (
-                                <input
-                                    ref={inputRef}
-                                    type="text"
-                                    defaultValue={labelText}
-                                    onBlur={handleLabelCommit}
-                                    onKeyDown={handleKeyDown}
-                                    className="px-3 py-1 bg-black/80 border border-white/30 rounded-full backdrop-blur-md text-[10px] tracking-widest text-white uppercase text-center outline-none min-w-[60px] select-text cursor-text"
-                                    autoFocus
-                                />
-                            ) : (
-                                <div
-                                    className="px-3 py-1 bg-black/60 border border-white/10 rounded-full backdrop-blur-md text-[10px] tracking-widest text-white/80 uppercase whitespace-nowrap select-none hover:bg-white/10 hover:border-white/30 transition-colors cursor-text max-w-[12ch] truncate"
-                                    onDoubleClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsEditing(true);
-                                    }}
-                                >
-                                    {displayLabel}
-                                </div>
-                            )}
-                        </div>
-                    ) : null}
                 </div>
             </div>
         </div>

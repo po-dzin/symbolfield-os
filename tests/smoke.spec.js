@@ -68,10 +68,10 @@ test.describe('Smoke Test: App Loading', () => {
         await expect(page.getByText('Settings', { exact: true })).not.toBeVisible();
 
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
-        await expect(page.getByText('Command Palette')).toBeVisible();
-        const palette = page.locator('.glass-panel', { hasText: 'Command Palette' });
+        await expect(page.getByText('Omni Input')).toBeVisible();
+        const palette = page.locator('.glass-panel', { hasText: 'Omni Input' });
         await palette.getByRole('button', { name: '✕' }).click();
-        await expect(page.getByText('Command Palette')).not.toBeVisible();
+        await expect(page.getByText('Omni Input')).not.toBeVisible();
 
         const timeChip = page.locator('.os-shell .absolute.bottom-4.right-4');
         await timeChip.click();

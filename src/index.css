@@ -24,6 +24,21 @@
     color: var(--text-primary);
     background-color: var(--color-os-dark);
 
+    /* Layout System (v0.5) */
+    --panel-width-sm: 280px;
+    --panel-width-md: 320px;
+    --panel-width-lg: 360px;
+    --panel-radius: 24px;
+    --panel-padding: 24px;
+    --bar-height: 56px;
+    --bar-pad-y: 12px;
+    --bar-pad-x: 20px;
+    --bar-gap: 12px;
+    --bar-icon: 20px;
+    --dock-width: 56px;
+    --control-size: 32px;
+    --layout-step: 8px;
+
     /* Disable text selection globally */
     user-select: none;
     -webkit-user-select: none;
@@ -82,7 +97,7 @@ html, #root {
 
 @layer components {
     .glass-panel {
-        @apply bg-sf-zinc-900/80 backdrop-blur-xl border border-white/5 rounded-2xl;
+        @apply bg-sf-zinc-900/80 backdrop-blur-xl border border-white/5 rounded-[var(--panel-radius)];
     }
 }
 
@@ -103,10 +118,31 @@ html, #root {
     cursor: pointer !important;
 }
 
-.context-toolbar .context-label,
 .context-toolbar input,
 .context-toolbar textarea {
     cursor: text !important;
+}
+
+button,
+[role="button"],
+[data-clickable="true"] {
+    cursor: pointer;
+}
+
+[data-context-menu],
+[data-context-menu] * {
+    cursor: pointer;
+}
+
+[data-context-menu] input,
+[data-context-menu] textarea {
+    cursor: text;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+    cursor: text;
 }
 
 @keyframes cloud-bloom {

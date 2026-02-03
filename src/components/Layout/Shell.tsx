@@ -4,7 +4,7 @@
  * Implements the "Field-First" layout.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import ToolDock from './ToolDock';
 import TimeChip from './TimeChip';
@@ -21,11 +21,27 @@ import SpaceHeader from './SpaceHeader';
 const Shell = () => {
     const appMode = useAppStore(state => state.appMode);
     const viewContext = useAppStore(state => state.viewContext);
-    const setViewContext = useAppStore(state => state.setViewContext);
+    const togglePalette = useAppStore(state => state.togglePalette);
+    // Settings are toggled from ToolDock (left) for now.
 
     // Drawer state could be in AppStore, but local for v0.5 MVP is acceptable for UI-only drawers
     // Actually, UI_SPACE_FIELD_SHELL says LogDrawer is toggled via TimeChip/Dock
     const [isLogOpen, setLogOpen] = useState(false);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (!(event.metaKey || event.ctrlKey)) return;
+            if (event.key.toLowerCase() !== 'k') return;
+            const target = event.target as HTMLElement | null;
+            if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+                return;
+            }
+            event.preventDefault();
+            togglePalette();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [togglePalette]);
 
     return (
         <div className={`os-shell w-screen h-screen overflow-hidden relative cursor-default mode-${appMode}`}>
@@ -76,13 +92,13 @@ const Shell = () => {
                     {/* Settings Drawer (Z3) */}
                     <SettingsDrawer />
 
-                    {/* Command Palette (Z3) */}
-                    <CommandPalette />
-
                     {/* NOW Overlay (Z1000+) */}
                     <NowOverlay />
                 </>
             )}
+
+            {/* Omni Input (Z3) */}
+            <CommandPalette />
 
         </div>
     );

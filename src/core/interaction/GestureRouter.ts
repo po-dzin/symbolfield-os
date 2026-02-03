@@ -76,7 +76,9 @@ class GestureRouter {
     }
 
     private _snapPoint(x: number, y: number) {
-        return this._isGridSnapEnabled() ? snapPointToGrid({ x, y }) : { x, y };
+        const stepMul = stateEngine.getState().gridStepMul ?? 1;
+        const cell = GRID_METRICS.cell * stepMul;
+        return this._isGridSnapEnabled() ? snapPointToGrid({ x, y }, cell) : { x, y };
     }
 
     private _getNodeRadius(node: { type?: string }) {
@@ -220,6 +222,9 @@ class GestureRouter {
             return;
         }
         if (gesture.targetType === 'empty' && gesture.button === 0 && !gesture.modifiers.shift) {
+            if (context.activeTool === TOOLS.LINK && this.pendingLinkSource) {
+                return;
+            }
             selectionState.clear();
             useEdgeSelectionStore.getState().clear();
             useAreaStore.getState().clearSelectedAreas();
@@ -580,6 +585,7 @@ class GestureRouter {
 
             const hitNodes: NodeId[] = [];
             graphEngine.getNodes().forEach(n => {
+                if (n.meta?.focusHidden) return;
                 if (n.position.x >= rect.x && n.position.x <= rect.x + rect.w &&
                     n.position.y >= rect.y && n.position.y <= rect.y + rect.h) {
                     hitNodes.push(n.id);
@@ -968,11 +974,6 @@ class GestureRouter {
         const isComma = code === 'Comma';
 
         // 1. Command / Search
-        if ((e.key === 'k' || e.key === 'K' || isKey('K')) && isMod) {
-            e.preventDefault();
-            stateEngine.togglePalette();
-            return;
-        }
         if ((e.key === ',' || isComma) && isMod) {
             e.preventDefault();
             stateEngine.toggleSettings();
@@ -996,7 +997,7 @@ class GestureRouter {
         if ((e.key === 'a' || e.key === 'A' || isKey('A')) && isMod) {
             e.preventDefault();
             useEdgeSelectionStore.getState().clear();
-            selectionState.setSelection(graphEngine.getNodes().map(n => n.id));
+            selectionState.setSelection(graphEngine.getNodes().filter(n => !n.meta?.focusHidden).map(n => n.id));
             return;
         }
 
@@ -1060,6 +1061,13 @@ class GestureRouter {
         }
         if (isEnter && !isShift) {
             const selection = selectionState.getSelection();
+            if (selection.length === 0) {
+                const areaState = useAreaStore.getState();
+                if (areaState.selectedAreaId && areaState.focusedAreaId !== areaState.selectedAreaId) {
+                    areaState.setFocusedAreaId(areaState.selectedAreaId);
+                    return;
+                }
+            }
             if (selection.length === 1) {
                 const selectedId = selection[0];
                 if (!selectedId) return;
@@ -1094,12 +1102,6 @@ class GestureRouter {
             const state = stateEngine.getState();
             if (useAreaStore.getState().focusedAreaId) {
                 useAreaStore.getState().clearFocusedArea();
-                if (state.activeTool !== TOOLS.POINTER) {
-                    stateEngine.setTool(TOOLS.POINTER);
-                    this.pendingLinkSource = null;
-                    this.pendingLinkAssociative = false;
-                    this.clearLinkPreview();
-                }
                 return;
             }
             if (state.activeTool !== TOOLS.POINTER) {

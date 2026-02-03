@@ -58,6 +58,14 @@ const createSpaceViaStation = async (page) => {
     return { name, spaceId };
 };
 
+const openStationDrawer = async (page) => {
+    await page.evaluate(() => {
+        window.__APP_STORE__?.getState().setViewContext('home');
+    });
+    await page.mouse.move(2, 120);
+    await expect(page.getByText('Recent', { exact: true })).toBeVisible();
+};
+
 test.describe('Regression: Critical Flows', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
@@ -79,6 +87,21 @@ test.describe('Regression: Critical Flows', () => {
 
         // 4. Verify Context Actions
         await expect(page.locator('button[title="Enter Node"]')).toBeVisible();
+    });
+
+    test('Radial context menu renders and action menu opens', async ({ page }) => {
+        await page.evaluate(() => window.__APP_STORE__?.getState().setContextMenuMode('radial'));
+
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        await coreNode.click();
+
+        await expect(page.getByText('Core').first()).toBeVisible();
+
+        const actionsButton = page.getByTitle('Actions');
+        await expect(actionsButton).toBeVisible();
+        await actionsButton.click();
+
+        await expect(page.getByRole('button', { name: /Delete/i })).toBeVisible();
     });
 
     test('Dive/Enter NOW works via Double Click', async ({ page }) => {
@@ -104,11 +127,15 @@ test.describe('Regression: Critical Flows', () => {
         await page.getByTitle('Settings').click();
         await expect(page.getByText('Settings', { exact: true })).toBeVisible();
 
-        await page.getByRole('button', { name: 'Radial' }).click();
+        const contextRow = page.getByText('Context menu mode').locator('..');
+        const contextSwitch = contextRow.getByRole('switch');
+        await expect(contextSwitch).toBeVisible();
+
+        await contextSwitch.click();
         let mode = await page.evaluate(() => window.__APP_STORE__?.getState().contextMenuMode);
         expect(mode).toBe('radial');
 
-        await page.getByRole('button', { name: 'Bar' }).click();
+        await contextSwitch.click();
         mode = await page.evaluate(() => window.__APP_STORE__?.getState().contextMenuMode);
         expect(mode).toBe('bar');
 
@@ -119,11 +146,64 @@ test.describe('Regression: Critical Flows', () => {
 
     test('Command palette opens and closes via UI', async ({ page }) => {
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
-        await expect(page.getByText('Command Palette')).toBeVisible();
+        await expect(page.getByText('Omni Input')).toBeVisible();
 
-        const palette = page.locator('.glass-panel', { hasText: 'Command Palette' });
+        const palette = page.locator('.glass-panel', { hasText: 'Omni Input' });
         await palette.getByRole('button', { name: '✕' }).click();
-        await expect(page.getByText('Command Palette')).not.toBeVisible();
+        await expect(page.getByText('Omni Input')).not.toBeVisible();
+    });
+
+    test('Command palette runs quick command and shows navigation hints', async ({ page }) => {
+        await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
+        await expect(page.getByText('Omni Input')).toBeVisible();
+        await expect(page.getByText('↑↓ navigate')).toBeVisible();
+
+        const input = page.getByPlaceholder('Search or type /command...');
+        await input.fill('link');
+        await page.keyboard.press('Enter');
+
+        const activeTool = await page.evaluate(() => window.__APP_STORE__?.getState().activeTool);
+        expect(activeTool).toBe('link');
+    });
+
+    test('Backspace moves selected station space to trash (soft delete)', async ({ page }) => {
+        await page.evaluate(() => window.__APP_STORE__?.getState().setViewContext('home'));
+
+        const newSpaceButton = page.getByRole('button', { name: /\+\s*New Space/i }).first();
+        await expect(newSpaceButton).toBeVisible();
+        await newSpaceButton.click();
+
+        const spaceId = await page.evaluate(() => window.__APP_STORE__?.getState().currentSpaceId);
+        expect(spaceId).toBeTruthy();
+
+        await page.evaluate(() => window.__APP_STORE__?.getState().setViewContext('home'));
+
+        const spaceName = await page.evaluate((id) => {
+            try {
+                const raw = localStorage.getItem('sf_spaces_index');
+                const list = raw ? JSON.parse(raw) : [];
+                const found = list.find(item => item.id === id);
+                return found?.name ?? 'New Space';
+            } catch {
+                return 'New Space';
+            }
+        }, spaceId);
+
+        await page.on('dialog', dialog => dialog.accept());
+        const stationLabel = page.locator('svg text').filter({ hasText: spaceName }).first();
+        await expect(stationLabel).toBeVisible();
+        await stationLabel.click();
+        await page.keyboard.press('Backspace');
+
+        await page.waitForFunction((id) => {
+            try {
+                const raw = localStorage.getItem('sf_spaces_index');
+                const list = raw ? JSON.parse(raw) : [];
+                return list.find(item => item.id === id)?.trashed === true;
+            } catch {
+                return false;
+            }
+        }, spaceId);
     });
 
     test('Tool dock buttons switch active tool', async ({ page }) => {
@@ -188,20 +268,21 @@ test.describe('Regression: Critical Flows', () => {
         const shapes = await page.evaluate(() => window.__AREA_STORE__?.getState().areas.map(area => area.shape));
         expect(shapes).toContain('circle');
 
-        await page.evaluate(() => {
-            document.querySelector('[data-area-id] svg')?.dispatchEvent(
-                new MouseEvent('dblclick', { bubbles: true })
-            );
+        const areaId = await page.evaluate(() => {
+            const store = window.__AREA_STORE__?.getState();
+            const id = store?.areas?.[0]?.id;
+            if (id) {
+                store?.setSelectedAreaId(id);
+            }
+            return id ?? null;
         });
+        expect(areaId).toBeTruthy();
+        await page.keyboard.press('Enter');
         await page.waitForFunction(() => window.__AREA_STORE__?.getState().focusedAreaId !== null);
         let focusedAreaId = await page.evaluate(() => window.__AREA_STORE__?.getState().focusedAreaId);
         expect(focusedAreaId).not.toBeNull();
 
-        await page.evaluate(() => {
-            document.querySelector('[data-area-id] svg')?.dispatchEvent(
-                new MouseEvent('dblclick', { bubbles: true })
-            );
-        });
+        await page.keyboard.press('Escape');
         await page.waitForFunction(() => window.__AREA_STORE__?.getState().focusedAreaId === null);
         focusedAreaId = await page.evaluate(() => window.__AREA_STORE__?.getState().focusedAreaId);
         expect(focusedAreaId).toBeNull();
@@ -218,18 +299,13 @@ test.describe('Regression: Critical Flows', () => {
     });
 
     test('Station recents and templates open spaces', async ({ page }) => {
-        await page.evaluate(() => {
-            window.__APP_STORE__?.getState().setViewContext('home');
-        });
-        await expect(page.getByText('Recent', { exact: true })).toBeVisible();
+        await openStationDrawer(page);
 
         await page.getByRole('button', { name: /Playground/i }).click();
         let viewContext = await page.evaluate(() => window.__APP_STORE__?.getState().viewContext);
         expect(viewContext).toBe('space');
 
-        await page.evaluate(() => {
-            window.__APP_STORE__?.getState().setViewContext('home');
-        });
+        await openStationDrawer(page);
         await expect(page.getByText('Templates', { exact: true })).toBeVisible();
         await page.getByRole('button', { name: /Default Space/i }).click();
         viewContext = await page.evaluate(() => window.__APP_STORE__?.getState().viewContext);
@@ -242,7 +318,7 @@ test.describe('Regression: Critical Flows', () => {
         const newName = `${oldName} Renamed`;
 
         await page.getByTitle('Return to Station').click();
-        await expect(page.getByText('Recent', { exact: true })).toBeVisible();
+        await openStationDrawer(page);
 
         const row = page
             .locator('h3', { hasText: oldName })
@@ -268,7 +344,7 @@ test.describe('Regression: Critical Flows', () => {
         await expect(headerInput).toHaveValue(newName);
 
         await page.getByTitle('Return to Station').click();
-        await expect(page.getByText('Recent', { exact: true })).toBeVisible();
+        await openStationDrawer(page);
         await expect(page.getByRole('button', { name: new RegExp(newName) }).first()).toBeVisible();
     });
 
@@ -277,7 +353,7 @@ test.describe('Regression: Critical Flows', () => {
         const second = await createSpaceViaStation(page);
 
         await page.getByTitle('Return to Station').click();
-        await expect(page.getByText('Recent', { exact: true })).toBeVisible();
+        await openStationDrawer(page);
 
         const row = page
             .locator('h3', { hasText: second.name })

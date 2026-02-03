@@ -16,6 +16,7 @@ export interface SpaceMeta {
     gridSnapEnabled?: boolean;
     parentSpaceId?: string;
     kind?: 'user' | 'playground';
+    favorite?: boolean;
     trashed?: boolean;
     deletedAt?: number | null;
 }
@@ -183,6 +184,14 @@ class SpaceManager {
             return uniqueName;
         }
         return name;
+    }
+
+    toggleFavorite(id: string) {
+        const meta = this.spaces.get(id);
+        if (!meta) return;
+        meta.favorite = !meta.favorite;
+        meta.updatedAt = Date.now();
+        this.saveIndex();
     }
 
     softDeleteSpace(id: string) {

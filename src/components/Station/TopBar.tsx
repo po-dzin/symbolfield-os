@@ -20,12 +20,17 @@ const TopBar = () => {
                 />
             </div>
 
-            {/* Settings */}
+            {/* Account Settings */}
             <button
                 onClick={() => import('../../core/events/EventBus').then(({ eventBus }) => eventBus.emit('UI_SIGNAL', { type: 'OPEN_ACCOUNT_SETTINGS', x: 0, y: 0 }))}
-                className="text-[10px] text-white/60 hover:text-white/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/30 rounded px-2 py-1 transition-all uppercase tracking-[0.3em]"
+                className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/30 flex items-center justify-center text-white/60 hover:text-white transition-all"
+                title="Account Settings"
+                aria-label="Account Settings"
             >
-                Settings
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3.5" />
+                    <path d="M19 12a7 7 0 0 0-.12-1.3l2.02-1.56-2-3.46-2.44.75a7 7 0 0 0-2.26-1.3L11 2h-4l-.2 2.13a7 7 0 0 0-2.26 1.3l-2.44-.75-2 3.46 2.02 1.56A7 7 0 0 0 5 12a7 7 0 0 0 .12 1.3l-2.02 1.56 2 3.46 2.44-.75a7 7 0 0 0 2.26 1.3L7 22h4l.2-2.13a7 7 0 0 0 2.26-1.3l2.44.75 2-3.46-2.02-1.56A7 7 0 0 0 19 12Z" />
+                </svg>
             </button>
         </div>
     );
