@@ -4,14 +4,14 @@
  * Implements the "Field-First" layout.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import ToolDock from './ToolDock';
 import TimeChip from './TimeChip';
 import StateCore from '../HUD/StateCore';
 import CanvasView from '../Canvas/CanvasView';
 import ContextToolbar from '../Context/ContextToolbar';
-import LogDrawer from '../Drawers/LogDrawer';
+import NowCoreDrawer from '../Drawers/NowCoreDrawer';
 import NodeOverlay from '../Node/NodeOverlay';
 import SettingsDrawer from '../Drawers/SettingsDrawer';
 import CommandPalette from '../Overlays/CommandPalette';
@@ -22,11 +22,15 @@ const Shell = () => {
     const appMode = useAppStore(state => state.appMode);
     const viewContext = useAppStore(state => state.viewContext);
     const togglePalette = useAppStore(state => state.togglePalette);
+    const drawerRightOpen = useAppStore(state => state.drawerRightOpen);
+    const drawerRightTab = useAppStore(state => state.drawerRightTab);
+    const setDrawerOpen = useAppStore(state => state.setDrawerOpen);
+    const setDrawerRightTab = useAppStore(state => state.setDrawerRightTab);
+    const isNowCoreTab = drawerRightTab === 'now'
+        || drawerRightTab === 'calendar'
+        || drawerRightTab === 'timeline'
+        || drawerRightTab === 'log';
     // Settings are toggled from ToolDock (left) for now.
-
-    // Drawer state could be in AppStore, but local for v0.5 MVP is acceptable for UI-only drawers
-    // Actually, UI_SPACE_FIELD_SHELL says LogDrawer is toggled via TimeChip/Dock
-    const [isLogOpen, setLogOpen] = useState(false);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -75,7 +79,16 @@ const Shell = () => {
                     </div>
 
                     {/* Bottom-Right: TimeChip */}
-                    <div className="absolute bottom-4 right-4 z-[var(--z-ui)]" onClick={() => setLogOpen(!isLogOpen)}>
+                    <div
+                        className="absolute bottom-4 right-4 z-[var(--z-ui)]"
+                        onClick={() => {
+                            if (drawerRightOpen && isNowCoreTab) {
+                                setDrawerOpen('right', false);
+                                return;
+                            }
+                            setDrawerRightTab('now');
+                        }}
+                    >
                         <TimeChip />
                     </div>
                 </>
@@ -86,8 +99,8 @@ const Shell = () => {
                     {/* Context UI (Z4) */}
                     <ContextToolbar />
 
-                    {/* Log Drawer (Z3) */}
-                    <LogDrawer isOpen={isLogOpen} onClose={() => setLogOpen(false)} />
+                    {/* NowCore Drawer (Z3) */}
+                    <NowCoreDrawer />
 
                     {/* Settings Drawer (Z3) */}
                     <SettingsDrawer />

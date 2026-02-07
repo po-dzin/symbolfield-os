@@ -36,6 +36,7 @@ export const TOOLS = {
 type AppMode = typeof APP_MODES[keyof typeof APP_MODES];
 type ViewContext = typeof VIEW_CONTEXTS[keyof typeof VIEW_CONTEXTS];
 type ToolId = typeof TOOLS[keyof typeof TOOLS];
+export type DrawerRightTab = 'settings' | 'analytics' | 'now' | 'calendar' | 'timeline' | 'log';
 
 interface SessionState {
     isActive: boolean;
@@ -69,7 +70,7 @@ interface StateSnapshot {
     drawerRightOpen: boolean;
     drawerRightPinned: boolean;
     drawerRightWidth: 'sm' | 'md' | 'lg';
-    drawerRightTab: 'settings' | 'log' | 'analytics' | null;
+    drawerRightTab: DrawerRightTab | null;
     layoutMode: 'overlay' | 'pinned' | 'split';
     session: SessionState;
 }
@@ -408,7 +409,7 @@ class StateEngine {
         this._emitChange();
     }
 
-    setDrawerRightTab(tab: 'settings' | 'log' | 'analytics' | null) {
+    setDrawerRightTab(tab: DrawerRightTab | null) {
         if (this.state.drawerRightTab === tab) return;
         this.state.drawerRightTab = tab;
         if (tab) {

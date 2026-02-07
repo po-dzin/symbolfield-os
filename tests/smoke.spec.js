@@ -75,8 +75,8 @@ test.describe('Smoke Test: App Loading', () => {
 
         const timeChip = page.locator('.os-shell .absolute.bottom-4.right-4');
         await timeChip.click();
-        await expect(page.getByText('Temporal Log')).toBeVisible();
-        await page.getByRole('button', { name: '✕' }).click();
-        await expect(page.getByText('Temporal Log')).not.toBeVisible();
+        await expect(page.getByText('NowCore')).toBeVisible();
+        await page.getByRole('button', { name: 'Close NowCore' }).click();
+        await expect(page.getByText('NowCore')).not.toBeVisible();
     });
 });

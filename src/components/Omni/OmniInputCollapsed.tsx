@@ -7,7 +7,7 @@ type Props = {
 };
 
 export default function OmniInputCollapsed(props: Props) {
-  const { className = '', inputClassName = '', placeholder = 'Search / command' } = props;
+  const { className = '', inputClassName = '', placeholder = 'Search or type /command...' } = props;
   return (
     <div className={className}>
       <input className={inputClassName} placeholder={placeholder} />

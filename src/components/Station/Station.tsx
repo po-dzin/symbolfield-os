@@ -35,26 +35,6 @@ const Station = () => {
     }, []);
 
     React.useEffect(() => {
-        const unsub = eventBus.on(EVENTS.SPACE_CHANGED, () => {
-            setFocusedMetrics(null);
-            setSelectedSpaceId(null);
-            setDrawerRightTab(null);
-            setDrawerOpen('right', false);
-        });
-        return () => unsub();
-    }, []);
-
-    React.useEffect(() => {
-        const unsub = eventBus.on(EVENTS.SPACE_CHANGED, () => {
-            setFocusedMetrics(null);
-            setSelectedSpaceId(null);
-            setDrawerRightTab(null);
-            setDrawerOpen('right', false);
-        });
-        return () => unsub();
-    }, []);
-
-    React.useEffect(() => {
         spaceManager.ensureOnboardingSpaces();
         // Check onboarding state on mount
         const onboardingState = loadOnboardingState();

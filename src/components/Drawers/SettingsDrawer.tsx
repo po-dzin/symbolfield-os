@@ -30,8 +30,7 @@ const SettingsDrawer = () => {
     const TogglePill = ({ checked, onToggle, labelOn = 'ON', labelOff = 'OFF' }: { checked: boolean; onToggle: () => void; labelOn?: string; labelOff?: string }) => (
         <button
             type="button"
-            role="switch"
-            aria-checked={checked}
+            aria-pressed={checked}
             onClick={onToggle}
             className={`relative w-16 h-7 rounded-full border transition-colors ${checked ? 'bg-white/20 border-white/30' : 'bg-white/10 border-white/20'}`}
         >
@@ -46,7 +45,7 @@ const SettingsDrawer = () => {
     );
 
     return (
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 ml-16 w-[var(--panel-width-md)] z-[var(--z-drawer)] animate-slide-in pointer-events-auto">
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 w-[var(--panel-width-md)] z-[var(--z-drawer)] animate-slide-in pointer-events-auto">
             <div className="glass-panel p-3 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-widest text-text-secondary">Settings</span>

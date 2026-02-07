@@ -1352,7 +1352,7 @@ const ContextToolbar = () => {
 
     return (
         <div ref={toolbarRef} className="absolute z-[var(--z-ui)] animate-materialize" style={toolbarPosition}>
-            <div className="glass-panel py-1.5 px-3 flex items-center gap-4 cursor-default context-toolbar relative">
+            <div className="glass-panel py-1.5 px-3 flex items-center gap-4 cursor-default context-toolbar relative overflow-visible">
 
                 {/* Info Section */}
                 <div className="flex items-center gap-2 pl-4 pr-4 border-r border-white/10 overflow-hidden max-w-[300px]">

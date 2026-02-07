@@ -74,7 +74,7 @@ const NodeOverlay = () => {
                     </button>
 
                     <div className="flex flex-col">
-                        <span className="text-xs uppercase tracking-widest text-text-meta">Node Editor</span>
+                        <span className="text-xs uppercase tracking-widest text-text-meta">Now Focus</span>
                         <h1 className="text-2xl font-light tracking-wide text-text-primary">
                             {nodeLabel}
                         </h1>

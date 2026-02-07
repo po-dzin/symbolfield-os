@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { stateEngine } from '../core/state/StateEngine';
+import { stateEngine, type DrawerRightTab } from '../core/state/StateEngine';
 import { eventBus, EVENTS } from '../core/events/EventBus';
 import type { NodeId } from '../core/types';
 import { spaceManager } from '../core/state/SpaceManager';
@@ -46,7 +46,7 @@ interface AppState {
     drawerRightOpen: boolean;
     drawerRightPinned: boolean;
     drawerRightWidth: 'sm' | 'md' | 'lg';
-    drawerRightTab: 'settings' | 'log' | 'analytics' | null;
+    drawerRightTab: DrawerRightTab | null;
     layoutMode: 'overlay' | 'pinned' | 'split';
     session: Session;
 }
@@ -88,7 +88,7 @@ interface AppStoreState extends AppState {
     setDrawerPinned: (side: 'left' | 'right', pinned: boolean) => void;
     setDrawerWidth: (side: 'left' | 'right', width: 'sm' | 'md' | 'lg') => void;
     setLayoutMode: (mode: 'overlay' | 'pinned' | 'split') => void;
-    setDrawerRightTab: (tab: 'settings' | 'log' | 'analytics' | null) => void;
+    setDrawerRightTab: (tab: DrawerRightTab | null) => void;
 }
 
 export const useAppStore = create<AppStoreState>((set) => {
@@ -269,7 +269,7 @@ export const useAppStore = create<AppStoreState>((set) => {
             stateEngine.setLayoutMode(mode);
             sync();
         },
-        setDrawerRightTab: (tab: 'settings' | 'log' | 'analytics' | null) => {
+        setDrawerRightTab: (tab: DrawerRightTab | null) => {
             stateEngine.setDrawerRightTab(tab);
             sync();
         }

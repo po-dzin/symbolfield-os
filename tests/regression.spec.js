@@ -221,14 +221,14 @@ test.describe('Regression: Critical Flows', () => {
         expect(activeTool).toBe('pointer');
     });
 
-    test('Time chip toggles log drawer and scale buttons respond', async ({ page }) => {
+    test('Time chip toggles NowCore drawer and scale buttons respond', async ({ page }) => {
         const timeChip = page.locator('.os-shell .absolute.bottom-4.right-4');
         await timeChip.click();
-        await expect(page.getByText('Temporal Log')).toBeVisible();
-        await page.getByRole('button', { name: '✕' }).click();
-        await expect(page.getByText('Temporal Log')).not.toBeVisible();
+        await expect(page.getByText('NowCore')).toBeVisible();
+        await page.getByRole('button', { name: 'Close NowCore' }).click();
+        await expect(page.getByText('NowCore')).not.toBeVisible();
 
-        const weekButton = page.getByRole('button', { name: 'w' });
+        const weekButton = page.getByRole('button', { name: 'w', exact: true });
         await weekButton.click();
         await expect(weekButton).toHaveClass(/bg-white\/20/);
     });

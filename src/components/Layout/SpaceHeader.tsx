@@ -68,17 +68,6 @@ const SpaceHeader = () => {
         return () => window.removeEventListener('mousedown', handleClick);
     }, [menuOpen, closeSettings]);
 
-    useEffect(() => {
-        if (!settingsOpen) return;
-        setMenuOpen(true);
-        setViewSettingsOpen(true);
-    }, [settingsOpen]);
-
-    useEffect(() => {
-        if (menuOpen) return;
-        if (settingsOpen) closeSettings();
-    }, [menuOpen, settingsOpen, closeSettings]);
-
     // Handle Rename
     const handleRename = (newValue: string) => {
         let target = newValue.trim();
@@ -140,8 +129,7 @@ const SpaceHeader = () => {
     const TogglePill = ({ checked, onToggle, labelOn = 'ON', labelOff = 'OFF' }: { checked: boolean; onToggle: () => void; labelOn?: string; labelOff?: string }) => (
         <button
             type="button"
-            role="switch"
-            aria-checked={checked}
+            aria-pressed={checked}
             onClick={onToggle}
             className={`relative w-16 h-7 rounded-full border transition-colors ${checked ? 'bg-white/20 border-white/30' : 'bg-white/10 border-white/20'}`}
         >
@@ -320,8 +308,7 @@ const SpaceHeader = () => {
                                     <span>Context menu mode</span>
                                     <button
                                         type="button"
-                                        role="switch"
-                                        aria-checked={contextMenuMode === 'radial'}
+                                        aria-pressed={contextMenuMode === 'radial'}
                                         onClick={() => setContextMenuMode(contextMenuMode === 'bar' ? 'radial' : 'bar')}
                                         className={`relative w-16 h-7 rounded-full border transition-colors ${contextMenuMode === 'radial' ? 'bg-white/20 border-white/30' : 'bg-white/10 border-white/20'}`}
                                         title={contextMenuMode === 'radial' ? 'Radial' : 'Bar'}
