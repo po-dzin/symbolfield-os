@@ -8,16 +8,22 @@ import { graphEngine } from '../graph/GraphEngine';
 import { useAreaStore } from '../../store/useAreaStore';
 import type { Edge, NodeBase, NodeId, Position } from '../types';
 
-const cloneNode = (node: NodeBase) => ({
-    id: node.id,
-    type: node.type,
-    position: { ...node.position },
-    data: { ...node.data },
-    style: { ...(node.style || {}) },
-    meta: { ...(node.meta || {}) },
-    created_at: node.created_at,
-    updated_at: node.updated_at
-});
+const cloneNode = (node: NodeBase): NodeBase => {
+    const base: NodeBase = {
+        id: node.id,
+        position: { ...node.position },
+        data: { ...node.data },
+        style: { ...(node.style || {}) },
+        meta: { ...(node.meta || {}) },
+        ...(typeof node.type === 'string' ? { type: node.type } : {})
+    };
+
+    return {
+        ...base,
+        ...(typeof node.created_at === 'number' ? { created_at: node.created_at } : {}),
+        ...(typeof node.updated_at === 'number' ? { updated_at: node.updated_at } : {})
+    };
+};
 
 interface UndoCommand {
     undo: () => void;
@@ -107,13 +113,17 @@ export class UndoManager {
                     undo: () => {
                         ids.forEach(id => {
                             const pos = startPositions[id];
-                            graphEngine.updateNode(id, { position: { ...pos } });
+                            if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+                                graphEngine.updateNode(id, { position: { x: pos.x, y: pos.y } });
+                            }
                         });
                     },
                     redo: () => {
                         ids.forEach(id => {
                             const pos = endPositions[id];
-                            graphEngine.updateNode(id, { position: { ...pos } });
+                            if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+                                graphEngine.updateNode(id, { position: { x: pos.x, y: pos.y } });
+                            }
                         });
                     }
                 });
@@ -122,13 +132,14 @@ export class UndoManager {
             }
             case EVENTS.NODE_CREATED: {
                 const node = cloneNode(e.payload);
+                const normalizedNode = { ...node, type: node.type ?? 'node' };
                 this.push({
-                    undo: () => graphEngine.removeNode(node.id),
-                    redo: () => graphEngine.addNode({ ...node, type: node.type ?? 'node' }),
-                    meta: { type: 'NODE_CREATED', nodeId: node.id, nodeRef: node }
+                    undo: () => graphEngine.removeNode(normalizedNode.id),
+                    redo: () => graphEngine.addNode(normalizedNode),
+                    meta: { type: 'NODE_CREATED', nodeId: normalizedNode.id, nodeRef: normalizedNode }
                 });
-                this.lastCreatedNodeId = node.id;
-                this.lastCreatedNodeRef = node;
+                this.lastCreatedNodeId = normalizedNode.id;
+                this.lastCreatedNodeRef = normalizedNode;
                 this.lastCreatedAt = Date.now();
                 break;
             }
@@ -155,7 +166,9 @@ export class UndoManager {
                 if (this.lastCreatedNodeId === e.payload.id && this.lastCreatedAt && Date.now() - this.lastCreatedAt < 500) {
                     if (this.lastCreatedNodeRef) {
                         this.lastCreatedNodeRef.position = { ...e.payload.after.position };
-                        this.lastCreatedNodeRef.updated_at = e.payload.after.updated_at;
+                        if (typeof e.payload.after.updated_at === 'number') {
+                            this.lastCreatedNodeRef.updated_at = e.payload.after.updated_at;
+                        }
                         this.lastCreatedNodeRef.data = { ...e.payload.after.data };
                         this.lastCreatedNodeRef.style = { ...e.payload.after.style };
                         this.lastCreatedNodeRef.meta = { ...e.payload.after.meta };
@@ -184,14 +197,14 @@ export class UndoManager {
                     undo: () => graphEngine.updateNode(before.id, {
                         position: before.position,
                         data: before.data,
-                        style: before.style,
-                        meta: before.meta
+                        ...(before.style ? { style: before.style } : {}),
+                        ...(before.meta ? { meta: before.meta } : {})
                     }),
                     redo: () => graphEngine.updateNode(after.id, {
                         position: after.position,
                         data: after.data,
-                        style: after.style,
-                        meta: after.meta
+                        ...(after.style ? { style: after.style } : {}),
+                        ...(after.meta ? { meta: after.meta } : {})
                     })
                 });
                 break;

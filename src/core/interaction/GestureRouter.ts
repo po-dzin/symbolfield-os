@@ -385,7 +385,6 @@ class GestureRouter {
             };
             eventBus.emit('UI_INTERACTION_START', {
                 type: 'LINK_DRAG',
-                fromId: interaction.sourceId,
                 associative: interaction.associative
             });
             return;
@@ -565,8 +564,8 @@ class GestureRouter {
             });
             eventBus.emit('UI_INTERACTION_END', {
                 type: 'DRAG_NODES',
-                nodeIds,
-                startPositions,
+                ...(nodeIds ? { nodeIds } : {}),
+                ...(startPositions ? { startPositions } : {}),
                 endPositions,
                 moved: dist >= 5
             });
@@ -892,7 +891,7 @@ class GestureRouter {
                     const createdNode = graphEngine.addNode({
                         position: { x: placed.x, y: placed.y },
                         data: { label: 'Empty' },
-                        meta: focusClusterId ? { parentClusterId: focusClusterId } : undefined
+                        ...(focusClusterId ? { meta: { parentClusterId: focusClusterId } } : {})
                     });
                     if (createdNode && focusClusterId) {
                         graphEngine.addEdge(asNodeId(focusClusterId), createdNode.id, 'associative');
@@ -976,7 +975,9 @@ class GestureRouter {
         // 1. Command / Search
         if ((e.key === ',' || isComma) && isMod) {
             e.preventDefault();
-            stateEngine.toggleSettings();
+            if (stateEngine.getState().viewContext !== 'home') {
+                stateEngine.toggleSettings();
+            }
             return;
         }
 
@@ -1012,7 +1013,10 @@ class GestureRouter {
             } else {
                 const selection = selectionState.getSelection();
                 if (selection.length === 1) {
-                    this.startLinkPreview(selection[0]);
+                    const sourceId = selection[0];
+                    if (sourceId) {
+                        this.startLinkPreview(sourceId);
+                    }
                 }
             }
             return;
@@ -1088,7 +1092,7 @@ class GestureRouter {
         }
 
         // 6. UI Toggles
-        if (e.key.toLowerCase() === 'r' && !isShift && !isAlt && !isMeta && !isCtrl) {
+        if (e.key.toLowerCase() === 'r' && !isShift && !e.altKey && !e.metaKey && !e.ctrlKey) {
             stateEngine.toggleContextMenuMode();
             return;
         }

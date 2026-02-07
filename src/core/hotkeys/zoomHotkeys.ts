@@ -15,6 +15,11 @@ export const parseZoomHotkey = (event: KeyboardEvent): ZoomHotkeyDetail | null =
     const key = event.key.toLowerCase();
     const code = event.code;
     const isNumpadZoomKey = code === 'NumpadAdd' || code === 'NumpadSubtract' || code === 'Numpad0';
+    const isShiftDigitOne = event.shiftKey && (code === 'Digit1' || key === '!');
+
+    if (isShiftDigitOne) {
+        return { command: 'zoom_fit', source: 'keyboard' };
+    }
 
     if ((modified || isNumpadZoomKey) && (key === '=' || key === '+' || code === 'Equal' || code === 'NumpadAdd')) {
         return { command: 'zoom_in', source: 'keyboard' };

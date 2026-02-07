@@ -40,6 +40,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Prevent path traversal / accidental directory creation outside snapshot root.
+# Allow only a safe subset of characters in the label.
+if [[ "$LABEL" == *"/"* || "$LABEL" == *".."* ]]; then
+  echo "Invalid label: $LABEL" >&2
+  exit 2
+fi
+LABEL="$(printf '%s' "$LABEL" | tr -cs 'A-Za-z0-9._-' '_')"
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 

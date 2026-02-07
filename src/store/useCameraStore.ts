@@ -31,8 +31,10 @@ export const useCameraStore = create<CameraStoreState>((set, get) => ({
     // Zoom at a specific screen point
     zoomAt: (clientX: number, clientY: number, delta: number, rect: DOMRect) => {
         const state = get();
-        const factor = delta > 0 ? 0.9 : 1.1; // Smooth factor
+        const factor = Math.exp(-delta * 0.0022);
+        if (!Number.isFinite(factor) || factor <= 0) return;
         const newZoom = Math.min(Math.max(state.zoom * factor, 0.25), 2.0); // Clamped 0.25x to 2.0x
+        if (Math.abs(newZoom - state.zoom) < 0.0001) return;
 
         // Calculate world point under cursor to keep it pinned
         const localX = clientX - rect.left;

@@ -4,10 +4,10 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/safety/pre_handoff_check.sh [--role <ui|core|ops|docs>] [--skip-zone-check] [--skip-typecheck] [--paths "src tests"]
+  scripts/safety/pre_handoff_check.sh [--role <ui|core|ops>] [--skip-zone-check] [--skip-typecheck] [--paths "src tests"]
 
 Checks:
-  1) zone/allowlist check (agents/enforce_zone.sh)
+  1) zone/allowlist check (agents/scripts/enforce_zone.sh)
   2) unresolved conflict markers in selected paths
   3) untracked files in selected paths
   4) optional TypeScript typecheck (npm run -s typecheck)
@@ -17,6 +17,7 @@ EOF
 SKIP_TYPECHECK=0
 SKIP_ZONE_CHECK=0
 CHECK_PATHS="src tests"
+PATHS=(src tests)
 ROLE=""
 
 while [[ $# -gt 0 ]]; do
@@ -35,6 +36,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --paths)
       CHECK_PATHS="${2:-src tests}"
+      # Space-delimited list of paths to check.
+      # Example: --paths "src tests"
+      read -r -a PATHS <<< "$CHECK_PATHS"
       shift 2
       ;;
     -h|--help)
@@ -59,8 +63,18 @@ if [[ -z "$ROLE" ]]; then
   fi
 fi
 
+if [[ -n "$ROLE" ]]; then
+  case "$ROLE" in
+    ui|core|ops) ;;
+    *)
+      echo "Invalid role: $ROLE (expected ui|core|ops)" >&2
+      exit 2
+      ;;
+  esac
+fi
+
 echo "Running pre-handoff checks in: $REPO_ROOT"
-echo "Paths: $CHECK_PATHS"
+echo "Paths: ${PATHS[*]}"
 if [[ -n "$ROLE" ]]; then
   echo "Role: $ROLE"
 else
@@ -75,10 +89,10 @@ if [[ "$SKIP_ZONE_CHECK" -eq 1 ]]; then
   echo "SKIP: zone check skipped by flag."
 elif [[ -z "$ROLE" ]]; then
   echo "SKIP: role is not set and could not be inferred from branch."
-elif [[ ! -x "agents/enforce_zone.sh" ]]; then
-  echo "SKIP: agents/enforce_zone.sh is missing or not executable."
+elif [[ ! -x "agents/scripts/enforce_zone.sh" ]]; then
+  echo "SKIP: agents/scripts/enforce_zone.sh is missing or not executable."
 else
-  if bash agents/enforce_zone.sh --role "$ROLE" --staged --unstaged; then
+  if bash agents/scripts/enforce_zone.sh --role "$ROLE" --staged --unstaged; then
     echo "OK: zone check passed."
   else
     echo "FAIL: zone check failed."
@@ -89,9 +103,9 @@ fi
 echo
 echo "[2/4] Conflict markers"
 if command -v rg >/dev/null 2>&1; then
-  CONFLICTS="$(rg -n '^(<<<<<<<|=======|>>>>>>>)' $CHECK_PATHS || true)"
+  CONFLICTS="$(rg -n '^(<<<<<<<|=======|>>>>>>>)' -- "${PATHS[@]}" || true)"
 else
-  CONFLICTS="$(grep -R -n -E '^(<<<<<<<|=======|>>>>>>>)' $CHECK_PATHS 2>/dev/null || true)"
+  CONFLICTS="$(grep -R -n -E '^(<<<<<<<|=======|>>>>>>>)' -- "${PATHS[@]}" 2>/dev/null || true)"
 fi
 if [[ -n "$CONFLICTS" ]]; then
   echo "$CONFLICTS"
@@ -103,7 +117,7 @@ fi
 
 echo
 echo "[3/4] Untracked files in guarded paths"
-UNTRACKED="$(git ls-files --others --exclude-standard -- $CHECK_PATHS || true)"
+UNTRACKED="$(git ls-files --others --exclude-standard -- "${PATHS[@]}" || true)"
 if [[ -n "$UNTRACKED" ]]; then
   echo "$UNTRACKED"
   echo "FAIL: untracked files found in guarded paths."

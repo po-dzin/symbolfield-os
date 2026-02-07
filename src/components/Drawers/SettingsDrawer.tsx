@@ -45,7 +45,7 @@ const SettingsDrawer = () => {
     );
 
     return (
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 w-[var(--panel-width-md)] z-[var(--z-drawer)] animate-slide-in pointer-events-auto">
+        <div className="absolute right-4 top-[calc(var(--bar-height)+12px)] w-[var(--panel-width-md)] z-[var(--z-drawer)] animate-slide-in pointer-events-auto">
             <div className="glass-panel p-3 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-widest text-text-secondary">Settings</span>

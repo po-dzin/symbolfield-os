@@ -3,7 +3,7 @@
  * Tests for the Home Station shell.
  */
 
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import Station from '../Station';
 
@@ -34,23 +34,23 @@ describe('Station (Home)', () => {
     });
 
     test('renders main layout zones', () => {
-        render(<Station />);
-        expect(screen.getByText(/SymbolField/i)).toBeInTheDocument();
+        const view = render(<Station />);
+        expect(view.getByText(/SymbolField/i)).toBeInTheDocument();
         // "Jump Back In" → "Recent", "Start from Template" → "Templates"
-        expect(screen.getByText(/Recent/i)).toBeInTheDocument();
-        expect(screen.getByText(/Templates/i)).toBeInTheDocument();
+        expect(view.getByText(/Recent/i)).toBeInTheDocument();
+        expect(view.getByText(/Templates/i)).toBeInTheDocument();
     });
 
     test('renders start gates actions', () => {
-        render(<Station />);
-        expect(screen.getByText(/New Space/i)).toBeInTheDocument();
-        expect(screen.getByText(/New Portal/i)).toBeInTheDocument();
-        expect(screen.getByText(/Import/i)).toBeInTheDocument();
+        const view = render(<Station />);
+        expect(view.getByText(/New Space/i)).toBeInTheDocument();
+        expect(view.getByText(/New Portal/i)).toBeInTheDocument();
+        expect(view.getByText(/Import/i)).toBeInTheDocument();
     });
 
     test('renders templates', () => {
-        render(<Station />);
-        expect(screen.getByText(/Default Space/i)).toBeInTheDocument();
+        const view = render(<Station />);
+        expect(view.getByText(/Default Space/i)).toBeInTheDocument();
         // Only Default Space template now, no Ritual Room
     });
 });

@@ -158,7 +158,7 @@ const ContextToolbar = () => {
     const nodeGlyphColor = primaryNodeData?.color_glyph ?? 'rgba(255,255,255,0.9)';
     const nodeIconValueRaw = typeof primaryNodeData?.icon_value === 'string' ? primaryNodeData.icon_value.trim() : '';
     const nodeIconValue = nodeIconValueRaw === '•' ? '' : nodeIconValueRaw;
-    const nodeIconSource = typeof primaryNodeData?.icon_source === 'string' ? primaryNodeData.icon_source : undefined;
+    const nodeIconSource = typeof primaryNodeData?.icon_source === 'string' ? primaryNodeData.icon_source : null;
     const nodeGlyphFallback = primaryNode?.type === 'core'
         ? (primaryNode.id === 'archecore' ? 'archecore' : 'core')
         : primaryNode?.type === 'cluster'
@@ -218,6 +218,7 @@ const ContextToolbar = () => {
 
     const handleGlyphSelect = (glyph: string) => {
         if (!primaryNode) return;
+        if (!primaryId) return;
         const nextData = { ...primaryNode.data, icon_value: glyph };
         if (glyph) {
             nextData.icon_source = inferGlyphSource(glyph);
@@ -237,6 +238,7 @@ const ContextToolbar = () => {
     };
     const handleColorSelect = (role: 'body' | 'stroke' | 'glow' | 'glyph', color: string) => {
         if (!primaryNode) return;
+        if (!primaryId) return;
         const data = primaryNode.data as NodeData;
         const nextData = { ...data };
         if (role === 'body') nextData.color_body = color;
@@ -286,6 +288,7 @@ const ContextToolbar = () => {
     };
     const handleUngroup = () => {
         if (!primaryNode || primaryNode.type !== 'cluster') return;
+        if (!primaryId) return;
         releaseClusterChildren(primaryId);
         removeNode(primaryId);
         clearSelection();
@@ -390,17 +393,19 @@ const ContextToolbar = () => {
         if (!primaryArea) return;
         const isAnchored = primaryArea.anchor.type === 'node';
         const activeNodeId = selectedIds.length === 1 ? selectedIds[0] : null;
-        const anchorNodeId = isAnchored ? primaryArea.anchor.nodeId : null;
-        const anchorNode = anchorNodeId ? graphEngine.getNode(anchorNodeId) : null;
+        const anchorNodeId = primaryArea.anchor.type === 'node' ? primaryArea.anchor.nodeId : null;
+        const anchorNode = anchorNodeId ? graphEngine.getNode(asNodeId(anchorNodeId)) : null;
         const targetNode = activeNodeId ? graphEngine.getNode(activeNodeId) : null;
 
         if (isAnchored) {
             if (primaryArea.shape === 'circle' && primaryArea.circle) {
+                const cx = anchorNode?.position.x ?? primaryArea.circle.cx ?? 0;
+                const cy = anchorNode?.position.y ?? primaryArea.circle.cy ?? 0;
                 updateArea(primaryArea.id, {
                     anchor: { type: 'canvas' },
                     circle: {
-                        cx: anchorNode?.position.x ?? primaryArea.circle.cx,
-                        cy: anchorNode?.position.y ?? primaryArea.circle.cy,
+                        cx,
+                        cy,
                         r: primaryArea.circle.r
                     }
                 });
@@ -448,14 +453,17 @@ const ContextToolbar = () => {
     const handleDetachAreasFromNode = () => {
         if (selectedIds.length !== 1) return;
         const nodeId = selectedIds[0];
+        if (!nodeId) return;
         const anchorNode = graphEngine.getNode(asNodeId(nodeId));
         anchoredAreasForNode.forEach(area => {
             if (area.shape === 'circle' && area.circle) {
+                const cx = anchorNode?.position.x ?? area.circle.cx ?? 0;
+                const cy = anchorNode?.position.y ?? area.circle.cy ?? 0;
                 updateArea(area.id, {
                     anchor: { type: 'canvas' },
                     circle: {
-                        cx: anchorNode?.position.x ?? area.circle.cx,
-                        cy: anchorNode?.position.y ?? area.circle.cy,
+                        cx,
+                        cy,
                         r: area.circle.r
                     }
                 });
@@ -482,6 +490,7 @@ const ContextToolbar = () => {
         );
         const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % areaPalette.length : 0;
         const next = areaPalette[nextIndex];
+        if (!next) return;
         updateArea(primaryArea.id, { color: next.fill, borderColor: next.stroke });
     };
     const handleAreaStyleSelect = (fill: string, stroke: string) => {
@@ -556,6 +565,7 @@ const ContextToolbar = () => {
         if (idx < 0 || idx === ordered.length - 1) return;
         const current = ordered[idx];
         const next = ordered[idx + 1];
+        if (!current || !next) return;
         updateArea(current.id, { zIndex: next.zIndex ?? 0 });
         updateArea(next.id, { zIndex: current.zIndex ?? 0 });
     };
@@ -566,6 +576,7 @@ const ContextToolbar = () => {
         if (idx <= 0) return;
         const current = ordered[idx];
         const prev = ordered[idx - 1];
+        if (!current || !prev) return;
         updateArea(current.id, { zIndex: prev.zIndex ?? 0 });
         updateArea(prev.id, { zIndex: current.zIndex ?? 0 });
     };
@@ -841,7 +852,9 @@ const ContextToolbar = () => {
                         handleToggleFocusMode();
                         return;
                     }
-                    enterNode(primaryId);
+                    if (primaryId) {
+                        enterNode(primaryId);
+                    }
                 }
             });
             radialItems.push({
@@ -1403,7 +1416,9 @@ const ContextToolbar = () => {
                                         setLabelDraft(primaryLabel);
                                         return;
                                     }
-                                    eventBus.emit(EVENTS.UI_REQ_EDIT_LABEL, { nodeId: primaryId });
+                                    if (primaryId) {
+                                        eventBus.emit(EVENTS.UI_REQ_EDIT_LABEL, { nodeId: primaryId });
+                                    }
                                 }}
                             >
                                 <span className="context-label">{displayPrimaryLabel}</span>
@@ -1435,7 +1450,9 @@ const ContextToolbar = () => {
                                         handleToggleFocusMode();
                                         return;
                                     }
-                                    enterNode(primaryId);
+                                    if (primaryId) {
+                                        enterNode(primaryId);
+                                    }
                                 }}
                                 className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-xl text-lg leading-none transition-colors"
                                 title={primaryNode?.type === 'cluster' ? (fieldScopeId === primaryId ? 'Exit Cluster' : 'Enter Cluster') : `Enter ${primaryNode?.type === 'portal' ? 'Portal' : 'Node'}`}

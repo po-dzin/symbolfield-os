@@ -28,8 +28,11 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
     const nodeData = node.data as NodeData;
     const iconValueRaw = typeof nodeData?.icon_value === 'string' ? nodeData.icon_value.trim() : '';
     const iconValue = iconValueRaw === '•' ? '' : iconValueRaw;
-    const iconSource = typeof nodeData?.icon_source === 'string' ? nodeData.icon_source : undefined;
-    const focusGhostLevel = node.meta?.focusGhostLevel ?? (node.meta?.focusGhost ? 1 : 0);
+    const iconSource = typeof nodeData?.icon_source === 'string' ? nodeData.icon_source : null;
+    const focusGhostLevelRaw = (node.meta as Record<string, unknown> | undefined)?.focusGhostLevel;
+    const focusGhostLevel = typeof focusGhostLevelRaw === 'number'
+        ? focusGhostLevelRaw
+        : ((node.meta as Record<string, unknown> | undefined)?.focusGhost ? 1 : 0);
     const isFocusGhost = focusGhostLevel > 0;
     const parentClusterId = node.meta?.parentClusterId;
     const parentCluster = parentClusterId ? allNodes.find(item => item.id === parentClusterId) : null;

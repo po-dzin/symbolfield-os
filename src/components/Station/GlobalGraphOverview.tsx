@@ -40,9 +40,9 @@ type SpaceCluster = {
 };
 
 const DEFAULT_VIEWBOX = { x: -700, y: -700, w: 1400, h: 1400 };
-const MIN_STATION_ZOOM = 0.6;
-const MAX_STATION_ZOOM = 2.8;
-const STATION_ZOOM_STEPS = [0.6, 0.75, 0.9, 1, 1.15, 1.35, 1.6, 1.9, 2.2, 2.5, 2.8];
+const MIN_STATION_ZOOM = 0.25;
+const MAX_STATION_ZOOM = 2.0;
+const STATION_ZOOM_STEP = 0.25;
 const ARCHECORE_RADIUS = 90;
 const ARCHECORE_PADDING = 60;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
@@ -52,15 +52,13 @@ const AREA_STORAGE_PREFIX = 'sf_areas_';
 const clampStationZoom = (zoom: number) => Math.min(MAX_STATION_ZOOM, Math.max(MIN_STATION_ZOOM, zoom));
 
 const getStationZoomStep = (zoom: number, direction: 'in' | 'out') => {
+    const epsilon = 1e-6;
     if (direction === 'in') {
-        const next = STATION_ZOOM_STEPS.find(step => step > zoom + 0.0001);
-        return next ?? MAX_STATION_ZOOM;
+        const base = Math.floor((zoom + epsilon) / STATION_ZOOM_STEP) * STATION_ZOOM_STEP;
+        return Math.min(MAX_STATION_ZOOM, Number((base + STATION_ZOOM_STEP).toFixed(2)));
     }
-    for (let i = STATION_ZOOM_STEPS.length - 1; i >= 0; i -= 1) {
-        const step = STATION_ZOOM_STEPS[i];
-        if (step !== undefined && step < zoom - 0.0001) return step;
-    }
-    return MIN_STATION_ZOOM;
+    const base = Math.ceil((zoom - epsilon) / STATION_ZOOM_STEP) * STATION_ZOOM_STEP;
+    return Math.max(MIN_STATION_ZOOM, Number((base - STATION_ZOOM_STEP).toFixed(2)));
 };
 
 const createSeededRandom = (seed: string) => {
@@ -224,7 +222,7 @@ const buildClusters = (includePlayground: boolean): SpaceCluster[] => {
             };
         })();
         if (allNodes.length === 0) {
-            placed.push({
+            const emptyCluster: SpaceCluster = {
                 id: space.id,
                 name: space.name,
                 center,
@@ -235,8 +233,9 @@ const buildClusters = (includePlayground: boolean): SpaceCluster[] => {
                 nodes: [],
                 links: [],
                 areas: []
-            });
-            return placed[placed.length - 1];
+            };
+            placed.push(emptyCluster);
+            return emptyCluster;
         }
 
         // Project using a real envelope of the space: node size bounds + area bounds.
@@ -610,7 +609,6 @@ const GlobalGraphOverview = ({
     const [highlightSpaceId, setHighlightSpaceId] = React.useState<string | null>(null);
     const svgRef = React.useRef<SVGSVGElement | null>(null);
     const viewBoxRef = React.useRef({ ...DEFAULT_VIEWBOX });
-    const viewBoxVelocity = React.useRef({ x: 0, y: 0, w: 0, h: 0 });
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const [stationZoom, setStationZoom] = React.useState(1);
     const [stationPan, setStationPan] = React.useState({ x: 0, y: 0 });
@@ -854,6 +852,33 @@ const GlobalGraphOverview = ({
     };
 
     const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+        if (e.pointerType === 'touch') {
+            if (!pinchRef.current) {
+                pinchRef.current = {
+                    pointers: new Map(),
+                    startDistance: 0,
+                    startZoom: stationZoomRef.current,
+                };
+            }
+            pinchRef.current.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (pinchRef.current.pointers.size === 2) {
+                const pts = Array.from(pinchRef.current.pointers.values());
+                const [p0, p1] = pts;
+                if (!p0 || !p1) {
+                    (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
+                    return;
+                }
+                const dx = p0.x - p1.x;
+                const dy = p0.y - p1.y;
+                pinchRef.current.startDistance = Math.max(1, Math.hypot(dx, dy));
+                pinchRef.current.startZoom = stationZoomRef.current;
+                panRef.current = null;
+                setIsPanning(false);
+            }
+            (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
+            return;
+        }
+
         if (e.button !== 0) return;
         if (e.target !== e.currentTarget) return;
         panRef.current = {
@@ -867,6 +892,29 @@ const GlobalGraphOverview = ({
     };
 
     const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+        if (e.pointerType === 'touch' && pinchRef.current) {
+            const pinch = pinchRef.current;
+            if (pinch.pointers.has(e.pointerId)) {
+                pinch.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            }
+            if (pinch.pointers.size === 2) {
+                const pts = Array.from(pinch.pointers.values());
+                const [p0, p1] = pts;
+                if (!p0 || !p1) return;
+                const dx = p0.x - p1.x;
+                const dy = p0.y - p1.y;
+                const dist = Math.max(1, Math.hypot(dx, dy));
+                const ratio = dist / Math.max(1, pinch.startDistance);
+                if (Number.isFinite(ratio) && ratio > 0) {
+                    const nextZoom = clampStationZoom(pinch.startZoom * ratio);
+                    const cx = (p0.x + p1.x) / 2;
+                    const cy = (p0.y + p1.y) / 2;
+                    zoomAroundPoint(nextZoom, cx, cy);
+                }
+                return;
+            }
+        }
+
         if (panRef.current && panRef.current.pointerId === e.pointerId) {
             const svg = svgRef.current;
             if (!svg) return;
@@ -906,9 +954,10 @@ const GlobalGraphOverview = ({
         const baseCluster = clusters.find(cluster => cluster.id === dragRef.current?.id);
         if (baseCluster) {
             const offset = nextOffset[dragRef.current.id];
+            const safeOffset = offset ?? { x: 0, y: 0 };
             const nextCenter = {
-                x: baseCluster.center.x + offset.x,
-                y: baseCluster.center.y + offset.y
+                x: baseCluster.center.x + safeOffset.x,
+                y: baseCluster.center.y + safeOffset.y
             };
             const minDist = baseCluster.radius + ARCHECORE_RADIUS + ARCHECORE_PADDING;
             const dist = Math.hypot(nextCenter.x, nextCenter.y);
@@ -928,6 +977,12 @@ const GlobalGraphOverview = ({
     };
 
     const handlePointerUp = (event?: React.PointerEvent<SVGSVGElement>) => {
+        if (event?.pointerType === 'touch' && pinchRef.current) {
+            pinchRef.current.pointers.delete(event.pointerId);
+            if (pinchRef.current.pointers.size < 2) {
+                pinchRef.current = null;
+            }
+        }
         if (panRef.current && (!event || panRef.current.pointerId === event.pointerId)) {
             panRef.current = null;
             setIsPanning(false);
@@ -953,61 +1008,282 @@ const GlobalGraphOverview = ({
         [buildTargetViewBox, stationZoom, stationPan]
     );
 
+    const fitStationToContent = React.useCallback(() => {
+        const host = containerRef.current;
+        if (!host) return;
+        const rect = host.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+
+        let minX = -ARCHECORE_RADIUS;
+        let minY = -ARCHECORE_RADIUS;
+        let maxX = ARCHECORE_RADIUS;
+        let maxY = ARCHECORE_RADIUS;
+
+        visibleClusters.forEach(cluster => {
+            minX = Math.min(minX, cluster.center.x - cluster.radius);
+            minY = Math.min(minY, cluster.center.y - cluster.radius);
+            maxX = Math.max(maxX, cluster.center.x + cluster.radius);
+            maxY = Math.max(maxY, cluster.center.y + cluster.radius);
+        });
+
+        const boundsW = Math.max(1, maxX - minX);
+        const boundsH = Math.max(1, maxY - minY);
+        const padding = 80;
+        const availableW = Math.max(1, rect.width - padding * 2);
+        const availableH = Math.max(1, rect.height - padding * 2);
+        const nextZoom = clampStationZoom(Math.min(availableW / boundsW, availableH / boundsH));
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const nextPan = { x: centerX, y: centerY };
+
+        stationPanRef.current = nextPan;
+        stationZoomRef.current = nextZoom;
+        setStationPan(nextPan);
+        setStationZoom(nextZoom);
+    }, [visibleClusters]);
+
     const [viewBox, setViewBox] = React.useState(DEFAULT_VIEWBOX);
 
     React.useEffect(() => {
-        let raf = 0;
-        const k = 0.24;
-        const damping = 0.7;
-        const animate = () => {
-            const current = viewBoxRef.current;
-            const velocity = viewBoxVelocity.current;
-            const target = targetViewBox;
-            velocity.x = (velocity.x + (target.x - current.x) * k) * damping;
-            velocity.y = (velocity.y + (target.y - current.y) * k) * damping;
-            velocity.w = (velocity.w + (target.w - current.w) * k) * damping;
-            velocity.h = (velocity.h + (target.h - current.h) * k) * damping;
-            current.x += velocity.x;
-            current.y += velocity.y;
-            current.w += velocity.w;
-            current.h += velocity.h;
-            const snap =
-                Math.abs(target.x - current.x) < 0.2 &&
-                Math.abs(target.y - current.y) < 0.2 &&
-                Math.abs(target.w - current.w) < 0.2 &&
-                Math.abs(target.h - current.h) < 0.2 &&
-                Math.abs(velocity.x) < 0.05 &&
-                Math.abs(velocity.y) < 0.05 &&
-                Math.abs(velocity.w) < 0.05 &&
-                Math.abs(velocity.h) < 0.05;
-            if (snap) {
-                viewBoxRef.current = { ...target };
-                viewBoxVelocity.current = { x: 0, y: 0, w: 0, h: 0 };
-                setViewBox({ ...target });
-                return;
-            }
-            viewBoxRef.current = { ...current };
-            setViewBox({ ...current });
-            raf = window.requestAnimationFrame(animate);
-        };
-        raf = window.requestAnimationFrame(animate);
-        return () => window.cancelAnimationFrame(raf);
+        viewBoxRef.current = { ...targetViewBox };
+        setViewBox({ ...targetViewBox });
     }, [targetViewBox]);
+
+    const pinchRef = React.useRef<null | {
+        pointers: Map<number, { x: number; y: number }>;
+        startDistance: number;
+        startZoom: number;
+    }>(null);
 
     React.useEffect(() => {
         const el = containerRef.current;
         if (!el) return;
-        const onWheel = (event: WheelEvent) => {
-            if (!(event.ctrlKey || event.metaKey)) return;
-            event.preventDefault();
-            const currentZoom = stationZoomRef.current;
-            const factor = Math.exp(-event.deltaY * 0.0022);
-            const next = clampStationZoom(currentZoom * factor);
-            if (Math.abs(next - currentZoom) < 0.0001) return;
-            zoomAroundPoint(next, event.clientX, event.clientY);
+        const GESTURE_WHEEL_GUARD_MS = 120;
+        let gestureActive = false;
+        let lastGestureEventTs = 0;
+        let lastGestureChangeTs = 0;
+        let gestureFallbackTimer: number | null = null;
+        const markGestureWindow = () => {
+            gestureActive = true;
+            lastGestureEventTs = Date.now();
+            if (gestureFallbackTimer) {
+                window.clearTimeout(gestureFallbackTimer);
+            }
+            // Safari sometimes fails to deliver gestureend; don't let the guard window get stuck.
+            gestureFallbackTimer = window.setTimeout(() => {
+                gestureActive = false;
+            }, 240);
         };
-        el.addEventListener('wheel', onWheel, { passive: false });
-        return () => el.removeEventListener('wheel', onWheel);
+        const normalizeWheelDelta = (event: WheelEvent, pageHeight: number) => {
+            const modeFactor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? pageHeight : 1;
+            return {
+                dx: event.deltaX * modeFactor,
+                dy: event.deltaY * modeFactor
+            };
+        };
+
+        const preventWheelZoom = (event: WheelEvent) => {
+            if (event.ctrlKey || event.metaKey) event.preventDefault();
+        };
+
+        const debugPinch = () => {
+            try {
+                return window.localStorage.getItem('sf_debug_pinch') === '1';
+            } catch {
+                return false;
+            }
+        };
+
+        const wheelZoomEnabled = () => {
+            try {
+                return window.localStorage.getItem('sf_wheel_zoom') === '1';
+            } catch {
+                return false;
+            }
+        };
+
+        const handleWheel = (event: WheelEvent) => {
+            const root = containerRef.current;
+            if (!root) return;
+            const target = event.target as Node | null;
+            if (!target || !root.contains(target)) return;
+
+            const now = Date.now();
+            const inNativeGestureWindow = (now - lastGestureChangeTs) < GESTURE_WHEEL_GUARD_MS;
+            const wantsZoom = wheelZoomEnabled() || event.ctrlKey || event.metaKey;
+            const shouldZoom = wantsZoom && !inNativeGestureWindow;
+
+            if (debugPinch()) {
+                const anyEvent = event as unknown as {
+                    wheelDelta?: number;
+                    wheelDeltaX?: number;
+                    wheelDeltaY?: number;
+                    webkitDirectionInvertedFromDevice?: boolean;
+                    sourceCapabilities?: unknown;
+                };
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch][station] wheel', {
+                    ctrlKey: event.ctrlKey,
+                    metaKey: event.metaKey,
+                    shiftKey: event.shiftKey,
+                    altKey: event.altKey,
+                    wheelZoomEnabled: wheelZoomEnabled(),
+                    deltaX: event.deltaX,
+                    deltaY: event.deltaY,
+                    deltaZ: event.deltaZ,
+                    deltaMode: event.deltaMode,
+                    wheelDelta: anyEvent.wheelDelta,
+                    wheelDeltaX: anyEvent.wheelDeltaX,
+                    wheelDeltaY: anyEvent.wheelDeltaY,
+                    invertedFromDevice: anyEvent.webkitDirectionInvertedFromDevice,
+                    sourceCapabilities: anyEvent.sourceCapabilities,
+                    inNativeGestureWindow,
+                    shouldZoom
+                });
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            if (inNativeGestureWindow) return;
+
+            const rect = root.getBoundingClientRect();
+            const normalized = normalizeWheelDelta(event, Math.max(1, rect.height));
+            if (shouldZoom) {
+                const currentZoom = stationZoomRef.current;
+                const factor = Math.exp(-normalized.dy * 0.0022);
+                const next = clampStationZoom(currentZoom * factor);
+                if (Math.abs(next - currentZoom) < 0.0001) return;
+                zoomAroundPoint(next, event.clientX, event.clientY);
+                return;
+            }
+
+            if (rect.width <= 0 || rect.height <= 0) return;
+            const currentView = viewBoxRef.current;
+            const scaleX = currentView.w / rect.width;
+            const scaleY = currentView.h / rect.height;
+            const nextPan = {
+                x: stationPanRef.current.x + normalized.dx * scaleX,
+                y: stationPanRef.current.y + normalized.dy * scaleY
+            };
+            stationPanRef.current = nextPan;
+            setStationPan(nextPan);
+        };
+
+        const handleGlobalWheelCapture = (event: WheelEvent) => {
+            if (debugPinch()) {
+                const root = containerRef.current;
+                const target = event.target as Node | null;
+                const inside = Boolean(root && target && root.contains(target));
+                const anyEvent = event as unknown as {
+                    wheelDelta?: number;
+                    wheelDeltaX?: number;
+                    wheelDeltaY?: number;
+                    webkitDirectionInvertedFromDevice?: boolean;
+                    sourceCapabilities?: unknown;
+                };
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch][station] window wheel', {
+                    inside,
+                    ctrlKey: event.ctrlKey,
+                    metaKey: event.metaKey,
+                    shiftKey: event.shiftKey,
+                    altKey: event.altKey,
+                    deltaX: event.deltaX,
+                    deltaY: event.deltaY,
+                    deltaZ: event.deltaZ,
+                    deltaMode: event.deltaMode
+                    ,
+                    wheelDelta: anyEvent.wheelDelta,
+                    wheelDeltaX: anyEvent.wheelDeltaX,
+                    wheelDeltaY: anyEvent.wheelDeltaY,
+                    invertedFromDevice: anyEvent.webkitDirectionInvertedFromDevice,
+                    sourceCapabilities: anyEvent.sourceCapabilities
+                });
+            }
+            handleWheel(event);
+        };
+
+        let lastGestureScale = 1;
+        const handleGestureStart = (event: Event) => {
+            const e = event as unknown as { preventDefault: () => void; scale?: number };
+            const scale = typeof e.scale === 'number' ? e.scale : null;
+            if (scale === null || !Number.isFinite(scale) || scale <= 0) return;
+            e.preventDefault();
+            markGestureWindow();
+            lastGestureScale = scale;
+            if (debugPinch()) {
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch][station] gesturestart', { scale });
+            }
+        };
+        const handleGestureChange = (event: Event) => {
+            const e = event as unknown as {
+                preventDefault: () => void;
+                scale?: number;
+                clientX?: number;
+                clientY?: number;
+            };
+            const scale = typeof e.scale === 'number' ? e.scale : null;
+            if (scale === null || !Number.isFinite(scale) || scale <= 0) return;
+            e.preventDefault();
+            markGestureWindow();
+            lastGestureChangeTs = Date.now();
+            const ratio = scale / Math.max(0.0001, lastGestureScale);
+            lastGestureScale = scale;
+            if (debugPinch()) {
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch][station] gesturechange', { scale, ratio });
+            }
+            if (!Number.isFinite(ratio) || ratio <= 0) return;
+            const currentZoom = stationZoomRef.current;
+            const nextZoom = clampStationZoom(currentZoom * ratio);
+            if (Math.abs(nextZoom - currentZoom) < 0.0001) return;
+            const rect = el.getBoundingClientRect();
+            const clientX = typeof e.clientX === 'number' ? e.clientX : rect.left + rect.width / 2;
+            const clientY = typeof e.clientY === 'number' ? e.clientY : rect.top + rect.height / 2;
+            zoomAroundPoint(nextZoom, clientX, clientY);
+        };
+        const handleGestureEnd = (event: Event) => {
+            const e = event as unknown as { preventDefault: () => void };
+            if (!gestureActive) return;
+            e.preventDefault();
+            gestureActive = false;
+            lastGestureEventTs = Date.now();
+            lastGestureScale = 1;
+            if (debugPinch()) {
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch][station] gestureend');
+            }
+            if (gestureFallbackTimer) {
+                window.clearTimeout(gestureFallbackTimer);
+                gestureFallbackTimer = null;
+            }
+        };
+
+        el.addEventListener('wheel', preventWheelZoom, { passive: false });
+        el.addEventListener('wheel', handleWheel, { passive: false });
+        window.addEventListener('wheel', handleGlobalWheelCapture, { passive: false, capture: true });
+        window.addEventListener('gesturestart', handleGestureStart as EventListener, { passive: false });
+        window.addEventListener('gesturechange', handleGestureChange as EventListener, { passive: false });
+        window.addEventListener('gestureend', handleGestureEnd as EventListener, { passive: false });
+        document.addEventListener('gesturestart', handleGestureStart as EventListener, { passive: false });
+        document.addEventListener('gesturechange', handleGestureChange as EventListener, { passive: false });
+        document.addEventListener('gestureend', handleGestureEnd as EventListener, { passive: false });
+
+        return () => {
+            el.removeEventListener('wheel', preventWheelZoom);
+            el.removeEventListener('wheel', handleWheel);
+            window.removeEventListener('wheel', handleGlobalWheelCapture, true);
+            window.removeEventListener('gesturestart', handleGestureStart as EventListener);
+            window.removeEventListener('gesturechange', handleGestureChange as EventListener);
+            window.removeEventListener('gestureend', handleGestureEnd as EventListener);
+            document.removeEventListener('gesturestart', handleGestureStart as EventListener);
+            document.removeEventListener('gesturechange', handleGestureChange as EventListener);
+            document.removeEventListener('gestureend', handleGestureEnd as EventListener);
+            if (gestureFallbackTimer) {
+                window.clearTimeout(gestureFallbackTimer);
+            }
+        };
     }, [zoomAroundPoint]);
 
     React.useEffect(() => {
@@ -1031,18 +1307,20 @@ const GlobalGraphOverview = ({
                     break;
                 }
                 case 'zoom_reset':
-                case 'zoom_fit':
                     stationPanRef.current = { x: 0, y: 0 };
                     stationZoomRef.current = 1;
                     setStationPan({ x: 0, y: 0 });
                     setStationZoom(1);
+                    break;
+                case 'zoom_fit':
+                    fitStationToContent();
                     break;
             }
         };
 
         window.addEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as (event: Event) => void);
         return () => window.removeEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as (event: Event) => void);
-    }, [zoomAroundPoint]);
+    }, [fitStationToContent, zoomAroundPoint]);
 
     const renderOrbitalHud = (cluster: SpaceCluster) => {
         if (!selectedMetrics || selectedMetrics.id !== cluster.id) return null;
@@ -1099,6 +1377,7 @@ const GlobalGraphOverview = ({
             ref={containerRef}
             className={className ?? 'relative w-full h-full'}
             style={{
+                touchAction: 'none',
                 backgroundImage: showGrid ? 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)' : 'none',
                 backgroundSize: '32px 32px'
             }}
@@ -1124,9 +1403,18 @@ const GlobalGraphOverview = ({
                 </defs>
 
                 {/* Level 0/1: ArcheNode -> Space Links */}
-                {showEdges && renderClusters.map(cluster => (
-                    renderLink(0, 0, cluster.center.x, cluster.center.y, 40, cluster.hasCore ? 10 : 0, `link-root-${cluster.id}`)
-                ))}
+                {showEdges && renderClusters.map(cluster => {
+                    const target = cluster.corePoint ?? cluster.center;
+                    return renderLink(
+                        0,
+                        0,
+                        target.x,
+                        target.y,
+                        40,
+                        cluster.hasCore ? 10 : 0,
+                        `link-root-${cluster.id}`
+                    );
+                })}
 
                 <circle cx="0" cy="0" r="90" fill="url(#gg-core)" stroke="rgba(255,255,255,0.08)" />
                 <circle cx="0" cy="0" r="45" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth={3} />

@@ -170,7 +170,8 @@ export const GLYPHS: Record<string, GlyphMetadata> = {
  */
 export function getFamily(glyphId: string): GlyphMetadata[] {
     const glyph = GLYPHS[glyphId];
-    if (!glyph?.family) return [glyph];
+    if (!glyph) return [];
+    if (!glyph.family) return [glyph];
 
     const family = Object.values(GLYPHS).filter(g => g.family === glyph.family);
 
@@ -205,7 +206,9 @@ export function getVariants(glyphId: string): GlyphMetadata[] {
     if (!glyph) return [];
 
     if (glyph.variants) {
-        return glyph.variants.map(id => GLYPHS[id]).filter(Boolean);
+        return glyph.variants
+            .map(id => GLYPHS[id])
+            .filter((variant): variant is GlyphMetadata => Boolean(variant));
     }
 
     return [];
@@ -277,7 +280,10 @@ export const GLYPH_LIBRARY: GlyphCategory[] = dedupeCategories([
     {
         id: 'base',
         label: 'Base',
-        glyphs: BASE_GLYPH_IDS.map(id => GLYPHS[id]).filter(Boolean).map(g => g.symbol)
+        glyphs: BASE_GLYPH_IDS
+            .map(id => GLYPHS[id])
+            .filter((glyph): glyph is GlyphMetadata => Boolean(glyph))
+            .map(glyph => glyph.symbol)
     },
     {
         id: 'cosmic',

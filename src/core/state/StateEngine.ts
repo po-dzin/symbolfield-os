@@ -36,7 +36,7 @@ export const TOOLS = {
 type AppMode = typeof APP_MODES[keyof typeof APP_MODES];
 type ViewContext = typeof VIEW_CONTEXTS[keyof typeof VIEW_CONTEXTS];
 type ToolId = typeof TOOLS[keyof typeof TOOLS];
-export type DrawerRightTab = 'settings' | 'analytics' | 'now' | 'calendar' | 'timeline' | 'log';
+export type DrawerRightTab = 'settings' | 'analytics' | 'now' | 'cycles' | 'timeline' | 'log';
 
 interface SessionState {
     isActive: boolean;
@@ -64,6 +64,8 @@ interface StateSnapshot {
     subspaceLod: 1 | 2 | 3;
     showStationLabels: boolean;
     showPlaygroundOnStation: boolean;
+    glassOpacity: number;
+    glassNoise: number;
     drawerLeftOpen: boolean;
     drawerLeftPinned: boolean;
     drawerLeftWidth: 'sm' | 'md' | 'lg';
@@ -100,6 +102,8 @@ class StateEngine {
             subspaceLod: 2,
             showStationLabels: true,
             showPlaygroundOnStation: true,
+            glassOpacity: 0.72,
+            glassNoise: 0.14,
             drawerLeftOpen: false,
             drawerLeftPinned: false,
             drawerLeftWidth: 'md',

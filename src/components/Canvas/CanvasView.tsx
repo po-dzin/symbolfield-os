@@ -54,7 +54,7 @@ const CanvasView = () => {
     const fieldScopeId = useAppStore(state => state.fieldScopeId);
     const viewContext = useAppStore(state => state.viewContext);
     const setViewContext = useAppStore(state => state.setViewContext);
-    const { pan, zoom, zoomAt, centerOn } = useCameraStore();
+    const { pan, zoom, centerOn } = useCameraStore();
     const setPan = useCameraStore(state => state.setPan);
     const setZoom = useCameraStore(state => state.setZoom);
     const [isSmooth, setIsSmooth] = React.useState(false);
@@ -168,7 +168,7 @@ const CanvasView = () => {
         const selectedNodes = selectionState.getSelection();
         const isAnchored = area.anchor.type === 'node';
         const activeNodeId = selectedNodes.length === 1 ? selectedNodes[0] : null;
-        const anchorNodeId = isAnchored ? area.anchor.nodeId : null;
+        const anchorNodeId = area.anchor.type === 'node' ? area.anchor.nodeId : null;
         const anchorNode = anchorNodeId ? graphEngine.getNode(asNodeId(anchorNodeId)) : null;
         const targetNode = activeNodeId ? graphEngine.getNode(activeNodeId) : null;
 
@@ -182,30 +182,30 @@ const CanvasView = () => {
 
         if (isAnchored && anchorNode) {
             if (!targetNode || anchorNode.id === targetNode.id) {
-            if (area.shape === 'circle' && area.circle) {
-                updateArea(areaId, {
-                    anchor: { type: 'canvas' },
-                    circle: {
-                        cx: anchorNode.position.x,
-                        cy: anchorNode.position.y,
-                        r: area.circle.r
-                    }
-                });
-                return;
-            }
-            if (area.shape === 'rect' && area.rect) {
-                const rect = getAreaRectBounds(area);
-                updateArea(areaId, {
-                    anchor: { type: 'canvas' },
-                    rect: {
-                        x: rect?.x ?? area.rect.x,
-                        y: rect?.y ?? area.rect.y,
-                        w: area.rect.w,
-                        h: area.rect.h
-                    }
-                });
-                return;
-            }
+                if (area.shape === 'circle' && area.circle) {
+                    updateArea(areaId, {
+                        anchor: { type: 'canvas' },
+                        circle: {
+                            cx: anchorNode.position.x,
+                            cy: anchorNode.position.y,
+                            r: area.circle.r
+                        }
+                    });
+                    return;
+                }
+                if (area.shape === 'rect' && area.rect) {
+                    const rect = getAreaRectBounds(area);
+                    updateArea(areaId, {
+                        anchor: { type: 'canvas' },
+                        rect: {
+                            x: rect?.x ?? area.rect.x,
+                            y: rect?.y ?? area.rect.y,
+                            w: area.rect.w,
+                            h: area.rect.h
+                        }
+                    });
+                    return;
+                }
             }
         }
 
@@ -344,6 +344,7 @@ const CanvasView = () => {
         );
         const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % regionPalette.length : 0;
         const next = regionPalette[nextIndex];
+        if (!next) return;
         updateArea(areaId, { color: next.fill, borderColor: next.stroke });
     };
 
@@ -407,14 +408,18 @@ const CanvasView = () => {
         const startAreas = activeAreaIds.map(id => {
             const target = areas.find(item => item.id === id);
             if (!target || target.anchor.type === 'node') return null;
-            return {
-                id,
-                rect: target.shape === 'rect' && target.rect ? { ...target.rect } : undefined,
-                circle: target.shape === 'circle' && target.circle ? {
+            const rect = target.shape === 'rect' && target.rect ? { ...target.rect } : null;
+            const circle = target.shape === 'circle' && target.circle
+                ? {
                     cx: getAreaCenter(target)?.cx ?? 0,
                     cy: getAreaCenter(target)?.cy ?? 0,
                     r: target.circle.r
-                } : undefined
+                }
+                : null;
+            return {
+                id,
+                ...(rect ? { rect } : {}),
+                ...(circle ? { circle } : {})
             };
         }).filter((item): item is { id: string; rect?: { x: number; y: number; w: number; h: number }; circle?: { cx: number; cy: number; r: number } } => Boolean(item));
         const pendingSingleSelect = !e.shiftKey;
@@ -425,8 +430,8 @@ const CanvasView = () => {
                 startX: proj.worldX,
                 startY: proj.worldY,
                 startRect: { ...area.rect },
-                startNodes: startNodes.length > 0 ? startNodes : undefined,
-                startAreas: startAreas.length > 0 ? startAreas : undefined,
+                ...(startNodes.length > 0 ? { startNodes } : {}),
+                ...(startAreas.length > 0 ? { startAreas } : {}),
                 pendingSingleSelect,
                 hasDragged: false
             });
@@ -441,8 +446,8 @@ const CanvasView = () => {
                 startX: proj.worldX,
                 startY: proj.worldY,
                 startCircle: { cx, cy, r: area.circle.r },
-                startNodes: startNodes.length > 0 ? startNodes : undefined,
-                startAreas: startAreas.length > 0 ? startAreas : undefined,
+                ...(startNodes.length > 0 ? { startNodes } : {}),
+                ...(startAreas.length > 0 ? { startAreas } : {}),
                 pendingSingleSelect,
                 hasDragged: false
             });
@@ -567,7 +572,54 @@ const CanvasView = () => {
         };
     };
 
+    const pinchRef = useRef<null | {
+        pointers: Map<number, { x: number; y: number }>;
+        startDistance: number;
+    }>(null);
+
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (e.pointerType === 'touch') {
+            if (!pinchRef.current) {
+                pinchRef.current = {
+                    pointers: new Map(),
+                    startDistance: 0,
+                };
+            }
+            pinchRef.current.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            e.currentTarget.setPointerCapture(e.pointerId);
+
+            // Only intercept when a real 2-finger pinch begins.
+            // Single-finger touch should continue through the normal gesture pipeline.
+            if (pinchRef.current.pointers.size === 2) {
+                e.preventDefault();
+                const pts = Array.from(pinchRef.current.pointers.values());
+                const [p0, p1] = pts;
+                if (!p0 || !p1) return;
+                const dx = p0.x - p1.x;
+                const dy = p0.y - p1.y;
+                pinchRef.current.startDistance = Math.max(1, Math.hypot(dx, dy));
+
+                // If the first touch already started a router interaction (drag/box-select/etc),
+                // end it now so it doesn't interfere with pinch (we skip router pointer-up for pinches).
+                const proj = getProjection(e);
+                gestureRouter.handlePointerUp({
+                    x: proj.worldX,
+                    y: proj.worldY,
+                    screenX: proj.x,
+                    screenY: proj.y,
+                    targetType: 'empty',
+                    targetId: null,
+                    modifiers: {
+                        alt: false,
+                        shift: false,
+                        ctrl: false,
+                        meta: false,
+                        space: false
+                    }
+                });
+                return;
+            }
+        }
         const proj = getProjection(e);
 
         // Basic normalized gesture object
@@ -676,6 +728,33 @@ const CanvasView = () => {
     };
 
     const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (e.pointerType === 'touch' && pinchRef.current) {
+            const pinch = pinchRef.current;
+            if (pinch.pointers.has(e.pointerId)) {
+                pinch.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            }
+            if (pinch.pointers.size === 2) {
+                e.preventDefault();
+                const pts = Array.from(pinch.pointers.values());
+                const [p0, p1] = pts;
+                if (!p0 || !p1) return;
+                const dx = p0.x - p1.x;
+                const dy = p0.y - p1.y;
+                const dist = Math.max(1, Math.hypot(dx, dy));
+                const ratio = dist / Math.max(1, pinch.startDistance);
+                if (Number.isFinite(ratio) && ratio > 0.0001) {
+                    const rect = containerRef.current?.getBoundingClientRect();
+                    if (rect) {
+                        const cx = (p0.x + p1.x) / 2;
+                        const cy = (p0.y + p1.y) / 2;
+                        const delta = -Math.log(ratio) / 0.0022;
+                        useCameraStore.getState().zoomAt(cx, cy, delta, rect);
+                    }
+                    pinch.startDistance = dist;
+                }
+                return;
+            }
+        }
         if (!areaInteraction) {
             const target = e.target as HTMLElement | null;
             const areaEl = target?.closest('[data-area-id]');
@@ -830,6 +909,16 @@ const CanvasView = () => {
     };
 
     const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+        let skipRouterPointerUp = false;
+        if (e.pointerType === 'touch' && pinchRef.current) {
+            const wasPinching = pinchRef.current.pointers.size >= 2;
+            pinchRef.current.pointers.delete(e.pointerId);
+            if (pinchRef.current.pointers.size < 2) {
+                pinchRef.current = null;
+            }
+            // If this touch sequence participated in a pinch, don't treat the end as a click/select.
+            skipRouterPointerUp = wasPinching;
+        }
         const proj = getProjection(e);
         if (areaInteraction) {
             if (!areaInteraction.hasDragged && areaInteraction.pendingSingleSelect) {
@@ -857,21 +946,23 @@ const CanvasView = () => {
                 ? edgeEl.getAttribute('data-edge-id')
                 : null;
 
-        gestureRouter.handlePointerUp({
-            x: proj.worldX,
-            y: proj.worldY,
-            screenX: proj.x,
-            screenY: proj.y,
-            targetType,
-            targetId,
-            modifiers: {
-                alt: e.altKey,
-                shift: e.shiftKey,
-                ctrl: e.ctrlKey,
-                meta: e.metaKey,
-                space: isSpacePressed.current
-            }
-        });
+        if (!skipRouterPointerUp) {
+            gestureRouter.handlePointerUp({
+                x: proj.worldX,
+                y: proj.worldY,
+                screenX: proj.x,
+                screenY: proj.y,
+                targetType,
+                targetId,
+                modifiers: {
+                    alt: e.altKey,
+                    shift: e.shiftKey,
+                    ctrl: e.ctrlKey,
+                    meta: e.metaKey,
+                    space: isSpacePressed.current
+                }
+            });
+        }
     };
 
     useEffect(() => {
@@ -969,17 +1060,6 @@ const CanvasView = () => {
         });
     };
 
-    const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-        if (!containerRef.current) return;
-        if (e.ctrlKey || e.metaKey) {
-            e.preventDefault();
-            const rect = containerRef.current.getBoundingClientRect();
-            zoomAt(e.clientX, e.clientY, e.deltaY, rect);
-            return;
-        }
-        useCameraStore.getState().updatePan(-e.deltaX, -e.deltaY);
-    };
-
     const adjustZoomTo = (nextZoom: number) => {
         if (!containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
@@ -1051,7 +1131,7 @@ const CanvasView = () => {
             return;
         }
 
-        const getRadius = (nodeType: string) => {
+        const getRadius = (nodeType?: string) => {
             if (nodeType === 'core') return NODE_SIZES.root / 2;
             if (nodeType === 'cluster') return NODE_SIZES.cluster / 2;
             return NODE_SIZES.base / 2;
@@ -1100,8 +1180,10 @@ const CanvasView = () => {
         const boundsW = Math.max(1, maxX - minX);
         const boundsH = Math.max(1, maxY - minY);
         const padding = 80;
-        const availableW = Math.max(1, rect.width - padding * 2);
-        const availableH = Math.max(1, rect.height - padding * 2);
+        // Use only 90% of available space to leave room for HUD panels and analytics
+        const scaleFactor = 0.90;
+        const availableW = Math.max(1, (rect.width - padding * 2) * scaleFactor);
+        const availableH = Math.max(1, (rect.height - padding * 2) * scaleFactor);
         const nextZoom = Math.min(availableW / boundsW, availableH / boundsH);
         const targetZoom = options?.clampToOne ? Math.min(nextZoom, 1) : nextZoom;
         const clampedZoom = Math.min(Math.max(targetZoom, 0.25), 2.0);
@@ -1119,28 +1201,152 @@ const CanvasView = () => {
     useEffect(() => {
         const el = containerRef.current;
         if (!el) return;
+        const GESTURE_WHEEL_GUARD_MS = 120;
+        let gestureActive = false;
+        let lastGestureEventTs = 0;
+        let lastGestureChangeTs = 0;
+        let gestureFallbackTimer: number | null = null;
+        const markGestureWindow = () => {
+            gestureActive = true;
+            lastGestureEventTs = Date.now();
+            if (gestureFallbackTimer) {
+                window.clearTimeout(gestureFallbackTimer);
+            }
+            // Safari sometimes fails to deliver gestureend; don't let the guard window get stuck.
+            gestureFallbackTimer = window.setTimeout(() => {
+                gestureActive = false;
+            }, 240);
+        };
+        const normalizeWheelDelta = (event: WheelEvent, pageHeight: number) => {
+            const modeFactor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? pageHeight : 1;
+            return {
+                dx: event.deltaX * modeFactor,
+                dy: event.deltaY * modeFactor
+            };
+        };
 
         const preventWheelZoom = (e: WheelEvent) => {
             if (e.ctrlKey || e.metaKey) e.preventDefault();
         };
         el.addEventListener('wheel', preventWheelZoom, { passive: false });
 
-        const handleGlobalWheelCapture = (event: WheelEvent) => {
-            if (!(event.ctrlKey || event.metaKey)) return;
+        const debugPinch = () => {
+            try {
+                return window.localStorage.getItem('sf_debug_pinch') === '1';
+            } catch {
+                return false;
+            }
+        };
+
+        const wheelZoomEnabled = () => {
+            try {
+                return window.localStorage.getItem('sf_wheel_zoom') === '1';
+            } catch {
+                return false;
+            }
+        };
+
+        const handleWheel = (event: WheelEvent) => {
             const root = containerRef.current;
             if (!root) return;
+            const target = event.target as Node | null;
+            if (!target || !root.contains(target)) return;
+
+            const now = Date.now();
+            const inNativeGestureWindow = (now - lastGestureChangeTs) < GESTURE_WHEEL_GUARD_MS;
+            const wantsZoom = wheelZoomEnabled() || event.ctrlKey || event.metaKey;
+            const shouldZoom = wantsZoom && !inNativeGestureWindow;
+
+            if (debugPinch()) {
+                const anyEvent = event as unknown as {
+                    wheelDelta?: number;
+                    wheelDeltaX?: number;
+                    wheelDeltaY?: number;
+                    webkitDirectionInvertedFromDevice?: boolean;
+                    sourceCapabilities?: unknown;
+                };
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch] wheel', {
+                    ctrlKey: event.ctrlKey,
+                    metaKey: event.metaKey,
+                    shiftKey: event.shiftKey,
+                    altKey: event.altKey,
+                    wheelZoomEnabled: wheelZoomEnabled(),
+                    deltaX: event.deltaX,
+                    deltaY: event.deltaY,
+                    deltaZ: event.deltaZ,
+                    deltaMode: event.deltaMode,
+                    wheelDelta: anyEvent.wheelDelta,
+                    wheelDeltaX: anyEvent.wheelDeltaX,
+                    wheelDeltaY: anyEvent.wheelDeltaY,
+                    invertedFromDevice: anyEvent.webkitDirectionInvertedFromDevice,
+                    sourceCapabilities: anyEvent.sourceCapabilities,
+                    inNativeGestureWindow,
+                    shouldZoom
+                });
+            }
+
             event.preventDefault();
             event.stopPropagation();
+            if (inNativeGestureWindow) return;
+
             const rect = root.getBoundingClientRect();
-            useCameraStore.getState().zoomAt(event.clientX, event.clientY, event.deltaY, rect);
+            const normalized = normalizeWheelDelta(event, Math.max(1, rect.height));
+            if (shouldZoom) {
+                useCameraStore.getState().zoomAt(event.clientX, event.clientY, normalized.dy, rect);
+                return;
+            }
+            useCameraStore.getState().updatePan(-normalized.dx, -normalized.dy);
         };
+
+        const handleGlobalWheelCapture = (event: WheelEvent) => {
+            if (debugPinch()) {
+                const root = containerRef.current;
+                const target = event.target as Node | null;
+                const inside = Boolean(root && target && root.contains(target));
+                const anyEvent = event as unknown as {
+                    wheelDelta?: number;
+                    wheelDeltaX?: number;
+                    wheelDeltaY?: number;
+                    webkitDirectionInvertedFromDevice?: boolean;
+                    sourceCapabilities?: unknown;
+                };
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch] window wheel', {
+                    inside,
+                    ctrlKey: event.ctrlKey,
+                    metaKey: event.metaKey,
+                    shiftKey: event.shiftKey,
+                    altKey: event.altKey,
+                    deltaX: event.deltaX,
+                    deltaY: event.deltaY,
+                    deltaZ: event.deltaZ,
+                    deltaMode: event.deltaMode
+                    ,
+                    wheelDelta: anyEvent.wheelDelta,
+                    wheelDeltaX: anyEvent.wheelDeltaX,
+                    wheelDeltaY: anyEvent.wheelDeltaY,
+                    invertedFromDevice: anyEvent.webkitDirectionInvertedFromDevice,
+                    sourceCapabilities: anyEvent.sourceCapabilities
+                });
+            }
+            handleWheel(event);
+        };
+        el.addEventListener('wheel', handleWheel, { passive: false });
         window.addEventListener('wheel', handleGlobalWheelCapture, { passive: false, capture: true });
 
         let lastGestureScale = 1;
         const handleGestureStart = (event: Event) => {
             const e = event as unknown as { preventDefault: () => void; scale?: number };
+            const scale = typeof e.scale === 'number' ? e.scale : null;
+            if (scale === null || !Number.isFinite(scale) || scale <= 0) return;
             e.preventDefault();
-            lastGestureScale = typeof e.scale === 'number' ? e.scale : 1;
+            markGestureWindow();
+            lastGestureScale = scale;
+            if (debugPinch()) {
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch] gesturestart', { scale });
+            }
         };
         const handleGestureChange = (event: Event) => {
             const e = event as unknown as {
@@ -1149,10 +1355,17 @@ const CanvasView = () => {
                 clientX?: number;
                 clientY?: number;
             };
+            const scale = typeof e.scale === 'number' ? e.scale : null;
+            if (scale === null || !Number.isFinite(scale) || scale <= 0) return;
             e.preventDefault();
-            const scale = typeof e.scale === 'number' ? e.scale : 1;
+            markGestureWindow();
+            lastGestureChangeTs = Date.now();
             const ratio = scale / Math.max(0.0001, lastGestureScale);
             lastGestureScale = scale;
+            if (debugPinch()) {
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch] gesturechange', { scale, ratio });
+            }
             if (!Number.isFinite(ratio) || ratio <= 0) return;
 
             const rect = el.getBoundingClientRect();
@@ -1169,8 +1382,19 @@ const CanvasView = () => {
         };
         const handleGestureEnd = (event: Event) => {
             const e = event as unknown as { preventDefault: () => void };
+            if (!gestureActive) return;
             e.preventDefault();
+            gestureActive = false;
+            lastGestureEventTs = Date.now();
             lastGestureScale = 1;
+            if (debugPinch()) {
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch] gestureend');
+            }
+            if (gestureFallbackTimer) {
+                window.clearTimeout(gestureFallbackTimer);
+                gestureFallbackTimer = null;
+            }
         };
 
         window.addEventListener('gesturestart', handleGestureStart as EventListener, { passive: false });
@@ -1262,7 +1486,17 @@ const CanvasView = () => {
 
         return () => {
             el.removeEventListener('wheel', preventWheelZoom);
+            el.removeEventListener('wheel', handleWheel);
             window.removeEventListener('wheel', handleGlobalWheelCapture, true);
+            window.removeEventListener('gesturestart', handleGestureStart as EventListener);
+            window.removeEventListener('gesturechange', handleGestureChange as EventListener);
+            window.removeEventListener('gestureend', handleGestureEnd as EventListener);
+            document.removeEventListener('gesturestart', handleGestureStart as EventListener);
+            document.removeEventListener('gesturechange', handleGestureChange as EventListener);
+            document.removeEventListener('gestureend', handleGestureEnd as EventListener);
+            if (gestureFallbackTimer) {
+                window.clearTimeout(gestureFallbackTimer);
+            }
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
             window.removeEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as EventListener);
@@ -1342,8 +1576,8 @@ const CanvasView = () => {
             });
         };
 
-        const adjacency = new Map<string, Set<string>>();
-        const nodeTypeMap = new Map(nodes.map(node => [node.id, node.type]));
+        const adjacency = new Map<NodeId, Set<NodeId>>();
+        const nodeTypeMap = new Map<NodeId, string | undefined>(nodes.map(node => [node.id, node.type]));
         edges.forEach(edge => {
             if (!adjacency.has(edge.source)) adjacency.set(edge.source, new Set());
             if (!adjacency.has(edge.target)) adjacency.set(edge.target, new Set());
@@ -1357,8 +1591,8 @@ const CanvasView = () => {
             focusSet.add(currentScope);
             collectChildren(currentScope);
 
-            const visited = new Set<string>([currentScope]);
-            const queue: Array<{ id: string; depth: number }> = [{ id: currentScope, depth: 0 }];
+            const visited = new Set<NodeId>([currentScope]);
+            const queue: Array<{ id: NodeId; depth: number }> = [{ id: currentScope, depth: 0 }];
             const maxDepth = 1 + maxGhostDepthForScope;
 
             while (queue.length > 0) {
@@ -1366,7 +1600,7 @@ const CanvasView = () => {
                 if (!current) break;
                 const neighbors = adjacency.get(current.id);
                 if (!neighbors) continue;
-                neighbors.forEach(neighbor => {
+                neighbors.forEach((neighbor) => {
                     if (visited.has(neighbor)) return;
                     const neighborType = nodeTypeMap.get(neighbor);
                     if (neighborType === 'core') return;
@@ -1478,16 +1712,19 @@ const CanvasView = () => {
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            onPointerLeave={() => {
+            onPointerCancel={handlePointerUp}
+            onPointerLeave={(e) => {
                 lastHoverEdgeId.current = null;
                 useEdgeSelectionStore.getState().setHover(null);
                 setHoverAreaId(null);
+                if (e.pointerType !== 'touch') {
+                    pinchRef.current = null;
+                }
                 if (!isSpacePressed.current) {
                     document.body.style.cursor = '';
                 }
             }}
             onDoubleClick={handleDoubleClick}
-            onWheel={handleWheel}
             onContextMenu={(e) => e.preventDefault()}
         >
             {/* Dot Matrix Background */}
@@ -1597,6 +1834,7 @@ const CanvasView = () => {
                             const isSelected = selectedAreaIds.includes(area.id);
                             const isHovered = hoverAreaId === area.id;
                             if (area.shape === 'circle' && area.circle) {
+                                const circle = area.circle;
                                 const center = getAreaCenter(area);
                                 const cx = center?.cx ?? 0;
                                 const cy = center?.cy ?? 0;
@@ -1606,7 +1844,7 @@ const CanvasView = () => {
                                 return (
                                     <React.Fragment key={area.id}>
                                         {area.rings?.map(ring => {
-                                            const basePct = Math.max(0, Math.min(100, (area.circle.r / ring.r) * 100));
+                                            const basePct = Math.max(0, Math.min(100, (circle.r / ring.r) * 100));
                                             const color = area.color ?? 'rgba(255,255,255,0.08)';
                                             const colorStrong = color.replace('0.08', '0.18');
                                             const innerPct = Math.max(0, basePct - 16);
@@ -1634,10 +1872,10 @@ const CanvasView = () => {
                                         })}
                                         {(() => {
                                             const baseBounds = {
-                                                x: cx - area.circle.r,
-                                                y: cy - area.circle.r,
-                                                w: area.circle.r * 2,
-                                                h: area.circle.r * 2
+                                                x: cx - circle.r,
+                                                y: cy - circle.r,
+                                                w: circle.r * 2,
+                                                h: circle.r * 2
                                             };
                                             const blurOverlaps = sortedAreas.slice(areaIndex + 1).map(other => {
                                                 const otherZ = other.zIndex ?? 0;
@@ -1660,7 +1898,7 @@ const CanvasView = () => {
                                                 const wrapperLeft = baseBounds.x;
                                                 const wrapperTop = baseBounds.y;
                                                 const wrapperSize = baseBounds.w;
-                                                const maskImage = `radial-gradient(circle ${area.circle.r}px at ${area.circle.r}px ${area.circle.r}px, #fff 98%, transparent 100%)`;
+                                                const maskImage = `radial-gradient(circle ${circle.r}px at ${circle.r}px ${circle.r}px, #fff 98%, transparent 100%)`;
                                                 const offsetLeft = left - wrapperLeft;
                                                 const offsetTop = top - wrapperTop;
                                                 return (

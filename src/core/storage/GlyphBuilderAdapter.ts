@@ -48,13 +48,15 @@ const normalizeGeneratedGlyph = (input: unknown): GeneratedGlyphDefinition | und
         ? dedupeStrings(raw.categories.filter((item): item is string => typeof item === 'string'))
         : undefined;
 
-    return {
+    const next: GeneratedGlyphDefinition = {
         id,
         label,
-        categories: categories && categories.length > 0 ? categories : undefined,
-        svg: svg || undefined,
-        symbol: symbol || undefined
+        ...(categories && categories.length > 0 ? { categories } : {}),
+        ...(svg ? { svg } : {}),
+        ...(symbol ? { symbol } : {})
     };
+
+    return next;
 };
 
 const normalizeStoredGlyph = (input: unknown): GlyphBuilderStoredGlyph | undefined => {
@@ -146,9 +148,9 @@ export class GlyphBuilderAdapter {
             registerGeneratedGlyph({
                 id: glyph.id,
                 label: glyph.label,
-                categories: glyph.categories,
-                svg: glyph.svg,
-                symbol: glyph.symbol
+                ...(glyph.categories ? { categories: glyph.categories } : {}),
+                ...(glyph.svg ? { svg: glyph.svg } : {}),
+                ...(glyph.symbol ? { symbol: glyph.symbol } : {})
             });
         });
         this.initialized = true;
@@ -184,9 +186,9 @@ export class GlyphBuilderAdapter {
         registerGeneratedGlyph({
             id: stored.id,
             label: stored.label,
-            categories: stored.categories,
-            svg: stored.svg,
-            symbol: stored.symbol
+            ...(stored.categories ? { categories: stored.categories } : {}),
+            ...(stored.svg ? { svg: stored.svg } : {}),
+            ...(stored.symbol ? { symbol: stored.symbol } : {})
         });
 
         return stored;

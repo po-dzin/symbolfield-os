@@ -43,8 +43,14 @@ const EdgeRenderer = ({ edge }: EdgeRendererProps) => {
     if (sourceHidden || targetHidden) return null;
     const sourceFocusHidden = sourceNode.meta?.focusHidden;
     const targetFocusHidden = targetNode.meta?.focusHidden;
-    const sourceGhostLevel = sourceNode.meta?.focusGhostLevel ?? (sourceNode.meta?.focusGhost ? 1 : 0);
-    const targetGhostLevel = targetNode.meta?.focusGhostLevel ?? (targetNode.meta?.focusGhost ? 1 : 0);
+    const sourceGhostLevelRaw = (sourceNode.meta as Record<string, unknown> | undefined)?.focusGhostLevel;
+    const targetGhostLevelRaw = (targetNode.meta as Record<string, unknown> | undefined)?.focusGhostLevel;
+    const sourceGhostLevel = typeof sourceGhostLevelRaw === 'number'
+        ? sourceGhostLevelRaw
+        : ((sourceNode.meta as Record<string, unknown> | undefined)?.focusGhost ? 1 : 0);
+    const targetGhostLevel = typeof targetGhostLevelRaw === 'number'
+        ? targetGhostLevelRaw
+        : ((targetNode.meta as Record<string, unknown> | undefined)?.focusGhost ? 1 : 0);
     const sourceGhost = sourceGhostLevel > 0;
     const targetGhost = targetGhostLevel > 0;
 

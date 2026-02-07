@@ -2,22 +2,22 @@ import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { useTimeStore } from '../../store/useTimeStore';
 
-type NowCoreTab = 'now' | 'calendar' | 'timeline';
+type NowCoreTab = 'now' | 'cycles' | 'timeline';
 
 const isNowCoreTab = (tab: string | null): tab is NowCoreTab | 'log' => (
-    tab === 'now' || tab === 'calendar' || tab === 'timeline' || tab === 'log'
+    tab === 'now' || tab === 'cycles' || tab === 'timeline' || tab === 'log'
 );
 
 const resolveActiveTab = (tab: string | null): NowCoreTab => {
-    if (tab === 'calendar') return 'calendar';
+    if (tab === 'cycles') return 'cycles';
     if (tab === 'timeline' || tab === 'log') return 'timeline';
     return 'now';
 };
 
 const TAB_LABELS: Record<NowCoreTab, string> = {
     now: 'Now',
-    calendar: 'Calendar',
-    timeline: 'Timeline'
+    cycles: 'Cycles',
+    timeline: 'Alt Chronos'
 };
 
 const NowCoreDrawer = () => {
@@ -26,6 +26,8 @@ const NowCoreDrawer = () => {
     const setDrawerOpen = useAppStore(state => state.setDrawerOpen);
     const setDrawerRightTab = useAppStore(state => state.setDrawerRightTab);
     const session = useAppStore(state => state.session);
+    const startFocusSession = useAppStore(state => state.startFocusSession);
+    const stopFocusSession = useAppStore(state => state.stopFocusSession);
     const activeTool = useAppStore(state => state.activeTool);
     const currentSpaceId = useAppStore(state => state.currentSpaceId);
 
@@ -35,7 +37,7 @@ const NowCoreDrawer = () => {
 
     const [fullscreenByTab, setFullscreenByTab] = React.useState<Record<NowCoreTab, boolean>>({
         now: false,
-        calendar: false,
+        cycles: false,
         timeline: false
     });
 
@@ -64,7 +66,7 @@ const NowCoreDrawer = () => {
                 : 'h-full glass-panel rounded-none rounded-l-[var(--panel-radius)] border-r-0 p-[var(--panel-padding)] flex flex-col gap-4'}
             >
                 <div className="flex items-center justify-between">
-                    <div className="text-xs uppercase tracking-[0.3em] text-white/50">NowCore</div>
+                    <div />
                     <div className="flex items-center gap-2">
                         <button
                             onClick={toggleFullscreen}
@@ -85,7 +87,7 @@ const NowCoreDrawer = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {(['now', 'calendar', 'timeline'] as NowCoreTab[]).map(tab => (
+                    {(['now', 'cycles', 'timeline'] as NowCoreTab[]).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setDrawerRightTab(tab)}
@@ -116,10 +118,35 @@ const NowCoreDrawer = () => {
                     </div>
                 )}
 
-                {activeTab === 'calendar' && (
+                {activeTab === 'cycles' && (
                     <div className="flex-1 overflow-auto space-y-4 text-sm">
                         <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45 mb-2">Calendar Lens</div>
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">Session Log</div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => startFocusSession(session.label ?? 'Focus')}
+                                    className="flex-1 h-10 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/25 uppercase tracking-[0.2em] text-xs"
+                                >
+                                    Start Focus
+                                </button>
+                                <button
+                                    onClick={() => stopFocusSession()}
+                                    className="h-10 px-3 rounded-lg bg-white/10 text-white/70 hover:bg-white/15 uppercase tracking-[0.2em] text-xs"
+                                    disabled={!session.isActive}
+                                    aria-disabled={!session.isActive}
+                                    title={session.isActive ? 'Stop focus session' : 'No active session'}
+                                >
+                                    Stop
+                                </button>
+                            </div>
+                            <div className="mt-3 text-xs text-white/70">
+                                <div>Status: <span className="text-white/85">{session.isActive ? 'Active' : 'Idle'}</span></div>
+                                <div>Label: <span className="text-white/85">{session.label ?? '—'}</span></div>
+                                <div>Started: <span className="text-white/85">{session.startTime ? new Date(session.startTime).toLocaleTimeString() : '—'}</span></div>
+                            </div>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45 mb-2">Cycles Lens</div>
                             <div className="text-white/85">{anchorDate.toLocaleDateString()}</div>
                             <div className="text-white/65">Scale: {scale}</div>
                         </div>
@@ -143,6 +170,31 @@ const NowCoreDrawer = () => {
 
                 {activeTab === 'timeline' && (
                     <div className="flex-1 overflow-auto space-y-4 text-sm">
+                        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">Session Log</div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => startFocusSession(session.label ?? 'Focus')}
+                                    className="flex-1 h-10 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/25 uppercase tracking-[0.2em] text-xs"
+                                >
+                                    Start Focus
+                                </button>
+                                <button
+                                    onClick={() => stopFocusSession()}
+                                    className="h-10 px-3 rounded-lg bg-white/10 text-white/70 hover:bg-white/15 uppercase tracking-[0.2em] text-xs"
+                                    disabled={!session.isActive}
+                                    aria-disabled={!session.isActive}
+                                    title={session.isActive ? 'Stop focus session' : 'No active session'}
+                                >
+                                    Stop
+                                </button>
+                            </div>
+                            <div className="mt-3 text-xs text-white/70">
+                                <div>Status: <span className="text-white/85">{session.isActive ? 'Active' : 'Idle'}</span></div>
+                                <div>Label: <span className="text-white/85">{session.label ?? '—'}</span></div>
+                                <div>Started: <span className="text-white/85">{session.startTime ? new Date(session.startTime).toLocaleTimeString() : '—'}</span></div>
+                            </div>
+                        </div>
                         <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                             <div className="text-xs uppercase tracking-widest text-text-secondary">Temporal Log</div>
                             <div className="mt-1 text-[11px] text-white/45">Updated: {updatedAt}</div>

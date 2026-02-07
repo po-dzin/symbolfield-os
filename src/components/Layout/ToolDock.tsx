@@ -18,9 +18,7 @@ const TOOLS: Array<{ id: ToolId; label: string; glyphId: string; hotkey?: string
 
 const ToolDock = () => {
     const activeTool = useAppStore(state => state.activeTool);
-    const settingsOpen = useAppStore(state => state.settingsOpen);
     const setTool = useAppStore(state => state.setTool);
-    const toggleSettings = useAppStore(state => state.toggleSettings);
 
     return (
         <div className="flex flex-col gap-2 p-2 glass-panel">
@@ -42,19 +40,6 @@ const ToolDock = () => {
                 </button>
             ))}
 
-            <button
-                type="button"
-                onClick={toggleSettings}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                    settingsOpen
-                        ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]'
-                        : 'text-text-secondary hover:bg-white/10 hover:text-text-primary'
-                }`}
-                title="Settings"
-                aria-label="Settings"
-            >
-                ⚙
-            </button>
         </div>
     );
 };

@@ -4,7 +4,7 @@
  * Implements the "Field-First" layout.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import ToolDock from './ToolDock';
 import TimeChip from './TimeChip';
@@ -23,34 +23,81 @@ const Shell = () => {
     const appMode = useAppStore(state => state.appMode);
     const viewContext = useAppStore(state => state.viewContext);
     const togglePalette = useAppStore(state => state.togglePalette);
+    const toggleSettings = useAppStore(state => state.toggleSettings);
+    const closeSettings = useAppStore(state => state.closeSettings);
     const drawerRightOpen = useAppStore(state => state.drawerRightOpen);
     const drawerRightTab = useAppStore(state => state.drawerRightTab);
     const setDrawerOpen = useAppStore(state => state.setDrawerOpen);
     const setDrawerRightTab = useAppStore(state => state.setDrawerRightTab);
     const isNowCoreTab = drawerRightTab === 'now'
-        || drawerRightTab === 'calendar'
+        || drawerRightTab === 'cycles'
         || drawerRightTab === 'timeline'
         || drawerRightTab === 'log';
-    // Settings are toggled from ToolDock (left) for now.
+    const shellRef = useRef<HTMLDivElement | null>(null);
+    // Space settings are opened from SpaceHeader menu.
+
+    useEffect(() => {
+        if (viewContext === 'home') {
+            closeSettings();
+        }
+    }, [viewContext, closeSettings]);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
+            const isMod = event.metaKey || event.ctrlKey;
+            const key = event.key.toLowerCase();
+            const code = event.code;
             const target = event.target as HTMLElement | null;
-            if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+            const isEditable = Boolean(target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable));
+
+            if (isMod && (key === ',' || code === 'Comma')) {
+                event.preventDefault();
+                if (!isEditable) {
+                    if (viewContext !== 'home') {
+                        toggleSettings();
+                    }
+                }
                 return;
             }
+
+            if (isEditable) return;
             if (emitZoomHotkeyFromKeyboard(event)) return;
-            if (!(event.metaKey || event.ctrlKey)) return;
-            if (event.key.toLowerCase() !== 'k') return;
+            if (!isMod) return;
+            if (key !== 'k') return;
             event.preventDefault();
             togglePalette();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [togglePalette]);
+    }, [togglePalette, toggleSettings, viewContext]);
+
+    useEffect(() => {
+        const inShell = (eventTarget: EventTarget | null): boolean => {
+            const root = shellRef.current;
+            const target = eventTarget as Node | null;
+            return Boolean(root && target && root.contains(target));
+        };
+
+        const handleBrowserZoomWheel = (event: WheelEvent) => {
+            if (!inShell(event.target)) return;
+            if (event.ctrlKey || event.metaKey) {
+                event.preventDefault();
+            }
+        };
+
+        window.addEventListener('wheel', handleBrowserZoomWheel, { passive: false, capture: true });
+
+        return () => {
+            window.removeEventListener('wheel', handleBrowserZoomWheel, { capture: true } as AddEventListenerOptions);
+        };
+    }, []);
 
     return (
-        <div className={`os-shell w-screen h-screen overflow-hidden relative cursor-default mode-${appMode}`}>
+        <div
+            ref={shellRef}
+            className={`os-shell w-screen h-screen overflow-hidden relative cursor-default mode-${appMode}`}
+            style={{ overscrollBehavior: 'none' }}
+        >
 
             {/* Persistent Home Button (Visible when not in 'home' view) */}
             {/* Persistent Home Button (Visible when not in 'home' view) */}
@@ -59,7 +106,7 @@ const Shell = () => {
             {/* Z0: The Field or Station */}
             <div className="absolute inset-0 z-[var(--z-canvas)]">
                 {viewContext === 'home' ? (
-                    <div className="relative z-[100] w-full h-full bg-sf-zinc-950 overflow-y-auto">
+                    <div className="relative z-[100] w-full h-full bg-sf-zinc-950 overflow-hidden">
                         <Station />
                     </div>
                 ) : (
@@ -110,7 +157,7 @@ const Shell = () => {
             )}
 
             {/* Settings Drawer (Z3) */}
-            <SettingsDrawer />
+            {viewContext !== 'home' && <SettingsDrawer />}
 
             {/* Omni Input (Z3) */}
             <CommandPalette />
