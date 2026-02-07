@@ -1102,6 +1102,8 @@ const GlobalGraphOverview = ({
             }
         };
 
+        let lastWheelZoomTs = 0;
+
         const handleWheel = (event: WheelEvent) => {
             const root = containerRef.current;
             if (!root) return;
@@ -1111,6 +1113,10 @@ const GlobalGraphOverview = ({
             const now = Date.now();
             const inNativeGestureWindow = (now - lastGestureChangeTs) < GESTURE_WHEEL_GUARD_MS;
             const wantsZoom = wheelZoomEnabled() || event.ctrlKey || event.metaKey;
+            
+            // Heuristic: If we are zooming, track it.
+            // If we stop zooming, we might get some "tail" inertia events without ctrlKey.
+            // We want to ignore those for a short time to prevent "jerky pan".
             const shouldZoom = wantsZoom && !inNativeGestureWindow;
 
             if (debugPinch()) {
@@ -1138,22 +1144,32 @@ const GlobalGraphOverview = ({
                     invertedFromDevice: anyEvent.webkitDirectionInvertedFromDevice,
                     sourceCapabilities: anyEvent.sourceCapabilities,
                     inNativeGestureWindow,
-                    shouldZoom
+                    shouldZoom,
+                    sinceLastZoom: now - lastWheelZoomTs
                 });
             }
 
             event.preventDefault();
             event.stopPropagation();
+            
             if (inNativeGestureWindow) return;
 
             const rect = root.getBoundingClientRect();
             const normalized = normalizeWheelDelta(event, Math.max(1, rect.height));
+
             if (shouldZoom) {
+                lastWheelZoomTs = now;
                 const currentZoom = stationZoomRef.current;
-                const factor = Math.exp(-normalized.dy * 0.0022);
+                // Increased sensitivity from 0.0022 to 0.005 for stronger pinch
+                const factor = Math.exp(-normalized.dy * 0.005);
                 const next = clampStationZoom(currentZoom * factor);
                 if (Math.abs(next - currentZoom) < 0.0001) return;
                 zoomAroundPoint(next, event.clientX, event.clientY);
+                return;
+            }
+
+            // Cooldown for Pan to prevent "tail"
+            if (now - lastWheelZoomTs < 200) {
                 return;
             }
 
