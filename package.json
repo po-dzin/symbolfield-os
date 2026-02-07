@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:watch": "zsh ./scripts/dev-watch.sh",
+    "dev:watch:5173": "zsh ./scripts/dev-watch.sh 5173 0.0.0.0",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

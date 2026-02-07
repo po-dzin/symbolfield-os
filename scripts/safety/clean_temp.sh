@@ -11,6 +11,9 @@ Default mode is dry-run.
 
 Never touches:
   - .codex
+  - agents
+  - docs
+  - src
   - tracked files
 EOF
 }
@@ -41,10 +44,6 @@ cd "$REPO_ROOT"
 CANDIDATES=(
   "_docs_work"
   ".merge-backups"
-  "agents"
-  "ops"
-  "workflows"
-  "symbolfield-crew"
   "test-results"
   "playwright-report"
 )
@@ -55,11 +54,13 @@ echo
 
 for path in "${CANDIDATES[@]}"; do
   [[ -e "$path" ]] || continue
-  if [[ "$path" == ".codex" ]]; then
+  if [[ "$path" == ".codex" || "$path" == "agents" || "$path" == "docs" || "$path" == "src" ]]; then
     echo "SKIP (protected): $path"
     continue
   fi
-  if git ls-files --error-unmatch -- "$path" >/dev/null 2>&1; then
+  # `git ls-files --error-unmatch` is unreliable for directories.
+  # Check for any tracked files under the path instead.
+  if [[ -n "$(git ls-files -- "$path")" ]]; then
     echo "SKIP (tracked): $path"
     continue
   fi
