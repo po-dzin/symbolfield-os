@@ -92,9 +92,21 @@ const request = async <T>(
     }
 };
 
+export const isSfContentRemoteEnabled = () => config.enabled;
+
 export const listSfDocs = async (): Promise<SfDocRecord[]> => {
     const payload = await request<SfDocRecord[]>('GET', '/sf/docs');
     return Array.isArray(payload) ? payload : [];
+};
+
+export const getSfDocForNode = async (spaceId: string, nodeId: string): Promise<SfDocRecord | null> => {
+    const docs = await listSfDocs();
+    if (docs.length === 0) return null;
+
+    const exact = docs.find((doc) => doc.spaceId === spaceId && doc.nodeId === nodeId);
+    if (exact) return exact;
+
+    return docs.find((doc) => doc.docId === nodeId || doc.nodeId === nodeId) ?? null;
 };
 
 export const upsertSfDoc = async (record: SfDocRecord): Promise<boolean> => {

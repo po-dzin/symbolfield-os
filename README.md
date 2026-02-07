@@ -46,6 +46,9 @@ Expected API contract:
 - `GET /ui-state/station-layout?scope=<scope>`
 - `PUT /ui-state/station-layout?scope=<scope>`
 - `DELETE /ui-state/station-layout?scope=<scope>`
+- `GET /ui-state/glyph-builder?scope=<scope>` (optional; used by Glyph Adapter sync)
+- `PUT /ui-state/glyph-builder?scope=<scope>` (optional)
+- `DELETE /ui-state/glyph-builder?scope=<scope>` (optional)
 
 If remote is unavailable, app continues using local storage.
 

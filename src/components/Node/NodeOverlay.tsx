@@ -3,6 +3,9 @@ import type { DocSnapshot } from '@blocksuite/store';
 import { useAppStore } from '../../store/useAppStore';
 import { useGraphStore } from '../../store/useGraphStore';
 import { NodeBuilder } from './NodeBuilder';
+import { getSfDocForNode, isSfContentRemoteEnabled, upsertSfDoc } from '../../core/data/sfContentRemote';
+
+const REMOTE_SAVE_DEBOUNCE_MS = 550;
 
 const serializeSnapshot = (snapshot: unknown): string => {
     try {
@@ -12,9 +15,20 @@ const serializeSnapshot = (snapshot: unknown): string => {
     }
 };
 
+const hashSnapshot = (snapshot: unknown): string => {
+    const serialized = serializeSnapshot(snapshot);
+    let hash = 0;
+    for (let index = 0; index < serialized.length; index += 1) {
+        hash = ((hash << 5) - hash) + serialized.charCodeAt(index);
+        hash |= 0;
+    }
+    return `${serialized.length}:${Math.abs(hash)}`;
+};
+
 const NodeOverlay = () => {
     const viewContext = useAppStore(state => state.viewContext);
     const activeScope = useAppStore(state => state.activeScope);
+    const currentSpaceId = useAppStore(state => state.currentSpaceId);
     const exitNode = useAppStore(state => state.exitNode);
     const nodes = useGraphStore(state => state.nodes);
     const updateNode = useGraphStore(state => state.updateNode);
@@ -24,12 +38,15 @@ const NodeOverlay = () => {
         if (!isNodeView || !activeScope) return null;
         return nodes.find(n => n.id === activeScope) ?? null;
     }, [isNodeView, activeScope, nodes]);
+    const nodeId = node?.id ?? null;
 
-    const initialSnapshot = React.useMemo(() => {
+    const localSnapshot = React.useMemo(() => {
         if (!node) return null;
         const candidate = node.data?.docSnapshot;
         return candidate ?? null;
     }, [node]);
+    const [hydratedSnapshot, setHydratedSnapshot] = React.useState<unknown>(null);
+    const [remoteHydrating, setRemoteHydrating] = React.useState(false);
 
     const legacyContent = React.useMemo(() => {
         if (!node) return '';
@@ -37,10 +54,68 @@ const NodeOverlay = () => {
     }, [node]);
 
     const lastSavedSnapshotRef = React.useRef('');
+    const lastRemoteSnapshotRef = React.useRef('');
+    const remoteSaveTimerRef = React.useRef<number | null>(null);
 
     React.useEffect(() => {
-        lastSavedSnapshotRef.current = serializeSnapshot(initialSnapshot);
-    }, [node?.id, initialSnapshot]);
+        lastSavedSnapshotRef.current = serializeSnapshot(localSnapshot);
+        setHydratedSnapshot(localSnapshot);
+    }, [nodeId, localSnapshot]);
+
+    React.useEffect(() => {
+        if (remoteSaveTimerRef.current !== null) {
+            window.clearTimeout(remoteSaveTimerRef.current);
+            remoteSaveTimerRef.current = null;
+        }
+
+        if (!isNodeView || !nodeId || !currentSpaceId || !isSfContentRemoteEnabled()) {
+            setRemoteHydrating(false);
+            return;
+        }
+
+        let canceled = false;
+        setRemoteHydrating(true);
+
+        void (async () => {
+            const remoteDoc = await getSfDocForNode(currentSpaceId, nodeId);
+            if (canceled) return;
+
+            if (remoteDoc?.snapshotJson !== undefined) {
+                const remoteSerialized = serializeSnapshot(remoteDoc.snapshotJson);
+                lastRemoteSnapshotRef.current = remoteSerialized;
+                setHydratedSnapshot(remoteDoc.snapshotJson);
+                if (remoteSerialized !== lastSavedSnapshotRef.current) {
+                    updateNode(nodeId, {
+                        data: {
+                            docSnapshot: remoteDoc.snapshotJson,
+                            contentFormat: 'blocksuite.page.v1'
+                        }
+                    });
+                    lastSavedSnapshotRef.current = remoteSerialized;
+                }
+            } else {
+                lastRemoteSnapshotRef.current = lastSavedSnapshotRef.current;
+            }
+
+            setRemoteHydrating(false);
+        })();
+
+        return () => {
+            canceled = true;
+        };
+    }, [currentSpaceId, isNodeView, nodeId, updateNode]);
+
+    React.useEffect(() => {
+        return () => {
+            if (remoteSaveTimerRef.current !== null) {
+                window.clearTimeout(remoteSaveTimerRef.current);
+                remoteSaveTimerRef.current = null;
+            }
+        };
+    }, []);
+
+    const initialSnapshot = hydratedSnapshot ?? localSnapshot;
+    const editorSeed = React.useMemo(() => hashSnapshot(initialSnapshot), [initialSnapshot]);
 
     const handleSnapshotChange = React.useCallback((snapshot: DocSnapshot) => {
         if (!isNodeView || !node) return;
@@ -56,7 +131,34 @@ const NodeOverlay = () => {
         });
 
         lastSavedSnapshotRef.current = serialized;
-    }, [isNodeView, node, updateNode]);
+
+        if (!currentSpaceId || !isSfContentRemoteEnabled()) return;
+        if (serialized === lastRemoteSnapshotRef.current) return;
+        if (remoteSaveTimerRef.current !== null) {
+            window.clearTimeout(remoteSaveTimerRef.current);
+            remoteSaveTimerRef.current = null;
+        }
+
+        const title = typeof node.data?.label === 'string' ? node.data.label : 'Untitled Node';
+        remoteSaveTimerRef.current = window.setTimeout(() => {
+            remoteSaveTimerRef.current = null;
+            const payload = {
+                docId: node.id,
+                spaceId: currentSpaceId,
+                nodeId: node.id,
+                title,
+                snapshotJson: snapshot,
+                schemaVersion: 1,
+                updatedAt: Date.now()
+            } as const;
+            void (async () => {
+                const ok = await upsertSfDoc(payload);
+                if (ok) {
+                    lastRemoteSnapshotRef.current = serialized;
+                }
+            })();
+        }, REMOTE_SAVE_DEBOUNCE_MS);
+    }, [currentSpaceId, isNodeView, node, updateNode]);
 
     if (!isNodeView || !activeScope || !node) return null;
 
@@ -91,10 +193,14 @@ const NodeOverlay = () => {
 
             <div className="flex-1 overflow-auto p-12 max-w-5xl mx-auto w-full">
                 <div className="mb-4 text-sm text-white/50">
-                    Edit node content with BlockSuite PageEditor. Changes save automatically.
+                    {isSfContentRemoteEnabled()
+                        ? (remoteHydrating
+                            ? 'Syncing BlockSuite document from DB...'
+                            : 'Edit with BlockSuite PageEditor. Changes save automatically to UI + DB.')
+                        : 'Edit node content with BlockSuite PageEditor. Changes save locally.'}
                 </div>
                 <NodeBuilder
-                    key={node.id}
+                    key={`${node.id}:${editorSeed}`}
                     initialSnapshot={initialSnapshot}
                     legacyContent={legacyContent}
                     onSnapshotChange={handleSnapshotChange}

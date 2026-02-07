@@ -35,11 +35,31 @@ type ResolveNodeGlyphInput = {
     fallbackSource?: GlyphSource;
 };
 
+const GLYPH_REGISTRY_EVENT = 'sf:glyph-registry-updated';
+const BLOCKSUITE_PRESET_GLYPHS = [
+    { id: 'bs:page', label: 'BlockSuite: Page', symbol: '📄' },
+    { id: 'bs:paragraph', label: 'BlockSuite: Paragraph', symbol: '¶' },
+    { id: 'bs:heading', label: 'BlockSuite: Heading', symbol: 'H' },
+    { id: 'bs:list', label: 'BlockSuite: List', symbol: '•' },
+    { id: 'bs:todo', label: 'BlockSuite: Todo', symbol: '☑' },
+    { id: 'bs:bookmark', label: 'BlockSuite: Bookmark', symbol: '🔖' },
+    { id: 'bs:database', label: 'BlockSuite: Database', symbol: '▦' },
+    { id: 'bs:image', label: 'BlockSuite: Image', symbol: '🖼' }
+] as const;
+const blockSuiteGlyphMeta = new Map<string, { label: string; symbol: string }>(
+    BLOCKSUITE_PRESET_GLYPHS.map(item => [item.id, { label: item.label, symbol: item.symbol }])
+);
+
 const generatedGlyphs = new Map<string, GeneratedGlyphDefinition>();
 const unicodeGlyphSymbols = new Set<string>(GLYPH_LIBRARY.flatMap(category => category.glyphs));
 const unicodeMetaBySymbol = new Map<string, string>(
     Object.values(GLYPHS).map(meta => [meta.symbol, meta.name ?? meta.id])
 );
+
+const emitGlyphRegistryUpdate = () => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent(GLYPH_REGISTRY_EVENT));
+};
 
 const looksLikeLiteralGlyph = (value: string) => (
     /[^\w:-]/u.test(value) || [...value].length <= 2
@@ -95,13 +115,14 @@ const resolveUnicodeGlyph = (glyphId: string): ResolvedGlyph | undefined => {
 
 const resolveBlockSuiteGlyph = (glyphId: string): ResolvedGlyph | undefined => {
     if (!glyphId.startsWith('bs:')) return undefined;
-    const label = glyphId.slice(3) || 'blocksuite';
+    const known = blockSuiteGlyphMeta.get(glyphId);
+    const label = known?.label ?? `BlockSuite: ${glyphId.slice(3) || 'blocksuite'}`;
     return {
         id: glyphId,
         source: 'blocksuite',
         kind: 'symbol',
-        label: `BlockSuite: ${label}`,
-        symbol: '◌'
+        label,
+        symbol: known?.symbol ?? '◌'
     };
 };
 
@@ -115,13 +136,24 @@ const normalizeSource = (source?: string | null): GlyphSource | undefined => {
 
 export const registerGeneratedGlyph = (glyph: GeneratedGlyphDefinition) => {
     generatedGlyphs.set(glyph.id, glyph);
+    emitGlyphRegistryUpdate();
 };
 
 export const unregisterGeneratedGlyph = (glyphId: string) => {
     generatedGlyphs.delete(glyphId);
+    emitGlyphRegistryUpdate();
 };
 
 export const listGeneratedGlyphs = () => Array.from(generatedGlyphs.values());
+
+export const onGlyphRegistryChange = (onChange: () => void) => {
+    if (typeof window === 'undefined') {
+        return () => {};
+    }
+    const handler = () => onChange();
+    window.addEventListener(GLYPH_REGISTRY_EVENT, handler);
+    return () => window.removeEventListener(GLYPH_REGISTRY_EVENT, handler);
+};
 
 export const inferGlyphSource = (glyphId: string): GlyphSource => {
     if (resolveSfGlyph(glyphId)) return 'sf';
@@ -179,10 +211,16 @@ export const getGlyphPickerCategories = (): GlyphPickerCategory[] => {
         source: 'unicode',
         glyphs: category.glyphs
     }));
+    const blockSuiteCategory: GlyphPickerCategory = {
+        id: 'blocksuite',
+        label: 'BlockSuite',
+        source: 'blocksuite',
+        glyphs: BLOCKSUITE_PRESET_GLYPHS.map(item => item.id)
+    };
 
     const generated = listGeneratedGlyphs();
     if (generated.length === 0) {
-        return [...sfCategories, ...unicodeCategories];
+        return [blockSuiteCategory, ...sfCategories, ...unicodeCategories];
     }
 
     const generatedCategory: GlyphPickerCategory = {
@@ -192,7 +230,7 @@ export const getGlyphPickerCategories = (): GlyphPickerCategory[] => {
         glyphs: generated.map(item => item.id)
     };
 
-    return [generatedCategory, ...sfCategories, ...unicodeCategories];
+    return [generatedCategory, blockSuiteCategory, ...sfCategories, ...unicodeCategories];
 };
 
 export const getGlyphRingPalette = (categories: GlyphPickerCategory[]) => {

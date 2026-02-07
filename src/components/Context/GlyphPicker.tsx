@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { getGlyphDisplayLabel, getGlyphPickerCategories, getGlyphRingPalette } from '../../utils/sfGlyphLayer';
+import { getGlyphDisplayLabel, getGlyphPickerCategories, getGlyphRingPalette, onGlyphRegistryChange } from '../../utils/sfGlyphLayer';
 import GlyphIcon from '../Icon/GlyphIcon';
 
 type ViewMode = 'matrix' | 'palette';
@@ -17,8 +17,20 @@ interface GlyphPickerProps {
 
 const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose: _onClose, currentGlyph: _currentGlyph }) => {
     const [viewMode, setViewMode] = useState<ViewMode>('matrix');
-    const categories = useMemo(() => getGlyphPickerCategories(), []);
+    const [, setGlyphRevision] = useState(0);
+    const categories = getGlyphPickerCategories();
     const [activeCategory, setActiveCategory] = useState<string>(categories[0]?.id ?? 'base');
+
+    React.useEffect(() => {
+        return onGlyphRegistryChange(() => {
+            setGlyphRevision((value) => value + 1);
+        });
+    }, []);
+
+    React.useEffect(() => {
+        if (categories.some((category) => category.id === activeCategory)) return;
+        setActiveCategory(categories[0]?.id ?? 'base');
+    }, [activeCategory, categories]);
 
     const currentCat = categories.find(c => c.id === activeCategory) || categories[0];
     const glyphsByRing = useMemo(() => getGlyphRingPalette(categories), [categories]);

@@ -22,6 +22,7 @@ export interface SettingsStorage {
 }
 
 const SETTINGS_STORAGE_KEY = 'settings.global.v0.5';
+export const REMOTE_SETTINGS_HYDRATED_EVENT = 'sf:remote-settings-hydrated';
 
 const normalizeSettingsSnapshot = (input: unknown): SettingsSnapshot => {
     if (!input || typeof input !== 'object') return {};
@@ -116,6 +117,9 @@ class RemoteSettingsStorage implements SettingsStorage {
             const remote = normalizeSettingsSnapshot(payload);
             if (Object.keys(remote).length > 0) {
                 this.local.save(remote);
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent(REMOTE_SETTINGS_HYDRATED_EVENT, { detail: remote }));
+                }
             }
             this.hydrated = true;
             this.hydrating = false;

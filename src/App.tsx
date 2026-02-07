@@ -13,6 +13,7 @@ import { eventBus } from './core/events/EventBus';
 import { initUndoManager } from './core/undo/UndoManager';
 import { initAudioBus } from './core/audio/AudioBus';
 import { initEventLog, eventLog } from './core/events/EventLog';
+import { initSfContentSync } from './core/storage/SfContentSync';
 
 function App() {
     const addNode = useGraphStore(state => state.addNode);
@@ -23,6 +24,7 @@ function App() {
         const stopAudio = initAudioBus();
         const stopUndo = initUndoManager();
         const stopEventLog = initEventLog();
+        const stopSfContentSync = initSfContentSync();
 
         // Expose store for tests
         if (typeof window !== 'undefined') {
@@ -44,6 +46,7 @@ function App() {
             if (stopAudio) stopAudio();
             if (stopUndo) stopUndo();
             if (stopEventLog) stopEventLog();
+            if (stopSfContentSync) stopSfContentSync();
         };
     }, [addNode, addEdge]);
 

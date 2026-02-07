@@ -5,6 +5,43 @@
 
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import GlyphIcon from '../Icon/GlyphIcon';
+import { glyphBuilderAdapter, type GlyphBuilderStoredGlyph } from '../../core/storage/GlyphBuilderAdapter';
+import { onGlyphRegistryChange } from '../../utils/sfGlyphLayer';
+
+const slugifyGlyphId = (value: string) => (
+    value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9:_-]+/g, '-')
+        .replace(/-{2,}/g, '-')
+        .replace(/^-|-$/g, '')
+);
+
+type TogglePillProps = {
+    checked: boolean;
+    onToggle: () => void;
+    labelOn?: string;
+    labelOff?: string;
+};
+
+const TogglePill = ({ checked, onToggle, labelOn = 'ON', labelOff = 'OFF' }: TogglePillProps) => (
+    <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={onToggle}
+        className={`relative w-16 h-7 rounded-full border transition-colors ${checked ? 'bg-white/20 border-white/30' : 'bg-white/10 border-white/20'}`}
+    >
+        <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold transition-all ${checked ? 'text-white/80' : 'opacity-0'} z-10`}>
+            {labelOn}
+        </span>
+        <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold transition-all ${checked ? 'opacity-0' : 'text-white/80'} z-10`}>
+            {labelOff}
+        </span>
+        <span className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 rounded-full shadow-sm transition-all ${checked ? 'right-0.5 bg-white' : 'left-0.5 bg-white'}`} />
+    </button>
+);
 
 const SettingsDrawer = () => {
     const settingsOpen = useAppStore(state => state.settingsOpen);
@@ -24,30 +61,86 @@ const SettingsDrawer = () => {
     const setShowHud = useAppStore(state => state.setShowHud);
     const showCounters = useAppStore(state => state.showCounters);
     const setShowCounters = useAppStore(state => state.setShowCounters);
+    const [glyphs, setGlyphs] = React.useState<GlyphBuilderStoredGlyph[]>(() => glyphBuilderAdapter.list());
+    const [glyphIdDraft, setGlyphIdDraft] = React.useState('');
+    const [glyphLabelDraft, setGlyphLabelDraft] = React.useState('');
+    const [glyphSymbolDraft, setGlyphSymbolDraft] = React.useState('');
+    const [glyphSvgDraft, setGlyphSvgDraft] = React.useState('');
+    const [glyphCategoriesDraft, setGlyphCategoriesDraft] = React.useState('');
+    const [glyphError, setGlyphError] = React.useState('');
+
+    React.useEffect(() => {
+        if (!settingsOpen || drawerRightTab !== 'settings') return;
+        setGlyphs(glyphBuilderAdapter.list());
+    }, [settingsOpen, drawerRightTab]);
+
+    React.useEffect(() => {
+        return onGlyphRegistryChange(() => {
+            setGlyphs(glyphBuilderAdapter.list());
+        });
+    }, []);
 
     if (!settingsOpen || drawerRightTab !== 'settings') return null;
 
-    const TogglePill = ({ checked, onToggle, labelOn = 'ON', labelOff = 'OFF' }: { checked: boolean; onToggle: () => void; labelOn?: string; labelOff?: string }) => (
-        <button
-            type="button"
-            role="switch"
-            aria-checked={checked}
-            onClick={onToggle}
-            className={`relative w-16 h-7 rounded-full border transition-colors ${checked ? 'bg-white/20 border-white/30' : 'bg-white/10 border-white/20'}`}
-        >
-            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold transition-all ${checked ? 'text-white/80' : 'opacity-0'} z-10`}>
-                {labelOn}
-            </span>
-            <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold transition-all ${checked ? 'opacity-0' : 'text-white/80'} z-10`}>
-                {labelOff}
-            </span>
-            <span className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 rounded-full shadow-sm transition-all ${checked ? 'right-0.5 bg-white' : 'left-0.5 bg-white'}`} />
-        </button>
-    );
+    const resetGlyphForm = () => {
+        setGlyphIdDraft('');
+        setGlyphLabelDraft('');
+        setGlyphSymbolDraft('');
+        setGlyphSvgDraft('');
+        setGlyphCategoriesDraft('');
+        setGlyphError('');
+    };
+
+    const handleSaveGlyph = () => {
+        const inferredId = slugifyGlyphId(glyphIdDraft || glyphLabelDraft);
+        const id = inferredId;
+        const label = glyphLabelDraft.trim() || id;
+        const symbol = glyphSymbolDraft.trim();
+        const svg = glyphSvgDraft.trim();
+        const categories = glyphCategoriesDraft
+            .split(',')
+            .map(item => item.trim())
+            .filter(Boolean);
+
+        if (!id) {
+            setGlyphError('ID is required.');
+            return;
+        }
+        if (!symbol && !svg) {
+            setGlyphError('Provide Symbol or SVG.');
+            return;
+        }
+
+        const glyphDraft: {
+            id: string;
+            label: string;
+            categories?: string[];
+            symbol?: string;
+            svg?: string;
+        } = { id, label };
+        if (categories.length > 0) glyphDraft.categories = categories;
+        if (symbol) glyphDraft.symbol = symbol;
+        if (svg) glyphDraft.svg = svg;
+
+        const stored = glyphBuilderAdapter.upsert(glyphDraft);
+
+        if (!stored) {
+            setGlyphError('Failed to save glyph.');
+            return;
+        }
+
+        setGlyphs(glyphBuilderAdapter.list());
+        resetGlyphForm();
+    };
+
+    const handleRemoveGlyph = (glyphId: string) => {
+        glyphBuilderAdapter.remove(glyphId);
+        setGlyphs(glyphBuilderAdapter.list());
+    };
 
     return (
         <div className="absolute left-4 top-1/2 -translate-y-1/2 ml-16 w-[var(--panel-width-md)] z-[var(--z-drawer)] animate-slide-in pointer-events-auto">
-            <div className="glass-panel p-3 flex flex-col gap-3">
+            <div className="glass-panel p-3 flex max-h-[72vh] flex-col gap-3 overflow-y-auto">
                 <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-widest text-text-secondary">Settings</span>
                     <button onClick={closeSettings} className="text-text-secondary hover:text-text-primary">✕</button>
@@ -135,6 +228,96 @@ const SettingsDrawer = () => {
                 <div className="flex items-center justify-between text-sm text-white/70">
                     <span>HUD counters</span>
                     <TogglePill checked={showCounters} onToggle={() => setShowCounters(!showCounters)} />
+                </div>
+
+                <div className="mt-1 border-t border-white/10 pt-3">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs uppercase tracking-widest text-text-secondary">Glyph Adapter</span>
+                        {glyphs.length > 0 && (
+                            <button
+                                onClick={() => {
+                                    glyphBuilderAdapter.clear();
+                                    setGlyphs([]);
+                                }}
+                                className="rounded border border-red-400/30 px-2 py-1 text-[10px] uppercase tracking-wider text-red-300/90"
+                            >
+                                Clear all
+                            </button>
+                        )}
+                    </div>
+                    <div className="mt-2 space-y-2">
+                        <input
+                            value={glyphIdDraft}
+                            onChange={(event) => setGlyphIdDraft(event.target.value)}
+                            placeholder="glyph id (e.g. sigil:focus)"
+                            className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-white/35"
+                        />
+                        <input
+                            value={glyphLabelDraft}
+                            onChange={(event) => setGlyphLabelDraft(event.target.value)}
+                            placeholder="label"
+                            className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-white/35"
+                        />
+                        <input
+                            value={glyphSymbolDraft}
+                            onChange={(event) => setGlyphSymbolDraft(event.target.value)}
+                            placeholder="symbol (e.g. ✦)"
+                            className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-white/35"
+                        />
+                        <textarea
+                            value={glyphSvgDraft}
+                            onChange={(event) => setGlyphSvgDraft(event.target.value)}
+                            placeholder="or svg markup"
+                            className="h-20 w-full resize-y rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-white/35"
+                        />
+                        <input
+                            value={glyphCategoriesDraft}
+                            onChange={(event) => setGlyphCategoriesDraft(event.target.value)}
+                            placeholder="categories (comma-separated)"
+                            className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-white/35"
+                        />
+                        {glyphError ? (
+                            <div className="text-[11px] text-red-300">{glyphError}</div>
+                        ) : null}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleSaveGlyph}
+                                className="rounded border border-white/25 bg-white/10 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white"
+                            >
+                                Save glyph
+                            </button>
+                            <button
+                                onClick={resetGlyphForm}
+                                className="rounded border border-white/15 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/70"
+                            >
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="mt-3 space-y-1">
+                        {glyphs.length === 0 ? (
+                            <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-white/50">
+                                No generated glyphs yet.
+                            </div>
+                        ) : glyphs.map((glyph) => (
+                            <div key={glyph.id} className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1.5">
+                                <div className="flex min-w-0 items-center gap-2">
+                                    <GlyphIcon id={glyph.id} size={14} className="text-white/90" />
+                                    <div className="min-w-0">
+                                        <div className="truncate text-[11px] text-white/90">{glyph.label}</div>
+                                        <div className="truncate text-[10px] text-white/45">{glyph.id}</div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleRemoveGlyph(glyph.id)}
+                                    className="rounded border border-red-400/25 px-2 py-0.5 text-[10px] uppercase tracking-wider text-red-300/90"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>

@@ -1,4 +1,5 @@
 import { registerGeneratedGlyph, unregisterGeneratedGlyph, type GeneratedGlyphDefinition } from '../../utils/sfGlyphLayer';
+import { clearRemoteUiState, isUiStateRemoteEnabled, readRemoteUiState, writeRemoteUiState } from '../data/uiStateRemote';
 
 const GLYPH_BUILDER_STORAGE_KEY = 'glyph.builder.v0.5';
 const GLYPH_BUILDER_STORAGE_VERSION = 1;
@@ -48,13 +49,20 @@ const normalizeGeneratedGlyph = (input: unknown): GeneratedGlyphDefinition | und
         ? dedupeStrings(raw.categories.filter((item): item is string => typeof item === 'string'))
         : undefined;
 
-    return {
+    const normalized: GeneratedGlyphDefinition = {
         id,
-        label,
-        categories: categories && categories.length > 0 ? categories : undefined,
-        svg: svg || undefined,
-        symbol: symbol || undefined
+        label
     };
+    if (categories && categories.length > 0) {
+        normalized.categories = categories;
+    }
+    if (svg) {
+        normalized.svg = svg;
+    }
+    if (symbol) {
+        normalized.symbol = symbol;
+    }
+    return normalized;
 };
 
 const normalizeStoredGlyph = (input: unknown): GlyphBuilderStoredGlyph | undefined => {
@@ -99,6 +107,49 @@ const normalizeSnapshot = (input: unknown): GlyphBuilderSnapshot => {
     };
 };
 
+const mergeSnapshots = (localSnapshot: GlyphBuilderSnapshot, remoteSnapshot: GlyphBuilderSnapshot): GlyphBuilderSnapshot => {
+    const mergedGlyphs: Record<string, GlyphBuilderStoredGlyph> = {};
+    const allIds = new Set<string>([
+        ...Object.keys(localSnapshot.glyphs),
+        ...Object.keys(remoteSnapshot.glyphs)
+    ]);
+
+    allIds.forEach((id) => {
+        const localGlyph = localSnapshot.glyphs[id];
+        const remoteGlyph = remoteSnapshot.glyphs[id];
+        if (localGlyph && remoteGlyph) {
+            mergedGlyphs[id] = localGlyph.updatedAt >= remoteGlyph.updatedAt ? localGlyph : remoteGlyph;
+            return;
+        }
+        if (localGlyph) {
+            mergedGlyphs[id] = localGlyph;
+            return;
+        }
+        if (remoteGlyph) {
+            mergedGlyphs[id] = remoteGlyph;
+        }
+    });
+
+    return {
+        version: GLYPH_BUILDER_STORAGE_VERSION,
+        glyphs: mergedGlyphs
+    };
+};
+
+const serializeSnapshot = (snapshot: GlyphBuilderSnapshot): string => {
+    const sortedGlyphIds = Object.keys(snapshot.glyphs).sort();
+    const sortedGlyphs: Record<string, GlyphBuilderStoredGlyph> = {};
+    sortedGlyphIds.forEach((id) => {
+        const glyph = snapshot.glyphs[id];
+        if (!glyph) return;
+        sortedGlyphs[id] = glyph;
+    });
+    return JSON.stringify({
+        version: snapshot.version,
+        glyphs: sortedGlyphs
+    });
+};
+
 class LocalGlyphBuilderStorageDriver implements GlyphBuilderStorageDriver {
     read(): GlyphBuilderSnapshot | undefined {
         if (typeof window === 'undefined') return undefined;
@@ -133,25 +184,26 @@ class LocalGlyphBuilderStorageDriver implements GlyphBuilderStorageDriver {
 export class GlyphBuilderAdapter {
     private driver: GlyphBuilderStorageDriver;
     private initialized: boolean;
+    private remoteHydrated: boolean;
+    private remoteHydrating: boolean;
+    private remoteFlushTimer: number | null;
+    private pendingRemoteSnapshot: GlyphBuilderSnapshot | null;
 
     constructor(driver: GlyphBuilderStorageDriver) {
         this.driver = driver;
         this.initialized = false;
+        this.remoteHydrated = false;
+        this.remoteHydrating = false;
+        this.remoteFlushTimer = null;
+        this.pendingRemoteSnapshot = null;
     }
 
     init() {
         if (this.initialized) return;
         const snapshot = this.loadSnapshot();
-        Object.values(snapshot.glyphs).forEach((glyph) => {
-            registerGeneratedGlyph({
-                id: glyph.id,
-                label: glyph.label,
-                categories: glyph.categories,
-                svg: glyph.svg,
-                symbol: glyph.symbol
-            });
-        });
+        this.applySnapshotToRegistry(snapshot);
         this.initialized = true;
+        void this.hydrateFromRemote();
     }
 
     list(): GlyphBuilderStoredGlyph[] {
@@ -181,13 +233,20 @@ export class GlyphBuilderAdapter {
 
         snapshot.glyphs[stored.id] = stored;
         this.persistSnapshot(snapshot);
-        registerGeneratedGlyph({
+        const generatedGlyph: GeneratedGlyphDefinition = {
             id: stored.id,
-            label: stored.label,
-            categories: stored.categories,
-            svg: stored.svg,
-            symbol: stored.symbol
-        });
+            label: stored.label
+        };
+        if (stored.categories && stored.categories.length > 0) {
+            generatedGlyph.categories = stored.categories;
+        }
+        if (stored.svg) {
+            generatedGlyph.svg = stored.svg;
+        }
+        if (stored.symbol) {
+            generatedGlyph.symbol = stored.symbol;
+        }
+        registerGeneratedGlyph(generatedGlyph);
 
         return stored;
     }
@@ -209,6 +268,9 @@ export class GlyphBuilderAdapter {
         const snapshot = this.loadSnapshot();
         Object.keys(snapshot.glyphs).forEach((id) => unregisterGeneratedGlyph(id));
         this.driver.clear();
+        if (isUiStateRemoteEnabled()) {
+            void clearRemoteUiState('glyph-builder');
+        }
     }
 
     private loadSnapshot(): GlyphBuilderSnapshot {
@@ -217,7 +279,83 @@ export class GlyphBuilderAdapter {
     }
 
     private persistSnapshot(snapshot: GlyphBuilderSnapshot): void {
-        this.driver.write(normalizeSnapshot(snapshot));
+        const normalized = normalizeSnapshot(snapshot);
+        this.driver.write(normalized);
+        this.scheduleRemoteFlush(normalized);
+    }
+
+    private applySnapshotToRegistry(snapshot: GlyphBuilderSnapshot): void {
+        Object.values(snapshot.glyphs).forEach((glyph) => {
+            const generatedGlyph: GeneratedGlyphDefinition = {
+                id: glyph.id,
+                label: glyph.label
+            };
+            if (glyph.categories && glyph.categories.length > 0) {
+                generatedGlyph.categories = glyph.categories;
+            }
+            if (glyph.svg) {
+                generatedGlyph.svg = glyph.svg;
+            }
+            if (glyph.symbol) {
+                generatedGlyph.symbol = glyph.symbol;
+            }
+            registerGeneratedGlyph(generatedGlyph);
+        });
+    }
+
+    private syncRegistryWithSnapshotDiff(before: GlyphBuilderSnapshot, after: GlyphBuilderSnapshot): void {
+        Object.keys(before.glyphs).forEach((id) => {
+            if (!after.glyphs[id]) {
+                unregisterGeneratedGlyph(id);
+            }
+        });
+        this.applySnapshotToRegistry(after);
+    }
+
+    private async hydrateFromRemote(): Promise<void> {
+        if (!isUiStateRemoteEnabled() || typeof window === 'undefined') return;
+        if (this.remoteHydrated || this.remoteHydrating) return;
+
+        this.remoteHydrating = true;
+        try {
+            const localSnapshot = this.loadSnapshot();
+            const payload = await readRemoteUiState('glyph-builder');
+            const remoteSnapshot = normalizeSnapshot(payload);
+            const mergedSnapshot = mergeSnapshots(localSnapshot, remoteSnapshot);
+            if (serializeSnapshot(localSnapshot) !== serializeSnapshot(mergedSnapshot)) {
+                this.driver.write(mergedSnapshot);
+                this.syncRegistryWithSnapshotDiff(localSnapshot, mergedSnapshot);
+            }
+        } finally {
+            this.remoteHydrated = true;
+            this.remoteHydrating = false;
+        }
+    }
+
+    private scheduleRemoteFlush(snapshot: GlyphBuilderSnapshot): void {
+        if (!isUiStateRemoteEnabled() || typeof window === 'undefined') return;
+        this.pendingRemoteSnapshot = snapshot;
+        if (this.remoteFlushTimer !== null) {
+            window.clearTimeout(this.remoteFlushTimer);
+        }
+        this.remoteFlushTimer = window.setTimeout(() => {
+            this.remoteFlushTimer = null;
+            void this.flushRemoteSnapshot();
+        }, 220);
+    }
+
+    private async flushRemoteSnapshot(): Promise<void> {
+        if (!isUiStateRemoteEnabled()) return;
+        const snapshot = this.pendingRemoteSnapshot;
+        this.pendingRemoteSnapshot = null;
+        if (!snapshot) return;
+
+        if (Object.keys(snapshot.glyphs).length === 0) {
+            await clearRemoteUiState('glyph-builder');
+            return;
+        }
+
+        await writeRemoteUiState('glyph-builder', snapshot);
     }
 }
 
