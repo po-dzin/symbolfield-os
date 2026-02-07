@@ -27,6 +27,34 @@ npm run test:hotkeys
 npm run typecheck
 ```
 
+## UI state backend (local vs remote)
+
+By default, UI state is stored in localStorage.
+You can enable remote sync for Settings + Station layout:
+
+```bash
+VITE_UI_STATE_BACKEND=remote
+VITE_UI_STATE_API_BASE_URL=https://your-api.example.com
+VITE_UI_STATE_API_TOKEN=your-token
+VITE_UI_STATE_SCOPE=your-user-or-workspace-id
+```
+
+Expected API contract:
+- `GET /ui-state/settings?scope=<scope>`
+- `PUT /ui-state/settings?scope=<scope>`
+- `DELETE /ui-state/settings?scope=<scope>`
+- `GET /ui-state/station-layout?scope=<scope>`
+- `PUT /ui-state/station-layout?scope=<scope>`
+- `DELETE /ui-state/station-layout?scope=<scope>`
+
+If remote is unavailable, app continues using local storage.
+
+For document persistence around the BlockSuite editor, use project-owned endpoints:
+- `GET/PUT /sf/docs`
+- `GET/POST /sf/doc-versions`
+- `GET/PUT/DELETE /sf/links`
+These are SF backend routes; BlockSuite remains editor/engine only.
+
 ## Repo layout
 
 - `src/` app code (React + TS)

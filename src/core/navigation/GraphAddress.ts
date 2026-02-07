@@ -14,8 +14,10 @@ export const buildGraphAddressSnapshot = (overrides: Partial<GraphAddress> = {})
     const nodeIds = selectionState.getSelection();
     const cameraState = useCameraStore.getState();
 
-    const targetMode = state.viewContext === VIEW_CONTEXTS.NOW ? 'now' : 'field';
-    const targetNodeId = state.viewContext === VIEW_CONTEXTS.NOW ? state.activeScope ?? undefined : undefined;
+    const isNodeView = state.viewContext === VIEW_CONTEXTS.NODE;
+    const isNowView = state.viewContext === VIEW_CONTEXTS.NOW;
+    const targetMode = isNowView ? 'now' : (isNodeView ? 'node' : 'field');
+    const targetNodeId = (isNodeView || isNowView) ? state.activeScope ?? undefined : undefined;
 
     const base: GraphAddress = {
         spaceId: state.currentSpaceId || '',
@@ -71,10 +73,12 @@ export const resolveGraphAddress = (address: GraphAddress) => {
     const targetNodeId = toNodeId(address.target?.nodeId);
     const mode = address.target?.mode ?? 'field';
 
-    if (targetNodeId && mode === 'now') {
+    if (targetNodeId && mode === 'node') {
+        stateEngine.enterNode(targetNodeId);
+    } else if (targetNodeId && mode === 'now') {
         stateEngine.enterNow(targetNodeId);
     } else {
-        stateEngine.exitNow();
+        stateEngine.exitNode();
     }
 
     // TODO: support rect+padding focus intent (spec allows, v0.5 uses x/y/z).

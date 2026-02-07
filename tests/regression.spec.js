@@ -144,21 +144,22 @@ test.describe('Regression: Critical Flows', () => {
         await expect(page.getByText('Settings', { exact: true })).not.toBeVisible();
     });
 
-    test('Command palette opens and closes via UI', async ({ page }) => {
+    test('Omni input opens and closes via UI', async ({ page }) => {
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
-        await expect(page.getByText('Omni Input')).toBeVisible();
+        await expect(page.getByText('Omni Input — Expanded')).toBeVisible();
 
-        const palette = page.locator('.glass-panel', { hasText: 'Omni Input' });
+        const palette = page.locator('.glass-panel', { hasText: 'Omni Input — Expanded' });
         await palette.getByRole('button', { name: '✕' }).click();
-        await expect(page.getByText('Omni Input')).not.toBeVisible();
+        await expect(page.getByText('Omni Input — Expanded')).not.toBeVisible();
     });
 
-    test('Command palette runs quick command and shows navigation hints', async ({ page }) => {
+    test('Omni input runs quick command and shows navigation hints', async ({ page }) => {
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
-        await expect(page.getByText('Omni Input')).toBeVisible();
+        await expect(page.getByText('Omni Input — Expanded')).toBeVisible();
         await expect(page.getByText('↑↓ navigate')).toBeVisible();
 
-        const input = page.getByPlaceholder('Search or type /command...');
+        const palette = page.locator('.glass-panel', { hasText: 'Omni Input — Expanded' });
+        const input = palette.getByPlaceholder('Search or type /command...');
         await input.fill('link');
         await page.keyboard.press('Enter');
 
@@ -290,7 +291,7 @@ test.describe('Regression: Critical Flows', () => {
 
     test('Station navigation returns to home and back to space', async ({ page }) => {
         await page.getByTitle('Return to Station').click();
-        await expect(page.getByPlaceholder('Search or dive...')).toBeVisible();
+        await expect(page.getByPlaceholder('Search or type /command...')).toBeVisible();
 
         await page.getByRole('button', { name: 'New Space' }).click();
         const viewContext = await page.evaluate(() => window.__APP_STORE__?.getState().viewContext);

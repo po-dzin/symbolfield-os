@@ -19,7 +19,6 @@ const TOOLS: Array<{ id: ToolId; label: string; glyphId: string; hotkey?: string
 const ToolDock = () => {
     const activeTool = useAppStore(state => state.activeTool);
     const setTool = useAppStore(state => state.setTool);
-    const toggleSettings = useAppStore(state => state.toggleSettings);
 
     return (
         <div className="flex flex-col gap-2 p-2 glass-panel">
@@ -41,16 +40,14 @@ const ToolDock = () => {
                 </button>
             ))}
 
-            {/* Divider */}
-            <div className="h-[1px] bg-white/10 my-1 w-full" />
-
-            {/* Settings Toggle (Placeholder) */}
+            {/* Toolbar customization placeholder */}
             <button
-                onClick={toggleSettings}
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-text-secondary hover:text-text-primary"
-                title="Settings"
+                type="button"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-text-secondary/60 border border-dashed border-white/10 cursor-not-allowed"
+                title="Customize toolbar (soon)"
+                aria-disabled="true"
             >
-                ⚙
+                ≡
             </button>
         </div>
     );

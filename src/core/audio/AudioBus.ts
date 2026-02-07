@@ -83,7 +83,7 @@ const playChime = async ({ freq = 420, duration = 0.2, gain = 0.12, airy = false
 export const initAudioBus = () => {
     if (typeof window === 'undefined') return () => {};
     const onSignal = (e: BusEvent<'UI_SIGNAL'>) => {
-        if (e.payload?.type === 'ENTER_NOW') {
+        if (e.payload?.type === 'OPEN_NODE' || e.payload?.type === 'ENTER_NOW') {
             playChime({ freq: 432, duration: 1.2, gain: 0.08, airy: true });
         }
     };

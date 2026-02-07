@@ -249,7 +249,7 @@ class GestureRouter {
             const isDoubleTap = now - this.lastClick.time < 350 && this.lastClick.targetId === gesture.targetId;
             this.lastClick = { time: now, targetId: gesture.targetId, targetType: 'node' };
             if (isDoubleTap && context.activeTool === TOOLS.POINTER) {
-                this._executeAction({ type: 'ENTER_NOW', nodeId: toNodeId(gesture.targetId) });
+                this._executeAction({ type: 'OPEN_NODE', nodeId: toNodeId(gesture.targetId) });
                 return;
             }
         }
@@ -719,7 +719,7 @@ class GestureRouter {
                 return { type: 'START_LINK', fromId: nodeId, associative: modifiers.alt, screenX: gesture.screenX, screenY: gesture.screenY };
             }
 
-            if (modifiers.doubleClick) return { type: 'ENTER_NOW', nodeId: nodeId };
+            if (modifiers.doubleClick) return { type: 'OPEN_NODE', nodeId: nodeId };
 
             if (isMulti) return { type: 'TOGGLE_SELECT', nodeId: nodeId };
 
@@ -751,12 +751,12 @@ class GestureRouter {
                 selectionState.toggle(intent.nodeId as NodeId);
                 break;
 
-            case 'ENTER_NOW':
+            case 'OPEN_NODE':
                 {
                     const node = graphEngine.getNode(intent.nodeId as NodeId);
-                    if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'ENTER_NOW' });
+                    if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'OPEN_NODE' });
                 }
-                stateEngine.enterNow(intent.nodeId as NodeId);
+                stateEngine.enterNode(intent.nodeId as NodeId);
                 break;
 
             case 'START_BOX_SELECT':
@@ -1081,8 +1081,8 @@ class GestureRouter {
                     }
                     return;
                 }
-                if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'ENTER_NOW' });
-                stateEngine.enterNow(selectedId);
+                if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'OPEN_NODE' });
+                stateEngine.enterNode(selectedId);
             }
             return;
         }
@@ -1119,8 +1119,8 @@ class GestureRouter {
                 stateEngine.closeSettings();
                 return;
             }
-            if (state.viewContext === 'now') {
-                stateEngine.exitNow();
+            if (state.viewContext === 'node') {
+                stateEngine.exitNode();
                 return;
             }
             if (useAreaStore.getState().selectedAreaIds.length > 0) {

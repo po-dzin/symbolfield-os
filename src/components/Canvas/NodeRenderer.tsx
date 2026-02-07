@@ -4,14 +4,12 @@
  * CRYSTAL VERSION: No layout shifts, pure transform positioning.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useSelectionStore } from '../../store/useSelectionStore';
 import { useGraphStore } from '../../store/useGraphStore';
-import { useAppStore } from '../../store/useAppStore';
-import { eventBus, EVENTS } from '../../core/events/EventBus';
 import GlyphIcon from '../Icon/GlyphIcon';
 import { NODE_SIZES } from '../../utils/layoutMetrics';
-import { getGlyphById } from '../../utils/customGlyphs';
+import { resolveNodeGlyph } from '../../utils/sfGlyphLayer';
 import type { NodeBase, NodeData } from '../../core/types';
 
 interface NodeRendererProps {
@@ -22,19 +20,15 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
     const isSelected = useSelectionStore(state => state.selectedIds.includes(node.id));
     const updateNode = useGraphStore(state => state.updateNode);
     const allNodes = useGraphStore(state => state.nodes);
-    const contextMenuMode = useAppStore(state => state.contextMenuMode);
-    const [isEditing, setIsEditing] = useState(false);
-    const inputRef = useRef<HTMLInputElement>(null);
 
     // Dynamic Size & Style based on Hierarchy
     const isCluster = node.type === 'cluster';
     const isCore = node.type === 'core';
     const isArchecore = node.id === 'archecore';
     const nodeData = node.data as NodeData;
-    const labelText = typeof nodeData?.label === 'string' ? nodeData.label.trim() : '';
-    const displayLabel = labelText.length > 12 ? labelText.slice(0, 12) : labelText;
     const iconValueRaw = typeof nodeData?.icon_value === 'string' ? nodeData.icon_value.trim() : '';
     const iconValue = iconValueRaw === '•' ? '' : iconValueRaw;
+    const iconSource = typeof nodeData?.icon_source === 'string' ? nodeData.icon_source : undefined;
     const focusGhostLevel = node.meta?.focusGhostLevel ?? (node.meta?.focusGhost ? 1 : 0);
     const isFocusGhost = focusGhostLevel > 0;
     const parentClusterId = node.meta?.parentClusterId;
@@ -57,12 +51,6 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
     const dashInset = Math.round(sizePx * 0.17);
     const orbit1Inset = Math.round(sizePx * 0.29);
     const orbit2Inset = Math.round(sizePx * 0.42);
-    const radialLabelAngle = -150 * (Math.PI / 180);
-    const radialLabelRadius = (sizePx / 2) + 48;
-    const radialLabelOffset = {
-        x: Math.cos(radialLabelAngle) * radialLabelRadius,
-        y: Math.sin(radialLabelAngle) * radialLabelRadius
-    };
 
     const ringClasses = isArchecore
         ? 'border shadow-[0_0_30px_rgba(255,255,255,0.12)]'
@@ -76,46 +64,13 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
     const bloomClass = shouldAnimateCore ? 'animate-core-materialize' : (isCore ? '' : 'animate-bloom');
     const glyphAppearClass = shouldAnimateCore ? 'core-glyph-appear' : '';
 
-    const customGlyph = iconValue ? getGlyphById(iconValue) : undefined;
-    const resolvedGlyphId = customGlyph
-        ? iconValue
-        : (iconValue ? '' : (isArchecore ? 'archecore' : isCore ? 'core' : isCluster ? 'cluster' : ''));
-
-    // Focus input on edit mode
-    useEffect(() => {
-        if (isEditing && inputRef.current) {
-            inputRef.current.focus();
-            inputRef.current.select();
-        }
-    }, [isEditing]);
-
-    // Listener for Context Menu Rename
-    useEffect(() => {
-        const unsub = eventBus.on(EVENTS.UI_REQ_EDIT_LABEL, ({ payload }) => {
-            if (payload.nodeId === node.id && contextMenuMode === 'radial') {
-                setIsEditing(true);
-            }
-        });
-        return unsub;
-    }, [node.id, contextMenuMode]);
-
-    const handleLabelCommit = () => {
-        if (!inputRef.current) return;
-        const newVal = inputRef.current.value.trim();
-        if (newVal !== labelText) {
-            updateNode(node.id, { data: { ...node.data, label: newVal || 'Empty' } });
-        }
-        setIsEditing(false);
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        e.stopPropagation(); // Prevent global hotkeys (like Delete) while typing
-        if (e.key === 'Enter') {
-            handleLabelCommit();
-        } else if (e.key === 'Escape') {
-            setIsEditing(false);
-        }
-    };
+    const fallbackGlyphId = isArchecore ? 'archecore' : isCore ? 'core' : isCluster ? 'cluster' : '';
+    const resolvedGlyph = resolveNodeGlyph({
+        iconValue,
+        iconSource,
+        fallbackId: fallbackGlyphId,
+        fallbackSource: 'sf'
+    });
 
     return (
         <div
@@ -183,14 +138,14 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
                     )}
 
                     {/* Content */}
-                    {(isCluster || isCore || iconValue || resolvedGlyphId) && (
+                    {(isCluster || isCore || iconValue || resolvedGlyph) && (
                         <span className={`
                         font-bold tracking-widest text-white/90 select-none pointer-events-none font-sans drop-shadow-md flex items-center justify-center leading-none
                         ${glyphAppearClass}
                     `}>
-                            {resolvedGlyphId ? (
+                            {resolvedGlyph ? (
                                 <GlyphIcon
-                                    id={resolvedGlyphId}
+                                    id={resolvedGlyph.id}
                                     size={glyphSize * glyphScale}
                                     className="text-white/90"
                                     style={{ color: isFocusGhost ? (focusGhostLevel > 1 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)') : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}

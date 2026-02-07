@@ -9,7 +9,12 @@ const RecentsRail = () => {
     const showPlaygroundOnStation = useAppStore(state => state.showPlaygroundOnStation);
 
     useEffect(() => {
-        const refresh = () => setSpaces(spaceManager.getSpaces());
+        const refresh = () => {
+            if (showPlaygroundOnStation) {
+                spaceManager.ensureOnboardingSpaces();
+            }
+            setSpaces(spaceManager.getSpacesWithOptions({ includePlayground: showPlaygroundOnStation }));
+        };
         refresh();
         const unsub = [
             eventBus.on(EVENTS.SPACE_CREATED, refresh),
@@ -17,7 +22,7 @@ const RecentsRail = () => {
             eventBus.on(EVENTS.SPACE_DELETED, refresh)
         ];
         return () => unsub.forEach(fn => fn());
-    }, []);
+    }, [showPlaygroundOnStation]);
 
     const handleClick = (id: string) => {
         spaceManager.loadSpace(id);

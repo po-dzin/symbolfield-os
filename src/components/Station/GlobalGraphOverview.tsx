@@ -4,6 +4,7 @@ import { eventBus, EVENTS } from '../../core/events/EventBus';
 import type { NodeBase } from '../../core/types';
 import { stationStorage, type StationLayout } from '../../core/storage/StationStorage';
 import { useAppStore } from '../../store/useAppStore';
+import { NODE_SIZES } from '../../utils/layoutMetrics';
 
 type DetailLevel = 0 | 1 | 2;
 
@@ -11,10 +12,30 @@ type SpaceCluster = {
     id: string;
     name: string;
     center: { x: number; y: number };
+    corePoint: { x: number; y: number } | null;
     radius: number;
     hasCore: boolean;
-    clusters: Array<{ id: string; x: number; y: number; parentClusterId?: string | undefined }>;
-    nodes: Array<{ id: string; x: number; y: number; parentClusterId?: string | undefined }>;
+    clusters: Array<{ id: string; x: number; y: number; parentClusterId?: string | undefined; color: string }>;
+    nodes: Array<{ id: string; x: number; y: number; parentClusterId?: string | undefined; color: string }>;
+    links: Array<{ id: string; x1: number; y1: number; x2: number; y2: number }>;
+    areas: Array<
+        | {
+            id: string;
+            shape: 'rect';
+            rect: { x: number; y: number; w: number; h: number };
+            color: string;
+            borderColor: string;
+            opacity: number;
+        }
+        | {
+            id: string;
+            shape: 'circle';
+            circle: { cx: number; cy: number; r: number };
+            color: string;
+            borderColor: string;
+            opacity: number;
+        }
+    >;
 };
 
 const DEFAULT_VIEWBOX = { x: -700, y: -700, w: 1400, h: 1400 };
@@ -22,6 +43,7 @@ const ARCHECORE_RADIUS = 90;
 const ARCHECORE_PADDING = 60;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const TWO_PI = Math.PI * 2;
+const AREA_STORAGE_PREFIX = 'sf_areas_';
 
 const createSeededRandom = (seed: string) => {
     let hash = 0;
@@ -84,6 +106,35 @@ const renderLink = (cx1: number, cy1: number, cx2: number, cy2: number, r1: numb
     );
 };
 
+const renderRawLink = (x1: number, y1: number, x2: number, y2: number, key: string) => (
+    <g key={key} className="pointer-events-none">
+        <line
+            x1={x1} y1={y1} x2={x2} y2={y2}
+            stroke="rgba(255,255,255,0.1)"
+            strokeWidth={2}
+            strokeLinecap="round"
+            style={{ filter: 'blur(1.5px)' }}
+        />
+        <line
+            x1={x1} y1={y1} x2={x2} y2={y2}
+            stroke="rgba(255,255,255,0.24)"
+            strokeWidth={0.8}
+            strokeLinecap="round"
+        />
+    </g>
+);
+
+const loadRawAreas = (spaceId: string) => {
+    try {
+        const raw = localStorage.getItem(`${AREA_STORAGE_PREFIX}${spaceId}`);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
 const buildClusters = (includePlayground: boolean): SpaceCluster[] => {
     const spaces = spaceManager
         .getSpacesWithOptions({ includePlayground })
@@ -108,9 +159,12 @@ const buildClusters = (includePlayground: boolean): SpaceCluster[] => {
         const data = spaceManager.getSpaceData(space.id);
         const coreNodes = (data?.nodes ?? []).filter(n => n.type === 'core');
         const nodes = (data?.nodes ?? []).filter(n => n.type !== 'core');
+        const rawAreas = loadRawAreas(space.id);
 
-        // Calculate bounds for ALL nodes including core to preserve relative structure
         const allNodes = [...coreNodes, ...nodes];
+        const rawNodePointMap = new Map<string, { x: number; y: number }>(
+            allNodes.map(node => [String(node.id), { x: node.position.x, y: node.position.y }])
+        );
 
         const clusterCount = nodes.filter(n => n.type === 'cluster').length;
         const nodeCount = nodes.length + coreNodes.length;
@@ -151,49 +205,220 @@ const buildClusters = (includePlayground: boolean): SpaceCluster[] => {
                 y: (Math.sin(fallbackAngle) * fallbackOrbit) + jitter.y * jitterStrength,
             };
         })();
-        // Normalize points relative to their collective bounding box
-        // If hasCore, we want the Core to be at (0,0) in the local normalized space, 
-        // effectively pinning it to the visual center.
-        const normalize = (targetNodes: NodeBase[]) => {
-            if (targetNodes.length === 0 || allNodes.length === 0) return [];
+        if (allNodes.length === 0) {
+            placed.push({
+                id: space.id,
+                name: space.name,
+                center,
+                corePoint: null,
+                radius: clusterRadius,
+                hasCore: false,
+                clusters: [],
+                nodes: [],
+                links: [],
+                areas: []
+            });
+            return placed[placed.length - 1];
+        }
 
+        // Project using a real envelope of the space: node size bounds + area bounds.
+        // This keeps relative positions stable on station and avoids misplaced zones/nodes.
+        let minX = Number.POSITIVE_INFINITY;
+        let maxX = Number.NEGATIVE_INFINITY;
+        let minY = Number.POSITIVE_INFINITY;
+        let maxY = Number.NEGATIVE_INFINITY;
+
+        const includeBounds = (x1: number, y1: number, x2: number, y2: number) => {
+            minX = Math.min(minX, x1);
+            minY = Math.min(minY, y1);
+            maxX = Math.max(maxX, x2);
+            maxY = Math.max(maxY, y2);
+        };
+
+        const getNodeRadius = (node: NodeBase) => {
+            if (node.type === 'core') return NODE_SIZES.root / 2;
+            if (node.type === 'cluster') return NODE_SIZES.cluster / 2;
+            return NODE_SIZES.base / 2;
+        };
+
+        allNodes.forEach(node => {
+            const r = getNodeRadius(node);
+            includeBounds(
+                node.position.x - r,
+                node.position.y - r,
+                node.position.x + r,
+                node.position.y + r
+            );
+        });
+
+        rawAreas.forEach((area: any) => {
+            const anchorType = area?.anchor?.type;
+            const anchorNode = anchorType === 'node' ? rawNodePointMap.get(String(area?.anchor?.nodeId ?? '')) : null;
+
+            if (area?.shape === 'circle' && area?.circle && Number.isFinite(area.circle.r)) {
+                const rawR = Number(area.circle.r);
+                const rawCx = Number.isFinite(area.circle.cx) ? Number(area.circle.cx) : 0;
+                const rawCy = Number.isFinite(area.circle.cy) ? Number(area.circle.cy) : 0;
+                const cx = anchorNode ? anchorNode.x : rawCx;
+                const cy = anchorNode ? anchorNode.y : rawCy;
+                includeBounds(cx - rawR, cy - rawR, cx + rawR, cy + rawR);
+                return;
+            }
+
+            if (area?.shape === 'rect' && area?.rect && Number.isFinite(area.rect.w) && Number.isFinite(area.rect.h)) {
+                const rawW = Number(area.rect.w);
+                const rawH = Number(area.rect.h);
+                if (anchorNode) {
+                    const cx = anchorNode.x;
+                    const cy = anchorNode.y;
+                    includeBounds(cx - rawW / 2, cy - rawH / 2, cx + rawW / 2, cy + rawH / 2);
+                    return;
+                }
+
+                const rawX = Number.isFinite(area.rect.x) ? Number(area.rect.x) : 0;
+                const rawY = Number.isFinite(area.rect.y) ? Number(area.rect.y) : 0;
+                includeBounds(rawX, rawY, rawX + rawW, rawY + rawH);
+            }
+        });
+
+        if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
             const xs = allNodes.map(n => n.position.x);
             const ys = allNodes.map(n => n.position.y);
-            const minX = Math.min(...xs);
-            const maxX = Math.max(...xs);
-            const minY = Math.min(...ys);
-            const maxY = Math.max(...ys);
+            minX = Math.min(...xs);
+            maxX = Math.max(...xs);
+            minY = Math.min(...ys);
+            maxY = Math.max(...ys);
+        }
 
-            // If we have a core, align the core to the center
-            // Otherwise align the bounding box center to the center
+        const originX = (minX + maxX) / 2;
+        const originY = (minY + maxY) / 2;
+
+        const spanX = Math.max(1, maxX - minX);
+        const spanY = Math.max(1, maxY - minY);
+        const scale = (clusterRadius * 0.82) / Math.max(spanX, spanY, 1);
+
+        const mapPoint = (x: number, y: number) => ({
+            x: center.x + ((x - originX) * scale),
+            y: center.y + ((y - originY) * scale)
+        });
+
+        const nodePointMap = new Map<string, { x: number; y: number }>(
+            allNodes.map(node => [String(node.id), mapPoint(node.position.x, node.position.y)])
+        );
+        const projectedCorePoint = (() => {
             const core = coreNodes[0];
-            const originX = core ? core.position.x : (minX + maxX) / 2;
-            const originY = core ? core.position.y : (minY + maxY) / 2;
+            if (!core) return null;
+            return nodePointMap.get(String(core.id)) ?? mapPoint(core.position.x, core.position.y);
+        })();
 
-            const spanX = Math.max(1, maxX - minX);
-            const spanY = Math.max(1, maxY - minY);
-            // Scale based on the full span of the content
-            const scale = (clusterRadius * 0.7) / Math.max(spanX, spanY, 1);
-
-            return targetNodes.map(node => ({
-                id: node.id,
-                x: center.x + ((node.position.x - originX) * scale),
-                y: center.y + ((node.position.y - originY) * scale),
-                parentClusterId: node.meta?.parentClusterId as string | undefined
-            }));
+        const resolveNodeColor = (node: NodeBase) => {
+            const body = typeof node.data?.color_body === 'string' ? node.data.color_body.trim() : '';
+            const base = typeof node.data?.color === 'string' ? node.data.color.trim() : '';
+            return body || base || 'rgba(255,255,255,0.5)';
         };
+
+        const normalize = (targetNodes: NodeBase[]) => (
+            targetNodes.map(node => {
+                const mapped = nodePointMap.get(String(node.id)) ?? mapPoint(node.position.x, node.position.y);
+                return {
+                    id: node.id,
+                    x: mapped.x,
+                    y: mapped.y,
+                    parentClusterId: node.meta?.parentClusterId as string | undefined,
+                    color: resolveNodeColor(node)
+                };
+            })
+        );
 
         const subClusters = nodes.filter(n => n.type === 'cluster');
         const leafNodes = nodes.filter(n => n.type !== 'cluster');
+
+        const links = (data?.edges ?? [])
+            .map(edge => {
+                const source = nodePointMap.get(String(edge.source));
+                const target = nodePointMap.get(String(edge.target));
+                if (!source || !target) return null;
+                return {
+                    id: String(edge.id),
+                    x1: source.x,
+                    y1: source.y,
+                    x2: target.x,
+                    y2: target.y
+                };
+            })
+            .filter((edge): edge is { id: string; x1: number; y1: number; x2: number; y2: number } => !!edge);
+
+        const areas = rawAreas
+            .map((area: any) => {
+                const anchorType = area?.anchor?.type;
+                const anchorNode = anchorType === 'node' ? nodePointMap.get(String(area?.anchor?.nodeId ?? '')) : null;
+                const color = String(area?.color ?? 'rgba(255,255,255,0.08)');
+                const borderColor = String(area?.borderColor ?? 'rgba(255,255,255,0.25)');
+                const opacity = Number.isFinite(area?.opacity) ? Number(area.opacity) : 0.45;
+
+                if (area?.shape === 'circle' && area?.circle && Number.isFinite(area.circle.r)) {
+                    const rawCx = Number.isFinite(area.circle.cx) ? area.circle.cx : 0;
+                    const rawCy = Number.isFinite(area.circle.cy) ? area.circle.cy : 0;
+                    const rawR = Number(area.circle.r);
+                    const mappedCenter = anchorNode
+                        ? { x: anchorNode.x, y: anchorNode.y }
+                        : mapPoint(rawCx, rawCy);
+                    return {
+                        id: String(area.id ?? crypto.randomUUID()),
+                        shape: 'circle' as const,
+                        circle: { cx: mappedCenter.x, cy: mappedCenter.y, r: Math.max(2, rawR * scale) },
+                        color,
+                        borderColor,
+                        opacity
+                    };
+                }
+
+                if (area?.shape === 'rect' && area?.rect && Number.isFinite(area.rect.w) && Number.isFinite(area.rect.h)) {
+                    const rawW = Number(area.rect.w);
+                    const rawH = Number(area.rect.h);
+                    const scaledW = Math.max(2, rawW * scale);
+                    const scaledH = Math.max(2, rawH * scale);
+                    if (anchorNode) {
+                        return {
+                            id: String(area.id ?? crypto.randomUUID()),
+                            shape: 'rect' as const,
+                            rect: {
+                                x: anchorNode.x - scaledW / 2,
+                                y: anchorNode.y - scaledH / 2,
+                                w: scaledW,
+                                h: scaledH
+                            },
+                            color,
+                            borderColor,
+                            opacity
+                        };
+                    }
+
+                    const mapped = mapPoint(Number(area.rect.x ?? 0), Number(area.rect.y ?? 0));
+                    return {
+                        id: String(area.id ?? crypto.randomUUID()),
+                        shape: 'rect' as const,
+                        rect: { x: mapped.x, y: mapped.y, w: scaledW, h: scaledH },
+                        color,
+                        borderColor,
+                        opacity
+                    };
+                }
+                return null;
+            })
+            .filter((area): area is SpaceCluster['areas'][number] => !!area);
 
         const cluster = {
             id: space.id,
             name: space.name,
             center,
+            corePoint: projectedCorePoint,
             radius: clusterRadius,
             hasCore: coreNodes.length > 0,
             clusters: normalize(subClusters),
-            nodes: normalize(leafNodes)
+            nodes: normalize(leafNodes),
+            links,
+            areas
         };
         placed.push(cluster);
         return cluster;
@@ -281,6 +506,12 @@ const GlobalGraphOverview = ({
                     x: cluster.center.x + offset.x,
                     y: cluster.center.y + offset.y
                 },
+                corePoint: cluster.corePoint
+                    ? {
+                        x: cluster.corePoint.x + offset.x,
+                        y: cluster.corePoint.y + offset.y
+                    }
+                    : null,
                 clusters: cluster.clusters.map(item => ({
                     ...item,
                     x: item.x + offset.x,
@@ -290,7 +521,34 @@ const GlobalGraphOverview = ({
                     ...item,
                     x: item.x + offset.x,
                     y: item.y + offset.y
-                }))
+                })),
+                links: cluster.links.map(item => ({
+                    ...item,
+                    x1: item.x1 + offset.x,
+                    y1: item.y1 + offset.y,
+                    x2: item.x2 + offset.x,
+                    y2: item.y2 + offset.y
+                })),
+                areas: cluster.areas.map(area => (
+                    area.shape === 'rect'
+                        ? {
+                            ...area,
+                            rect: {
+                                x: area.rect.x + offset.x,
+                                y: area.rect.y + offset.y,
+                                w: area.rect.w,
+                                h: area.rect.h
+                            }
+                        }
+                        : {
+                            ...area,
+                            circle: {
+                                cx: area.circle.cx + offset.x,
+                                cy: area.circle.cy + offset.y,
+                                r: area.circle.r
+                            }
+                        }
+                ))
             };
         })
     ), [clusters, layoutOffsets]);
@@ -355,6 +613,14 @@ const GlobalGraphOverview = ({
                 const cy = lerp(prev.center.y, space.center.y, t);
                 const radius = lerp(prev.radius, space.radius, t);
                 maxDelta = Math.max(maxDelta, Math.abs(space.center.x - cx), Math.abs(space.center.y - cy), Math.abs(space.radius - radius));
+                const corePoint = (() => {
+                    if (!space.corePoint) return null;
+                    if (!prev.corePoint) return space.corePoint;
+                    const x = lerp(prev.corePoint.x, space.corePoint.x, t);
+                    const y = lerp(prev.corePoint.y, space.corePoint.y, t);
+                    maxDelta = Math.max(maxDelta, Math.abs(space.corePoint.x - x), Math.abs(space.corePoint.y - y));
+                    return { x, y };
+                })();
 
                 const nextClusters = space.clusters.map(sub => {
                     const prevSub = prev.clusters.find(item => item.id === sub.id);
@@ -374,12 +640,47 @@ const GlobalGraphOverview = ({
                     return { ...sub, x, y };
                 });
 
+                const nextLinks = space.links.map(link => {
+                    const prevLink = prev.links.find(item => item.id === link.id);
+                    if (!prevLink) return link;
+                    const x1 = lerp(prevLink.x1, link.x1, t);
+                    const y1 = lerp(prevLink.y1, link.y1, t);
+                    const x2 = lerp(prevLink.x2, link.x2, t);
+                    const y2 = lerp(prevLink.y2, link.y2, t);
+                    maxDelta = Math.max(maxDelta, Math.abs(link.x1 - x1), Math.abs(link.y1 - y1), Math.abs(link.x2 - x2), Math.abs(link.y2 - y2));
+                    return { ...link, x1, y1, x2, y2 };
+                });
+
+                const nextAreas = space.areas.map(area => {
+                    const prevArea = prev.areas.find(item => item.id === area.id && item.shape === area.shape);
+                    if (!prevArea) return area;
+                    if (area.shape === 'rect' && prevArea.shape === 'rect') {
+                        const x = lerp(prevArea.rect.x, area.rect.x, t);
+                        const y = lerp(prevArea.rect.y, area.rect.y, t);
+                        const w = lerp(prevArea.rect.w, area.rect.w, t);
+                        const h = lerp(prevArea.rect.h, area.rect.h, t);
+                        maxDelta = Math.max(maxDelta, Math.abs(area.rect.x - x), Math.abs(area.rect.y - y));
+                        return { ...area, rect: { x, y, w, h } };
+                    }
+                    if (area.shape === 'circle' && prevArea.shape === 'circle') {
+                        const cx = lerp(prevArea.circle.cx, area.circle.cx, t);
+                        const cy = lerp(prevArea.circle.cy, area.circle.cy, t);
+                        const r = lerp(prevArea.circle.r, area.circle.r, t);
+                        maxDelta = Math.max(maxDelta, Math.abs(area.circle.cx - cx), Math.abs(area.circle.cy - cy));
+                        return { ...area, circle: { cx, cy, r } };
+                    }
+                    return area;
+                });
+
                 return {
                     ...space,
                     center: { x: cx, y: cy },
+                    corePoint,
                     radius,
                     clusters: nextClusters,
-                    nodes: nextNodes
+                    nodes: nextNodes,
+                    links: nextLinks,
+                    areas: nextAreas
                 };
             });
 
@@ -618,8 +919,8 @@ const GlobalGraphOverview = ({
                     </radialGradient>
                 </defs>
 
-                {/* Level 0: ArcheNode -> Space Links */}
-                {renderClusters.map(cluster => (
+                {/* Level 0/1: ArcheNode -> Space Links */}
+                {detailLevel < 2 && renderClusters.map(cluster => (
                     renderLink(0, 0, cluster.center.x, cluster.center.y, 40, cluster.hasCore ? 10 : 0, `link-root-${cluster.id}`)
                 ))}
 
@@ -642,6 +943,7 @@ const GlobalGraphOverview = ({
                     const isHighlight = highlightSpaceId === cluster.id;
                     const isSelected = selectedSpaceId === cluster.id;
                     const isActive = isHighlight || isSelected;
+                    const coreAnchor = cluster.corePoint ?? cluster.center;
                     const clusterMap = new Map(cluster.clusters.map(h => [h.id, h]));
 
                     return (
@@ -727,50 +1029,61 @@ const GlobalGraphOverview = ({
                             />
 
                             {/* Internal Links: Space Core -> Clusters/Independent Nodes */}
-                            {detailLevel >= 1 && (
+                            {detailLevel === 1 && (
                                 <>
-                                    {/* Core -> Clusters (L1 Link) */}
                                     {cluster.clusters.map(sub =>
-                                        renderLink(cluster.center.x, cluster.center.y, sub.x, sub.y, 10, 6, `link-${cluster.id}-c-${sub.id}`, true)
-                                    )}
-
-                                    {/* Links to Leaf Nodes (L2) - Only show if Detail Level is >= 2 */}
-                                    {detailLevel >= 2 && (
-                                        <>
-                                            {/* Core -> Independent Nodes */}
-                                            {cluster.hasCore && cluster.nodes
-                                                .filter(n => !n.parentClusterId)
-                                                .map(node =>
-                                                    renderLink(cluster.center.x, cluster.center.y, node.x, node.y, 10, 2, `link-${cluster.id}-n-${node.id}`, true)
-                                                )
-                                            }
-
-                                            {/* Cluster -> Child Nodes */}
-                                            {cluster.nodes
-                                                .filter(n => n.parentClusterId && clusterMap.has(n.parentClusterId))
-                                                .map(node => {
-                                                    const parent = clusterMap.get(node.parentClusterId!)!;
-                                                    return renderLink(parent.x, parent.y, node.x, node.y, 5, 2, `link-${cluster.id}-cn-${node.id}`, true);
-                                                })
-                                            }
-                                        </>
+                                        renderLink(coreAnchor.x, coreAnchor.y, sub.x, sub.y, 10, 6, `link-${cluster.id}-c-${sub.id}`, true)
                                     )}
                                 </>
+                            )}
+
+                            {detailLevel >= 2 && cluster.areas.map(area => (
+                                area.shape === 'rect' ? (
+                                    <rect
+                                        key={`area-${cluster.id}-${area.id}`}
+                                        x={area.rect.x}
+                                        y={area.rect.y}
+                                        width={area.rect.w}
+                                        height={area.rect.h}
+                                        rx={10}
+                                        fill={area.color}
+                                        fillOpacity={typeof area.color === 'string' && area.color.startsWith('rgba') ? 1 : Math.min(0.85, Math.max(0.15, area.opacity))}
+                                        stroke={area.borderColor}
+                                        strokeOpacity={0.72}
+                                        strokeWidth={1}
+                                    />
+                                ) : (
+                                    <circle
+                                        key={`area-${cluster.id}-${area.id}`}
+                                        cx={area.circle.cx}
+                                        cy={area.circle.cy}
+                                        r={area.circle.r}
+                                        fill={area.color}
+                                        fillOpacity={typeof area.color === 'string' && area.color.startsWith('rgba') ? 1 : Math.min(0.85, Math.max(0.15, area.opacity))}
+                                        stroke={area.borderColor}
+                                        strokeOpacity={0.72}
+                                        strokeWidth={1}
+                                    />
+                                )
+                            ))}
+
+                            {detailLevel >= 2 && cluster.links.map(link =>
+                                renderRawLink(link.x1, link.y1, link.x2, link.y2, `link-real-${cluster.id}-${link.id}`)
                             )}
 
                             {cluster.hasCore && (
                                 <>
                                     <circle
-                                        cx={cluster.center.x}
-                                        cy={cluster.center.y}
+                                        cx={coreAnchor.x}
+                                        cy={coreAnchor.y}
                                         r={10}
                                         fill="rgba(255,255,255,0.12)"
                                         stroke="rgba(255,255,255,0.35)"
                                         strokeWidth={1}
                                     />
                                     <circle
-                                        cx={cluster.center.x}
-                                        cy={cluster.center.y}
+                                        cx={coreAnchor.x}
+                                        cy={coreAnchor.y}
                                         r={3}
                                         fill="rgba(255,255,255,0.8)"
                                     />
@@ -811,7 +1124,7 @@ const GlobalGraphOverview = ({
                                         cx={node.x}
                                         cy={node.y}
                                         r={2}
-                                        fill="rgba(255,255,255,0.45)"
+                                        fill={node.color}
                                     />
                                 ))}
                             {detailLevel >= 2 && cluster.nodes
@@ -822,7 +1135,7 @@ const GlobalGraphOverview = ({
                                     cx={node.x}
                                     cy={node.y}
                                     r={2}
-                                    fill="rgba(255,255,255,0.45)"
+                                    fill={node.color}
                                 />
                             ))}
                         </g>

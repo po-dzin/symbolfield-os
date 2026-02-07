@@ -13,7 +13,7 @@ import { stateEngine } from '../../core/state/StateEngine';
 import NodeRenderer from './NodeRenderer';
 import EdgeRenderer from './EdgeRenderer';
 import InteractionLayer from './InteractionLayer';
-import { eventBus, type BusEvent } from '../../core/events/EventBus';
+import { eventBus, EVENTS, type BusEvent } from '../../core/events/EventBus';
 import { graphEngine } from '../../core/graph/GraphEngine';
 import { useCameraStore } from '../../store/useCameraStore';
 import { screenToWorld } from '../../utils/coords';
@@ -25,6 +25,7 @@ import GlyphIcon from '../Icon/GlyphIcon';
 import { asNodeId, type Edge, type NodeId } from '../../core/types';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { getCoreId, getCoreLabel } from '../../core/defaults/coreIds';
+import { GLOBAL_ZOOM_HOTKEY_EVENT, type ZoomHotkeyDetail } from '../../core/hotkeys/zoomHotkeys';
 
 const CanvasView = () => {
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -52,6 +53,7 @@ const CanvasView = () => {
     const currentSpaceId = useAppStore(state => state.currentSpaceId);
     const fieldScopeId = useAppStore(state => state.fieldScopeId);
     const viewContext = useAppStore(state => state.viewContext);
+    const setViewContext = useAppStore(state => state.setViewContext);
     const { pan, zoom, zoomAt, centerOn } = useCameraStore();
     const setPan = useCameraStore(state => state.setPan);
     const setZoom = useCameraStore(state => state.setZoom);
@@ -898,7 +900,7 @@ const CanvasView = () => {
     }, []);
 
     const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (stateEngine.getState().viewContext === 'now') return;
+        if (stateEngine.getState().viewContext === 'node') return;
         if (nodes.length === 0 && currentSpaceId && containerRef.current) {
             const rect = containerRef.current.getBoundingClientRect();
             const { pan, zoom } = useCameraStore.getState();
@@ -948,8 +950,8 @@ const CanvasView = () => {
                 }
                 return;
             }
-            if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'ENTER_NOW' });
-            stateEngine.enterNow(resolvedId);
+            if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'OPEN_NODE' });
+            stateEngine.enterNode(resolvedId);
             return;
         }
         gestureRouter.handlePointerDown({
@@ -1040,7 +1042,7 @@ const CanvasView = () => {
         return set;
     }, [fieldScopeId, focusedAreaId, nodes]);
 
-    const fitToContent = () => {
+    const fitToContent = (options?: { clampToOne?: boolean }) => {
         if (!containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
         if (nodes.length === 0 && areas.length === 0) {
@@ -1101,7 +1103,8 @@ const CanvasView = () => {
         const availableW = Math.max(1, rect.width - padding * 2);
         const availableH = Math.max(1, rect.height - padding * 2);
         const nextZoom = Math.min(availableW / boundsW, availableH / boundsH);
-        const clampedZoom = Math.min(Math.max(nextZoom, 0.25), 2.0);
+        const targetZoom = options?.clampToOne ? Math.min(nextZoom, 1) : nextZoom;
+        const clampedZoom = Math.min(Math.max(targetZoom, 0.25), 2.0);
         const centerX = (minX + maxX) / 2;
         const centerY = (minY + maxY) / 2;
 
@@ -1117,17 +1120,69 @@ const CanvasView = () => {
         const el = containerRef.current;
         if (!el) return;
 
-        // Disable native pinch-zoom gestures
-        const preventDefault = (e: Event) => e.preventDefault();
         const preventWheelZoom = (e: WheelEvent) => {
             if (e.ctrlKey || e.metaKey) e.preventDefault();
         };
-        el.addEventListener('gesturestart', preventDefault);
-        el.addEventListener('gesturechange', preventDefault);
         el.addEventListener('wheel', preventWheelZoom, { passive: false });
+
+        const handleGlobalWheelCapture = (event: WheelEvent) => {
+            if (!(event.ctrlKey || event.metaKey)) return;
+            const root = containerRef.current;
+            if (!root) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const rect = root.getBoundingClientRect();
+            useCameraStore.getState().zoomAt(event.clientX, event.clientY, event.deltaY, rect);
+        };
+        window.addEventListener('wheel', handleGlobalWheelCapture, { passive: false, capture: true });
+
+        let lastGestureScale = 1;
+        const handleGestureStart = (event: Event) => {
+            const e = event as unknown as { preventDefault: () => void; scale?: number };
+            e.preventDefault();
+            lastGestureScale = typeof e.scale === 'number' ? e.scale : 1;
+        };
+        const handleGestureChange = (event: Event) => {
+            const e = event as unknown as {
+                preventDefault: () => void;
+                scale?: number;
+                clientX?: number;
+                clientY?: number;
+            };
+            e.preventDefault();
+            const scale = typeof e.scale === 'number' ? e.scale : 1;
+            const ratio = scale / Math.max(0.0001, lastGestureScale);
+            lastGestureScale = scale;
+            if (!Number.isFinite(ratio) || ratio <= 0) return;
+
+            const rect = el.getBoundingClientRect();
+            const state = useCameraStore.getState();
+            const nextZoom = Math.min(Math.max(state.zoom * ratio, 0.25), 2.0);
+            const localX = (typeof e.clientX === 'number' ? e.clientX : rect.left + rect.width / 2) - rect.left;
+            const localY = (typeof e.clientY === 'number' ? e.clientY : rect.top + rect.height / 2) - rect.top;
+            const worldX = (localX - state.pan.x) / state.zoom;
+            const worldY = (localY - state.pan.y) / state.zoom;
+            const newPanX = localX - worldX * nextZoom;
+            const newPanY = localY - worldY * nextZoom;
+            setZoom(nextZoom);
+            setPan({ x: newPanX, y: newPanY });
+        };
+        const handleGestureEnd = (event: Event) => {
+            const e = event as unknown as { preventDefault: () => void };
+            e.preventDefault();
+            lastGestureScale = 1;
+        };
+
+        window.addEventListener('gesturestart', handleGestureStart as EventListener, { passive: false });
+        window.addEventListener('gesturechange', handleGestureChange as EventListener, { passive: false });
+        window.addEventListener('gestureend', handleGestureEnd as EventListener, { passive: false });
+        document.addEventListener('gesturestart', handleGestureStart as EventListener, { passive: false });
+        document.addEventListener('gesturechange', handleGestureChange as EventListener, { passive: false });
+        document.addEventListener('gestureend', handleGestureEnd as EventListener, { passive: false });
 
         // Global hotkey listener for Router & local state
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.defaultPrevented) return;
             const target = e.target as HTMLElement | null;
             if (target?.closest('input, textarea, [contenteditable="true"]')) {
                 return;
@@ -1138,31 +1193,6 @@ const CanvasView = () => {
             }
             if ((e.key === 'Escape' || e.key === 'Esc' || e.code === 'Escape') && stateEngine.getState().fieldScopeId) {
                 stateEngine.setFieldScope(null);
-                return;
-            }
-            const isMod = e.metaKey || e.ctrlKey;
-            if (isMod && (e.key === '+' || e.key === '=')) {
-                e.preventDefault();
-                const currentZoom = useCameraStore.getState().zoom;
-                const next = getZoomStep(currentZoom, 'in');
-                adjustZoomTo(next);
-                return;
-            }
-            if (isMod && e.key === '-') {
-                e.preventDefault();
-                const currentZoom = useCameraStore.getState().zoom;
-                const next = getZoomStep(currentZoom, 'out');
-                adjustZoomTo(next);
-                return;
-            }
-            if (isMod && e.key === '0') {
-                e.preventDefault();
-                adjustZoomTo(1);
-                return;
-            }
-            if (e.shiftKey && (e.code === 'Digit1' || e.key === '!')) {
-                e.preventDefault();
-                fitToContent();
                 return;
             }
             gestureRouter.handleKeyDown(e);
@@ -1176,6 +1206,32 @@ const CanvasView = () => {
 
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
+
+        const onGlobalZoomHotkey = (event: Event) => {
+            const detail = (event as CustomEvent<ZoomHotkeyDetail>).detail;
+            if (!detail) return;
+            switch (detail.command) {
+                case 'zoom_in': {
+                    const currentZoom = useCameraStore.getState().zoom;
+                    const next = getZoomStep(currentZoom, 'in');
+                    adjustZoomTo(next);
+                    break;
+                }
+                case 'zoom_out': {
+                    const currentZoom = useCameraStore.getState().zoom;
+                    const next = getZoomStep(currentZoom, 'out');
+                    adjustZoomTo(next);
+                    break;
+                }
+                case 'zoom_reset':
+                    adjustZoomTo(1);
+                    break;
+                case 'zoom_fit':
+                    fitToContent();
+                    break;
+            }
+        };
+        window.addEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as EventListener);
 
         // Ego-focus listener
         const onFocus = (e: BusEvent<'UI_FOCUS_NODE'>) => {
@@ -1205,11 +1261,11 @@ const CanvasView = () => {
         const unsubRedo = eventBus.on('GRAPH_REDO', triggerUndoSmooth);
 
         return () => {
-            el.removeEventListener('gesturestart', preventDefault);
-            el.removeEventListener('gesturechange', preventDefault);
             el.removeEventListener('wheel', preventWheelZoom);
+            window.removeEventListener('wheel', handleGlobalWheelCapture, true);
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
+            window.removeEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as EventListener);
             unsubFocus();
             unsubUndo();
             unsubRedo();
@@ -1223,6 +1279,20 @@ const CanvasView = () => {
     const fitTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
+        if (viewContext !== 'space') {
+            lastCenteredSpaceId.current = null;
+        }
+    }, [viewContext]);
+
+    useEffect(() => {
+        const unsub = eventBus.on('UI_SIGNAL', (e) => {
+            if (e.payload.type !== 'EXIT_TO_STATION') return;
+            setViewContext('home');
+        });
+        return () => unsub();
+    }, [setViewContext]);
+
+    useEffect(() => {
         if (viewContext !== 'space' || !currentSpaceId || !containerRef.current) return;
         if (lastCenteredSpaceId.current === currentSpaceId) return;
 
@@ -1234,7 +1304,7 @@ const CanvasView = () => {
         if (nodes.length === 0 && areas.length === 0) {
             fitTimerRef.current = window.setTimeout(() => {
                 if (lastCenteredSpaceId.current === currentSpaceId) return;
-                fitToContent();
+                fitToContent({ clampToOne: true });
                 lastCenteredSpaceId.current = currentSpaceId;
                 fitTimerRef.current = null;
             }, 120);
@@ -1246,7 +1316,7 @@ const CanvasView = () => {
             };
         }
 
-        fitToContent();
+        fitToContent({ clampToOne: true });
         lastCenteredSpaceId.current = currentSpaceId;
         return () => {
             if (fitTimerRef.current) {
@@ -2097,7 +2167,6 @@ const CanvasView = () => {
             {/* HUD: Stats & Status (Bottom-Left) */}
             <div
                 className="absolute bottom-4 left-4 pointer-events-auto flex flex-col items-start gap-2 z-50"
-                style={{ transform: `scale(${zoom})`, transformOrigin: 'bottom left' }}
             >
                 {showHud && activeTool === TOOLS.LINK && (
                     <div className="pointer-events-none flex items-center gap-2 pr-3 py-1.5 pl-4 opacity-70">

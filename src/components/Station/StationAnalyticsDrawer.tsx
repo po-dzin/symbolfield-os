@@ -102,9 +102,9 @@ const RadialDiagram = ({ metrics }: { metrics: SpaceMetrics }) => {
 const StationAnalyticsDrawer = ({ open, metrics, onClose }: { open: boolean; metrics: SpaceMetrics | null; onClose: () => void }) => {
     return (
         <div
-            className={`absolute right-0 top-0 h-full w-[var(--panel-width-lg)] z-20 transition-transform duration-300 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
+            className={`absolute right-0 top-0 h-full w-[var(--panel-width-lg)] z-20 transition-transform duration-300 ease-out pointer-events-auto ${open ? 'translate-x-0' : 'translate-x-full'}`}
         >
-            <div className="h-full bg-black/40 backdrop-blur-xl border-l border-white/10 p-[var(--panel-padding)] flex flex-col gap-6">
+            <div className="h-full glass-panel rounded-none rounded-l-[var(--panel-radius)] border-r-0 p-[var(--panel-padding)] flex flex-col gap-6">
                 <div className="flex items-center justify-between">
                     <div className="text-xs uppercase tracking-[0.3em] text-white/50">Analytics</div>
                     <button

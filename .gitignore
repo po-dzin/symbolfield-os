@@ -49,3 +49,7 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+# local codex/worktree artifacts
+/.codex/
+/_docs_work/
+/.merge-backups/

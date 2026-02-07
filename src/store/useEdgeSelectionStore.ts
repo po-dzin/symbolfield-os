@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { eventBus, EVENTS } from '../core/events/EventBus';
 
 interface EdgeSelectionState {
     selectedEdgeIds: string[];
@@ -16,7 +17,12 @@ interface EdgeSelectionState {
     clear: () => void;
 }
 
-export const useEdgeSelectionStore = create<EdgeSelectionState>((set, get) => ({
+export const useEdgeSelectionStore = create<EdgeSelectionState>((set, get) => {
+    eventBus.on(EVENTS.SPACE_CHANGED, () => {
+        set({ selectedEdgeIds: [], primaryEdgeId: null, hoverEdgeId: null });
+    });
+
+    return ({
     selectedEdgeIds: [],
     primaryEdgeId: null,
     hoverEdgeId: null,
@@ -45,4 +51,5 @@ export const useEdgeSelectionStore = create<EdgeSelectionState>((set, get) => ({
     setSelection: (ids) => set({ selectedEdgeIds: ids, primaryEdgeId: ids.length > 0 ? ids[ids.length - 1]! : null }),
 
     clear: () => set({ selectedEdgeIds: [], primaryEdgeId: null, hoverEdgeId: null })
-}));
+    });
+});

@@ -4,7 +4,7 @@
  * 
  * Responsibilities:
  * - Current App Mode (Deep/Flow/Luma)
- * - View Context (Home / SpaceField / Now)
+ * - View Context (Home / SpaceField / Node)
  * - Active Session State (Focus/Rest)
  * - Tool State (Pointer/Link/Area)
  */
@@ -22,6 +22,8 @@ export const APP_MODES = {
 export const VIEW_CONTEXTS = {
     HOME: 'home',
     SPACE: 'space',
+    NODE: 'node',
+    // Legacy alias kept for backward compatibility with older deep links/state snapshots.
     NOW: 'now'
 } as const;
 
@@ -61,6 +63,14 @@ interface StateSnapshot {
     subspaceLod: 1 | 2 | 3;
     showStationLabels: boolean;
     showPlaygroundOnStation: boolean;
+    drawerLeftOpen: boolean;
+    drawerLeftPinned: boolean;
+    drawerLeftWidth: 'sm' | 'md' | 'lg';
+    drawerRightOpen: boolean;
+    drawerRightPinned: boolean;
+    drawerRightWidth: 'sm' | 'md' | 'lg';
+    drawerRightTab: 'settings' | 'log' | 'analytics' | null;
+    layoutMode: 'overlay' | 'pinned' | 'split';
     session: SessionState;
 }
 
@@ -75,7 +85,7 @@ class StateEngine {
             currentSpaceId: null,
             fieldScopeId: null,
             activeTool: TOOLS.POINTER,
-            activeScope: null, // If in NOW, which node ID
+            activeScope: null, // If in Node view, which node ID
             settingsOpen: false,
             paletteOpen: false,
             contextMenuMode: 'bar',
@@ -89,6 +99,14 @@ class StateEngine {
             subspaceLod: 2,
             showStationLabels: true,
             showPlaygroundOnStation: true,
+            drawerLeftOpen: false,
+            drawerLeftPinned: false,
+            drawerLeftWidth: 'md',
+            drawerRightOpen: false,
+            drawerRightPinned: false,
+            drawerRightWidth: 'lg',
+            drawerRightTab: null,
+            layoutMode: 'overlay',
 
             // Session (HUD)
             session: {
@@ -99,6 +117,7 @@ class StateEngine {
         };
 
         this._loadPersistedSettings();
+        this._applyGlassSettings();
     }
 
     // --- Actions ---
@@ -180,18 +199,30 @@ class StateEngine {
         this.setContextMenuMode(this.state.contextMenuMode === 'bar' ? 'radial' : 'bar');
     }
 
-    enterNow(nodeId: NodeId) {
-        this.state.viewContext = VIEW_CONTEXTS.NOW;
+    enterNode(nodeId: NodeId) {
+        this.state.viewContext = VIEW_CONTEXTS.NODE;
         this.state.activeScope = nodeId;
-        eventBus.emit(EVENTS.NOW_ENTERED, { nodeId });
+        eventBus.emit(EVENTS.NODE_ENTERED, { nodeId });
         this._emitChange();
     }
 
-    exitNow() {
+    exitNode() {
         this.state.viewContext = VIEW_CONTEXTS.SPACE;
         this.state.activeScope = null;
-        eventBus.emit(EVENTS.NOW_EXITED);
+        eventBus.emit(EVENTS.NODE_EXITED);
         this._emitChange();
+    }
+
+    // Legacy aliases: keep old API while callers are being migrated.
+    enterNow(nodeId: NodeId) {
+        this.state.activeScope = nodeId;
+        eventBus.emit(EVENTS.NOW_ENTERED, { nodeId });
+        this.startFocusSession('Now');
+    }
+
+    exitNow() {
+        eventBus.emit(EVENTS.NOW_EXITED);
+        this.stopFocusSession();
     }
 
     startFocusSession(label = 'Focus') {
@@ -228,21 +259,28 @@ class StateEngine {
     }
 
     toggleSettings() {
-        this.state.settingsOpen = !this.state.settingsOpen;
+        const shouldOpen = !(this.state.drawerRightOpen && this.state.drawerRightTab === 'settings');
+        this.state.drawerRightTab = shouldOpen ? 'settings' : null;
+        this.state.drawerRightOpen = shouldOpen;
+        this._syncSettingsOpen();
         eventBus.emit(EVENTS.SETTINGS_TOGGLED, { open: this.state.settingsOpen });
         this._emitChange();
     }
 
     openSettings() {
-        if (this.state.settingsOpen) return;
-        this.state.settingsOpen = true;
+        if (this.state.drawerRightOpen && this.state.drawerRightTab === 'settings') return;
+        this.state.drawerRightTab = 'settings';
+        this.state.drawerRightOpen = true;
+        this._syncSettingsOpen();
         eventBus.emit(EVENTS.SETTINGS_TOGGLED, { open: true });
         this._emitChange();
     }
 
     closeSettings() {
         if (!this.state.settingsOpen) return;
-        this.state.settingsOpen = false;
+        this.state.drawerRightOpen = false;
+        this.state.drawerRightTab = null;
+        this._syncSettingsOpen();
         eventBus.emit(EVENTS.SETTINGS_TOGGLED, { open: false });
         this._emitChange();
     }
@@ -319,6 +357,67 @@ class StateEngine {
         this._emitChange();
     }
 
+    // --- Drawer state ---
+
+    setDrawerOpen(side: 'left' | 'right', open: boolean) {
+        if (side === 'left') {
+            if (this.state.drawerLeftOpen === open) return;
+            this.state.drawerLeftOpen = open;
+        } else {
+            if (this.state.drawerRightOpen === open) return;
+            this.state.drawerRightOpen = open;
+            if (!open) {
+                this.state.drawerRightTab = null;
+            }
+            this._syncSettingsOpen();
+        }
+        eventBus.emit(open ? EVENTS.DRAWER_OPENED : EVENTS.DRAWER_CLOSED, { side });
+        this._emitChange();
+    }
+
+    toggleDrawerOpen(side: 'left' | 'right') {
+        const open = side === 'left' ? !this.state.drawerLeftOpen : !this.state.drawerRightOpen;
+        this.setDrawerOpen(side, open);
+    }
+
+    setDrawerPinned(side: 'left' | 'right', pinned: boolean) {
+        if (side === 'left') {
+            if (this.state.drawerLeftPinned === pinned) return;
+            this.state.drawerLeftPinned = pinned;
+        } else {
+            if (this.state.drawerRightPinned === pinned) return;
+            this.state.drawerRightPinned = pinned;
+        }
+        this._emitChange();
+    }
+
+    setDrawerWidth(side: 'left' | 'right', width: 'sm' | 'md' | 'lg') {
+        if (side === 'left') {
+            if (this.state.drawerLeftWidth === width) return;
+            this.state.drawerLeftWidth = width;
+        } else {
+            if (this.state.drawerRightWidth === width) return;
+            this.state.drawerRightWidth = width;
+        }
+        this._emitChange();
+    }
+
+    setLayoutMode(mode: 'overlay' | 'pinned' | 'split') {
+        if (this.state.layoutMode === mode) return;
+        this.state.layoutMode = mode;
+        this._emitChange();
+    }
+
+    setDrawerRightTab(tab: 'settings' | 'log' | 'analytics' | null) {
+        if (this.state.drawerRightTab === tab) return;
+        this.state.drawerRightTab = tab;
+        if (tab) {
+            this.state.drawerRightOpen = true;
+        }
+        this._syncSettingsOpen();
+        this._emitChange();
+    }
+
     // --- Getters ---
 
     getState() {
@@ -333,6 +432,11 @@ class StateEngine {
         // However, for React syncing, we might need a signal.
         // For v0.5, we will let the Zustand store handle the reactivity by
         // polling or manually triggering updates when calling these methods.
+    }
+
+    private _syncSettingsOpen() {
+        const next = this.state.drawerRightOpen && this.state.drawerRightTab === 'settings';
+        this.state.settingsOpen = next;
     }
 
     private _loadPersistedSettings() {
@@ -367,10 +471,26 @@ class StateEngine {
         if (typeof data.showPlaygroundOnStation === 'boolean') {
             this.state.showPlaygroundOnStation = data.showPlaygroundOnStation;
         }
+        if (typeof data.glassOpacity === 'number') {
+            this.state.glassOpacity = data.glassOpacity;
+        }
+        if (typeof data.glassNoise === 'number') {
+            this.state.glassNoise = data.glassNoise;
+        }
     }
 
     private _persistSettings(patch: Partial<StateSnapshot>) {
         settingsStorage.save(patch);
+    }
+
+    private _applyGlassSettings() {
+        if (typeof document === 'undefined') return;
+        const opacity = this.state.glassOpacity;
+        const noise = this.state.glassNoise;
+        const root = document.documentElement;
+        root.style.setProperty('--glass-bg', `rgba(10, 10, 14, ${opacity})`);
+        root.style.setProperty('--bar-bg', `rgba(10, 10, 14, ${opacity})`);
+        root.style.setProperty('--glass-grain-opacity', `${noise}`);
     }
 }
 

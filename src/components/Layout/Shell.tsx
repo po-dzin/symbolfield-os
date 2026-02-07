@@ -12,7 +12,7 @@ import StateCore from '../HUD/StateCore';
 import CanvasView from '../Canvas/CanvasView';
 import ContextToolbar from '../Context/ContextToolbar';
 import LogDrawer from '../Drawers/LogDrawer';
-import NowOverlay from '../NOW/NowOverlay';
+import NodeOverlay from '../Node/NodeOverlay';
 import SettingsDrawer from '../Drawers/SettingsDrawer';
 import CommandPalette from '../Overlays/CommandPalette';
 import Station from '../Station/Station';
@@ -92,8 +92,8 @@ const Shell = () => {
                     {/* Settings Drawer (Z3) */}
                     <SettingsDrawer />
 
-                    {/* NOW Overlay (Z1000+) */}
-                    <NowOverlay />
+                    {/* Node Overlay */}
+                    <NodeOverlay />
                 </>
             )}
 

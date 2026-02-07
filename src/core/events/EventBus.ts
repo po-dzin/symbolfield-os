@@ -26,6 +26,8 @@ export const EVENTS = {
     TOOL_CHANGED: 'ToolChanged',
     DRAWER_OPENED: 'DrawerOpened',
     DRAWER_CLOSED: 'DrawerClosed',
+    NODE_ENTERED: 'NodeEntered',
+    NODE_EXITED: 'NodeExited',
     NOW_ENTERED: 'NowEntered',
     NOW_EXITED: 'NowExited',
     SETTINGS_TOGGLED: 'SettingsToggled',
@@ -92,7 +94,7 @@ export interface UISignalPayload {
     y: number;
     id?: string;
     sourceId?: string;
-    type?: 'ENTER_NOW' | 'GROUP_CREATED' | string;
+    type?: 'OPEN_NODE' | 'ENTER_NOW' | 'GROUP_CREATED' | string;
 }
 
 export interface EventMap {
@@ -112,6 +114,8 @@ export interface EventMap {
     [EVENTS.TOOL_CHANGED]: { tool: string };
     [EVENTS.DRAWER_OPENED]: { side?: string } | undefined;
     [EVENTS.DRAWER_CLOSED]: { side?: string } | undefined;
+    [EVENTS.NODE_ENTERED]: { nodeId: NodeId };
+    [EVENTS.NODE_EXITED]: undefined;
     [EVENTS.NOW_ENTERED]: { nodeId: NodeId };
     [EVENTS.NOW_EXITED]: undefined;
     [EVENTS.SETTINGS_TOGGLED]: { open: boolean };

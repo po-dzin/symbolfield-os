@@ -14,9 +14,10 @@ export interface PlaygroundNodeDef {
     id: NodeId;
     label: string;
     icon_value?: string;
+    icon_source?: 'sf' | 'generated' | 'blocksuite' | 'unicode';
     type: 'node' | 'hub' | 'core';
     position: { x: number; y: number };
-    content?: string; // Note view content
+    content?: string; // Node view content
 }
 
 /**
@@ -42,16 +43,16 @@ export const PLAYGROUND_NODES: PlaygroundNodeDef[] = [
         content: `# Welcome to SymbolField
 
 **Field** is space — your infinite canvas.
-**Note** is the node interior — where you read and write.
+**Node** is the node interior — where you read and write.
 **NOW** is ritual — a focused deep state.
 
 **Keys to remember:**
-- **Enter**: Open Note
+- **Enter**: Open Node
 - **Esc**: Return to Field
-- **Double-click**: Also opens Note
-- **Cmd/Ctrl+K**: Search & Command Palette
+- **Double-click**: Also opens Node
+- **Cmd/Ctrl+K**: Search & Omni Input
 
-Try opening this card in Note by pressing Enter!`
+Try opening this card in Node by pressing Enter!`
     },
 
     // Tutorial Node 2: Make a Node

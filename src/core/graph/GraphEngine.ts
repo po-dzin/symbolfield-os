@@ -308,6 +308,7 @@ class GraphEngine {
                 data: {
                     label: nodeDef.label,
                     icon_value: nodeDef.icon_value,
+                    icon_source: nodeDef.icon_source,
                     content: nodeDef.content
                 }
             });

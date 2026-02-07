@@ -19,14 +19,14 @@ import ColorPicker from './ColorPicker';
 import GlyphIcon from '../Icon/GlyphIcon';
 import { GRID_METRICS, NODE_SIZES } from '../../utils/layoutMetrics';
 import { useCameraStore } from '../../store/useCameraStore';
-import { getGlyphById } from '../../utils/customGlyphs';
+import { inferGlyphSource, resolveNodeGlyph } from '../../utils/sfGlyphLayer';
 import type { NodeData } from '../../core/types';
 import { gestureRouter } from '../../core/interaction/GestureRouter';
 
 const ContextToolbar = () => {
     const selectedIds = useSelectionStore(state => state.selectedIds);
     const clearSelection = useSelectionStore(state => state.clear);
-    const enterNow = useAppStore(state => state.enterNow);
+    const enterNode = useAppStore(state => state.enterNode);
     const fieldScopeId = useAppStore(state => state.fieldScopeId);
     const setFieldScope = useAppStore(state => state.setFieldScope);
     const contextMenuMode = useAppStore(state => state.contextMenuMode);
@@ -117,6 +117,16 @@ const ContextToolbar = () => {
         return () => window.removeEventListener('resize', updateViewport);
     }, []);
 
+    useEffect(() => {
+        const unsub = eventBus.on(EVENTS.SPACE_CHANGED, () => {
+            closeAllMenus();
+            setIsEditingLabel(false);
+            setLabelDraft('');
+            setPendingLabel(null);
+        });
+        return () => unsub();
+    }, []);
+
     const count = totalSelected;
     const primaryNode = primaryId ? nodes.find(n => n.id === primaryId) : undefined;
     const primaryArea = primaryAreaId ? areas.find(area => area.id === primaryAreaId) : undefined;
@@ -148,14 +158,18 @@ const ContextToolbar = () => {
     const nodeGlyphColor = primaryNodeData?.color_glyph ?? 'rgba(255,255,255,0.9)';
     const nodeIconValueRaw = typeof primaryNodeData?.icon_value === 'string' ? primaryNodeData.icon_value.trim() : '';
     const nodeIconValue = nodeIconValueRaw === '•' ? '' : nodeIconValueRaw;
-    const nodeGlyphIsCustom = nodeIconValue ? getGlyphById(nodeIconValue) : undefined;
+    const nodeIconSource = typeof primaryNodeData?.icon_source === 'string' ? primaryNodeData.icon_source : undefined;
     const nodeGlyphFallback = primaryNode?.type === 'core'
         ? (primaryNode.id === 'archecore' ? 'archecore' : 'core')
         : primaryNode?.type === 'cluster'
             ? 'cluster'
             : '';
-    const nodeGlyphDisplay = nodeGlyphIsCustom ? nodeIconValue : nodeIconValue;
-    const nodeGlyphResolved = nodeGlyphDisplay || nodeGlyphFallback;
+    const nodeGlyphResolved = resolveNodeGlyph({
+        iconValue: nodeIconValue,
+        iconSource: nodeIconSource,
+        fallbackId: nodeGlyphFallback,
+        fallbackSource: 'sf'
+    });
     const areaPalette = [
         { fill: 'rgba(255,255,255,0.12)', stroke: 'rgba(255,255,255,0.45)' },
         { fill: 'rgba(248,113,113,0.2)', stroke: 'rgba(248,113,113,0.6)' },
@@ -204,7 +218,13 @@ const ContextToolbar = () => {
 
     const handleGlyphSelect = (glyph: string) => {
         if (!primaryNode) return;
-        updateNode(primaryId, { data: { ...primaryNode.data, icon_value: glyph } });
+        const nextData = { ...primaryNode.data, icon_value: glyph };
+        if (glyph) {
+            nextData.icon_source = inferGlyphSource(glyph);
+        } else {
+            delete nextData.icon_source;
+        }
+        updateNode(primaryId, { data: nextData });
         setShowGlyphPicker(false);
     };
     const handleToggleFocusMode = () => {
@@ -821,7 +841,7 @@ const ContextToolbar = () => {
                         handleToggleFocusMode();
                         return;
                     }
-                    enterNow(primaryId);
+                    enterNode(primaryId);
                 }
             });
             radialItems.push({
@@ -839,11 +859,11 @@ const ContextToolbar = () => {
             radialItems.push({
                 key: 'glyph',
                 title: 'Pick Glyph',
-                content: nodeGlyphIsCustom || getGlyphById(nodeGlyphResolved) ? (
-                    <GlyphIcon id={nodeGlyphResolved} size={20} className={showGlyphPicker ? 'text-color-os-dark' : 'text-white/90'} style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }} />
+                content: nodeGlyphResolved ? (
+                    <GlyphIcon id={nodeGlyphResolved.id} size={20} className={showGlyphPicker ? 'text-color-os-dark' : 'text-white/90'} style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }} />
                 ) : (
                     <span className="text-[18px] leading-none" style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }}>
-                        {nodeGlyphResolved || '○'}
+                        {'○'}
                     </span>
                 ),
                 active: showGlyphPicker,
@@ -1415,7 +1435,7 @@ const ContextToolbar = () => {
                                         handleToggleFocusMode();
                                         return;
                                     }
-                                    enterNow(primaryId);
+                                    enterNode(primaryId);
                                 }}
                                 className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-xl text-lg leading-none transition-colors"
                                 title={primaryNode?.type === 'cluster' ? (fieldScopeId === primaryId ? 'Exit Cluster' : 'Enter Cluster') : `Enter ${primaryNode?.type === 'portal' ? 'Portal' : 'Node'}`}
@@ -1445,11 +1465,11 @@ const ContextToolbar = () => {
                                 title="Pick Glyph"
                                 data-context-menu
                             >
-                                {nodeGlyphIsCustom || getGlyphById(nodeGlyphResolved) ? (
-                                    <GlyphIcon id={nodeGlyphResolved} size={20} className={showGlyphPicker ? 'text-color-os-dark' : 'text-white/90'} style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }} />
+                                {nodeGlyphResolved ? (
+                                    <GlyphIcon id={nodeGlyphResolved.id} size={20} className={showGlyphPicker ? 'text-color-os-dark' : 'text-white/90'} style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }} />
                                 ) : (
                                     <span className="text-[18px] leading-none" style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }}>
-                                        {nodeGlyphResolved || '○'}
+                                        {'○'}
                                     </span>
                                 )}
                                 {showGlyphPicker && (

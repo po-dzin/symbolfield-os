@@ -9,6 +9,7 @@ import { useAppStore } from '../../store/useAppStore';
 const SettingsDrawer = () => {
     const settingsOpen = useAppStore(state => state.settingsOpen);
     const closeSettings = useAppStore(state => state.closeSettings);
+    const drawerRightTab = useAppStore(state => state.drawerRightTab);
     const contextMenuMode = useAppStore(state => state.contextMenuMode);
     const setContextMenuMode = useAppStore(state => state.setContextMenuMode);
     const gridSnapEnabled = useAppStore(state => state.gridSnapEnabled);
@@ -23,10 +24,8 @@ const SettingsDrawer = () => {
     const setShowHud = useAppStore(state => state.setShowHud);
     const showCounters = useAppStore(state => state.showCounters);
     const setShowCounters = useAppStore(state => state.setShowCounters);
-    const showStationLabels = useAppStore(state => state.showStationLabels);
-    const setShowStationLabels = useAppStore(state => state.setShowStationLabels);
 
-    if (!settingsOpen) return null;
+    if (!settingsOpen || drawerRightTab !== 'settings') return null;
 
     const TogglePill = ({ checked, onToggle, labelOn = 'ON', labelOff = 'OFF' }: { checked: boolean; onToggle: () => void; labelOn?: string; labelOff?: string }) => (
         <button
@@ -47,7 +46,7 @@ const SettingsDrawer = () => {
     );
 
     return (
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 ml-16 w-[var(--panel-width-md)] z-[var(--z-drawer)] animate-slide-in">
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 ml-16 w-[var(--panel-width-md)] z-[var(--z-drawer)] animate-slide-in pointer-events-auto">
             <div className="glass-panel p-3 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-widest text-text-secondary">Settings</span>
@@ -128,10 +127,6 @@ const SettingsDrawer = () => {
                 <div className="flex items-center justify-between text-sm text-white/70">
                     <span>Show edges</span>
                     <TogglePill checked={showEdges} onToggle={() => setShowEdges(!showEdges)} />
-                </div>
-                <div className="flex items-center justify-between text-sm text-white/70">
-                    <span>Station labels</span>
-                    <TogglePill checked={showStationLabels} onToggle={() => setShowStationLabels(!showStationLabels)} />
                 </div>
                 <div className="flex items-center justify-between text-sm text-white/70">
                     <span>HUD chips</span>

@@ -54,14 +54,14 @@ describe('GestureRouter Logic', () => {
         });
 
         test('should delete regular nodes', () => {
-            // Setup: Selection contains a 'note' node
-            (selectionState.getSelection as any).mockReturnValue(['note-1']);
-            (graphEngine.getNode as any).mockReturnValue({ id: 'note-1', type: 'note' });
+            // Setup: Selection contains a 'node' node
+            (selectionState.getSelection as any).mockReturnValue(['node-1']);
+            (graphEngine.getNode as any).mockReturnValue({ id: 'node-1', type: 'node' });
 
             const event = { code: 'Delete', preventDefault: vi.fn() } as any;
             gestureRouter.handleKeyDown(event);
 
-            expect(graphEngine.removeNode).toHaveBeenCalledWith('note-1');
+            expect(graphEngine.removeNode).toHaveBeenCalledWith('node-1');
         });
     });
 });

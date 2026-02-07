@@ -43,7 +43,7 @@ class SpaceManager {
 
         // Subscribe to changes for auto-persistence
         eventBus.on(EVENTS.NODE_CREATED, () => this.scheduleSave());
-        eventBus.on(EVENTS.NODE_UPDATED, () => this.scheduleSave()); // Note: UpdateNode might be frequent during drag
+        eventBus.on(EVENTS.NODE_UPDATED, () => this.scheduleSave()); // NB: UpdateNode might be frequent during drag
         eventBus.on(EVENTS.NODE_DELETED, () => this.scheduleSave());
         eventBus.on(EVENTS.LINK_CREATED, () => this.scheduleSave());
         eventBus.on(EVENTS.LINK_DELETED, () => this.scheduleSave());
@@ -426,6 +426,10 @@ class SpaceManager {
             this.seedPlaygroundSpace();
             return;
         }
+        if (playgroundMeta.trashed) {
+            playgroundMeta.trashed = false;
+            this.saveIndex();
+        }
         if (!playgroundMeta.kind) {
             playgroundMeta.kind = 'playground';
             this.saveIndex();
@@ -445,6 +449,7 @@ class SpaceManager {
             data: {
                 label: nodeDef.label,
                 icon_value: nodeDef.icon_value,
+                icon_source: nodeDef.icon_source,
                 content: nodeDef.content
             },
             style: {},

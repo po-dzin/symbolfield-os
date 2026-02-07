@@ -39,6 +39,15 @@
     --control-size: 32px;
     --layout-step: 8px;
 
+    /* Glass surfaces */
+    --glass-bg: rgba(10, 10, 14, 0.78);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-blur: 22px;
+    --glass-grain-opacity: 0.08;
+    --glass-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='80' height='80' filter='url(%23n)' opacity='0.25'/%3E%3C/svg%3E");
+    --bar-bg: rgba(10, 10, 14, 0.7);
+    --bar-border: rgba(255, 255, 255, 0.08);
+
     /* Disable text selection globally */
     user-select: none;
     -webkit-user-select: none;
@@ -97,7 +106,61 @@ html, #root {
 
 @layer components {
     .glass-panel {
-        @apply bg-sf-zinc-900/80 backdrop-blur-xl border border-white/5 rounded-[var(--panel-radius)];
+        @apply border rounded-[var(--panel-radius)];
+        position: relative;
+        background: var(--glass-bg);
+        border-color: var(--glass-border);
+        backdrop-filter: blur(var(--glass-blur));
+        -webkit-backdrop-filter: blur(var(--glass-blur));
+        overflow: hidden;
+    }
+
+    .glass-panel-strong {
+        background: rgba(10, 10, 14, 0.88);
+        border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .glass-panel::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: var(--glass-grain);
+        opacity: var(--glass-grain-opacity);
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .glass-panel > * {
+        position: relative;
+        z-index: 1;
+    }
+
+    .topbar-shell {
+        @apply flex items-center w-full;
+        height: var(--bar-height);
+        padding: var(--bar-pad-y) var(--bar-pad-x);
+        gap: var(--bar-gap);
+        background: var(--bar-bg);
+        border-bottom: 1px solid var(--bar-border);
+        backdrop-filter: blur(var(--glass-blur));
+        -webkit-backdrop-filter: blur(var(--glass-blur));
+        position: relative;
+        overflow: visible;
+    }
+
+    .topbar-shell::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: var(--glass-grain);
+        opacity: var(--glass-grain-opacity);
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .topbar-shell > * {
+        position: relative;
+        z-index: 1;
     }
 }
 

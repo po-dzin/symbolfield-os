@@ -4,6 +4,7 @@ import './index.css'
 import App from './App'
 import { loadOnboardingState, markPlaygroundCreated } from './core/state/onboardingState'
 import { spaceManager } from './core/state/SpaceManager'
+import { glyphBuilderAdapter } from './core/storage/GlyphBuilderAdapter'
 
 const rootElement = document.getElementById('root')
 if (!rootElement) {
@@ -16,6 +17,9 @@ if (!onboardingState.playgroundCreated) {
     spaceManager.ensureOnboardingSpaces();
     markPlaygroundCreated();
 }
+
+// Hydrate generated glyph registry from persisted builder outputs.
+glyphBuilderAdapter.init();
 
 createRoot(rootElement).render(
     <StrictMode>

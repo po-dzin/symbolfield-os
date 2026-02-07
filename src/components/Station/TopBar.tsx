@@ -1,24 +1,24 @@
 import React from 'react';
+import { useAppStore } from '../../store/useAppStore';
+import OmniInputCollapsed from '../Omni/OmniInputCollapsed';
+import coreGlyph from '../../assets/core-glyph.svg';
 
 const TopBar = () => {
     return (
-        <div className="flex items-center justify-between px-8 py-6 border-b border-white/5">
+        <div className="topbar-shell justify-between">
             {/* Logo */}
             <div className="flex items-center gap-3 cursor-pointer opacity-80 hover:opacity-100 transition-opacity">
-                <div className="w-6 h-6 rounded-full border border-white/30 flex items-center justify-center text-white/90 font-mono text-[10px]">
-                    ◉
+                <div className="w-6 h-6 rounded-full flex items-center justify-center">
+                    <img src={coreGlyph} alt="Core" className="w-6 h-6 opacity-90" />
                 </div>
                 <span className="text-white/80 font-medium tracking-wide text-sm">SymbolField</span>
             </div>
 
             {/* Omni Search */}
-            <div className="flex-1 max-w-md mx-12">
-                <input
-                    type="text"
-                    className="block w-full px-4 py-2 bg-white/5 border border-white/10 rounded-full text-white/90 placeholder-white/40 focus:outline-none focus:bg-white/10 focus:border-white/30 transition-all text-sm"
-                    placeholder="Search or dive..."
-                />
-            </div>
+            <OmniInputCollapsed
+                className="flex-1 max-w-md mx-12"
+                inputClassName="block w-full px-4 py-2 bg-white/5 border border-white/10 rounded-full text-white/90 placeholder-white/40 focus:outline-none focus:bg-white/10 focus:border-white/30 transition-all text-sm"
+            />
 
             {/* Account Settings */}
             <button

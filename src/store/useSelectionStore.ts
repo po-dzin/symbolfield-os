@@ -31,6 +31,10 @@ export const useSelectionStore = create<SelectionStoreState>((set) => {
     };
 
     eventBus.on(EVENTS.SELECTION_CHANGED, (e) => sync(e.payload));
+    eventBus.on(EVENTS.SPACE_CHANGED, () => {
+        selectionState.clear();
+        set({ selectedIds: [], primaryId: null });
+    });
 
     return {
         selectedIds: [],
