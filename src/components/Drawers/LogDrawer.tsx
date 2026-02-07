@@ -5,23 +5,22 @@
  */
 
 import React from 'react';
-// import { useAppStore } from '../../store/useAppStore'; 
+import { useAppStore } from '../../store/useAppStore';
 
-interface LogDrawerProps {
-    isOpen: boolean;
-    onClose: () => void;
-}
+const LogDrawer = () => {
+    const drawerRightOpen = useAppStore(state => state.drawerRightOpen);
+    const drawerRightTab = useAppStore(state => state.drawerRightTab);
+    const setDrawerOpen = useAppStore(state => state.setDrawerOpen);
 
-const LogDrawer = ({ isOpen, onClose }: LogDrawerProps) => {
-    if (!isOpen) return null;
+    if (!drawerRightOpen || drawerRightTab !== 'log') return null;
 
     return (
-        <div className="absolute bottom-0 left-0 right-0 h-[30vh] z-[var(--z-drawer)] animate-slide-up">
+        <div className="absolute bottom-0 left-0 right-0 h-[30vh] z-[var(--z-drawer)] animate-slide-up pointer-events-auto">
             <div className="glass-panel w-full h-full rounded-b-none border-b-0 flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between p-2 border-b border-white/10 bg-black/20">
                     <span className="text-xs uppercase tracking-widest text-text-secondary">Temporal Log</span>
-                    <button onClick={onClose} className="hover:text-white">✕</button>
+                    <button onClick={() => setDrawerOpen('right', false)} className="hover:text-white">✕</button>
                 </div>
 
                 {/* Content Placeholder */}

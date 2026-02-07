@@ -18,6 +18,8 @@ export interface EventLogEntry {
 }
 
 const NAV_EVENTS = new Set<EventKey>([
+    EVENTS.NODE_ENTERED,
+    EVENTS.NODE_EXITED,
     EVENTS.NOW_ENTERED,
     EVENTS.NOW_EXITED,
     EVENTS.PORTAL_ENTERED,
@@ -63,6 +65,8 @@ const ACTION_MAP: Partial<Record<EventKey, { actionType: string; entityKind?: st
 };
 
 const EVENT_MAP: Partial<Record<EventKey, string>> = {
+    [EVENTS.NODE_ENTERED]: 'node_entered',
+    [EVENTS.NODE_EXITED]: 'node_exited',
     [EVENTS.NOW_ENTERED]: 'now_entered',
     [EVENTS.NOW_EXITED]: 'now_exited',
     [EVENTS.PORTAL_ENTERED]: 'portal_entered',

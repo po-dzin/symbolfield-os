@@ -4,14 +4,12 @@
  * CRYSTAL VERSION: No layout shifts, pure transform positioning.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useSelectionStore } from '../../store/useSelectionStore';
 import { useGraphStore } from '../../store/useGraphStore';
-import { useAppStore } from '../../store/useAppStore';
-import { eventBus, EVENTS } from '../../core/events/EventBus';
 import GlyphIcon from '../Icon/GlyphIcon';
 import { NODE_SIZES } from '../../utils/layoutMetrics';
-import { getGlyphById } from '../../utils/customGlyphs';
+import { resolveNodeGlyph } from '../../utils/sfGlyphLayer';
 import type { NodeBase, NodeData } from '../../core/types';
 
 interface NodeRendererProps {
@@ -22,20 +20,20 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
     const isSelected = useSelectionStore(state => state.selectedIds.includes(node.id));
     const updateNode = useGraphStore(state => state.updateNode);
     const allNodes = useGraphStore(state => state.nodes);
-    const contextMenuMode = useAppStore(state => state.contextMenuMode);
-    const [isEditing, setIsEditing] = useState(false);
-    const inputRef = useRef<HTMLInputElement>(null);
 
     // Dynamic Size & Style based on Hierarchy
     const isCluster = node.type === 'cluster';
     const isCore = node.type === 'core';
     const isArchecore = node.id === 'archecore';
     const nodeData = node.data as NodeData;
-    const labelText = typeof nodeData?.label === 'string' ? nodeData.label.trim() : '';
-    const displayLabel = labelText.length > 12 ? labelText.slice(0, 12) : labelText;
     const iconValueRaw = typeof nodeData?.icon_value === 'string' ? nodeData.icon_value.trim() : '';
     const iconValue = iconValueRaw === '•' ? '' : iconValueRaw;
-    const isFocusGhost = Boolean(node.meta?.focusGhost);
+    const iconSource = typeof nodeData?.icon_source === 'string' ? nodeData.icon_source : null;
+    const focusGhostLevelRaw = (node.meta as Record<string, unknown> | undefined)?.focusGhostLevel;
+    const focusGhostLevel = typeof focusGhostLevelRaw === 'number'
+        ? focusGhostLevelRaw
+        : ((node.meta as Record<string, unknown> | undefined)?.focusGhost ? 1 : 0);
+    const isFocusGhost = focusGhostLevel > 0;
     const parentClusterId = node.meta?.parentClusterId;
     const parentCluster = parentClusterId ? allNodes.find(item => item.id === parentClusterId) : null;
     const isParentFolded = Boolean(parentCluster?.meta?.isFolded);
@@ -69,56 +67,23 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
     const bloomClass = shouldAnimateCore ? 'animate-core-materialize' : (isCore ? '' : 'animate-bloom');
     const glyphAppearClass = shouldAnimateCore ? 'core-glyph-appear' : '';
 
-    const customGlyph = iconValue ? getGlyphById(iconValue) : undefined;
-    const resolvedGlyphId = customGlyph
-        ? iconValue
-        : (iconValue ? '' : (isArchecore ? 'archecore' : isCore ? 'core' : isCluster ? 'cluster' : ''));
-
-    // Focus input on edit mode
-    useEffect(() => {
-        if (isEditing && inputRef.current) {
-            inputRef.current.focus();
-            inputRef.current.select();
-        }
-    }, [isEditing]);
-
-    // Listener for Context Menu Rename
-    useEffect(() => {
-        const unsub = eventBus.on(EVENTS.UI_REQ_EDIT_LABEL, ({ payload }) => {
-            if (payload.nodeId === node.id && contextMenuMode === 'radial') {
-                setIsEditing(true);
-            }
-        });
-        return unsub;
-    }, [node.id, contextMenuMode]);
-
-    const handleLabelCommit = () => {
-        if (!inputRef.current) return;
-        const newVal = inputRef.current.value.trim();
-        if (newVal !== labelText) {
-            updateNode(node.id, { data: { ...node.data, label: newVal || 'Empty' } });
-        }
-        setIsEditing(false);
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        e.stopPropagation(); // Prevent global hotkeys (like Delete) while typing
-        if (e.key === 'Enter') {
-            handleLabelCommit();
-        } else if (e.key === 'Escape') {
-            setIsEditing(false);
-        }
-    };
+    const fallbackGlyphId = isArchecore ? 'archecore' : isCore ? 'core' : isCluster ? 'cluster' : '';
+    const resolvedGlyph = resolveNodeGlyph({
+        iconValue,
+        iconSource,
+        fallbackId: fallbackGlyphId,
+        fallbackSource: 'sf'
+    });
 
     return (
         <div
             className={`absolute top-0 left-0 ${(isFocusGhost || isHidden) ? 'pointer-events-none' : 'pointer-events-auto'}`}
             data-node-id={node.id}
             data-node-type={node.type}
-            style={{
-                transform: `translate(${node.position.x}px, ${node.position.y}px)`
-            }}
-        >
+                style={{
+                    transform: `translate3d(${node.position.x}px, ${node.position.y}px, 0)`
+                }}
+            >
             <div
                 className={`relative -translate-x-1/2 -translate-y-1/2 ${bloomClass}`}
                 style={{ width: `${sizePx}px`, height: `${sizePx}px` }}
@@ -153,13 +118,13 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
                         height: '100%',
                         backgroundColor: isFocusGhost ? 'transparent' : bodyColor,
                         borderColor: isFocusGhost
-                            ? 'rgba(255,255,255,0.3)'
+                            ? (focusGhostLevel > 1 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.3)')
                             : (isSelected || isHover ? hoverStrokeColor : strokeColor),
                         borderStyle: isFocusGhost ? 'dashed' : undefined,
                         boxShadow: isFocusGhost
                             ? 'none'
                             : `0 6px 30px -2px rgba(0,0,0,0.5), inset 0 0 18px rgba(255,255,255,0.09), 0 0 ${isSelected ? 14 : 6}px ${glowColor}`,
-                        opacity: isHidden ? 0 : (isFocusGhost ? 0.55 : 1),
+                        opacity: isHidden ? 0 : (isFocusGhost ? (focusGhostLevel > 1 ? 0.35 : 0.55) : 1),
                         transition: isCore ? 'border-color 220ms ease' : undefined
                     }}
                 >
@@ -176,58 +141,26 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
                     )}
 
                     {/* Content */}
-                    {(isCluster || isCore || iconValue || resolvedGlyphId) && (
+                    {(isCluster || isCore || iconValue || resolvedGlyph) && (
                         <span className={`
                         font-bold tracking-widest text-white/90 select-none pointer-events-none font-sans drop-shadow-md flex items-center justify-center leading-none
                         ${glyphAppearClass}
                     `}>
-                            {resolvedGlyphId ? (
+                            {resolvedGlyph ? (
                                 <GlyphIcon
-                                    id={resolvedGlyphId}
+                                    id={resolvedGlyph.id}
                                     size={glyphSize * glyphScale}
                                     className="text-white/90"
-                                    style={{ color: isFocusGhost ? 'rgba(255,255,255,0.5)' : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}
+                                    style={{ color: isFocusGhost ? (focusGhostLevel > 1 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)') : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}
                                 />
                             ) : (
-                                <span style={{ fontSize: `${glyphSize * glyphScale}px`, lineHeight: 1, display: 'block', color: isFocusGhost ? 'rgba(255,255,255,0.5)' : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}>
+                                <span style={{ fontSize: `${glyphSize * glyphScale}px`, lineHeight: 1, display: 'block', color: isFocusGhost ? (focusGhostLevel > 1 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)') : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}>
                                     {iconValue || '○'}
                                 </span>
                             )}
                         </span>
                     )}
 
-                    {/* Label in radial mode */}
-                    {isSelected && contextMenuMode === 'radial' ? (
-                        <div
-                            className="absolute top-full mt-6 left-1/2 -translate-x-1/2 flex justify-center z-50 pointer-events-auto"
-                            data-part="label"
-                            onPointerDown={(e) => {
-                                e.stopPropagation();
-                            }}
-                        >
-                            {isEditing ? (
-                                <input
-                                    ref={inputRef}
-                                    type="text"
-                                    defaultValue={labelText}
-                                    onBlur={handleLabelCommit}
-                                    onKeyDown={handleKeyDown}
-                                    className="px-3 py-1 bg-black/80 border border-white/30 rounded-full backdrop-blur-md text-[10px] tracking-widest text-white uppercase text-center outline-none min-w-[60px] select-text cursor-text"
-                                    autoFocus
-                                />
-                            ) : (
-                                <div
-                                    className="px-3 py-1 bg-black/60 border border-white/10 rounded-full backdrop-blur-md text-[10px] tracking-widest text-white/80 uppercase whitespace-nowrap select-none hover:bg-white/10 hover:border-white/30 transition-colors cursor-text max-w-[12ch] truncate"
-                                    onDoubleClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsEditing(true);
-                                    }}
-                                >
-                                    {displayLabel}
-                                </div>
-                            )}
-                        </div>
-                    ) : null}
                 </div>
             </div>
         </div>

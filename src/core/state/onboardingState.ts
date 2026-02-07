@@ -3,6 +3,8 @@
  * Manages onboarding progress and persistence
  */
 
+import { settingsStorage } from '../storage/SettingsStorage';
+
 const ONBOARDING_STORAGE_KEY = 'sf_onboarding_state';
 
 export interface OnboardingState {
@@ -109,5 +111,13 @@ if (typeof window !== 'undefined') {
  */
 export function resetAccount(): void {
     localStorage.clear();
+    window.location.reload();
+}
+
+/**
+ * Soft Reset: Wipes only settings (keeps spaces/data).
+ */
+export function resetSettings(): void {
+    settingsStorage.clear();
     window.location.reload();
 }

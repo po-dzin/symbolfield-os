@@ -39,6 +39,33 @@ const seedSpace = async (page) => {
     }, CORE_ID);
 };
 
+const createSpaceViaStation = async (page) => {
+    // Ensure we are on Station view first.
+    await page.evaluate(() => {
+        window.__APP_STORE__?.getState().setViewContext('home');
+    });
+    const newSpaceButton = page.getByRole('button', { name: /\+\s*New Space/i }).first();
+    await expect(newSpaceButton).toBeVisible();
+
+    await newSpaceButton.click();
+    await expect(page.locator('.nodes-layer')).toBeAttached();
+
+    const headerInput = page.locator('input[placeholder="Untitled"]').first();
+    await expect(headerInput).toBeVisible();
+    const name = await headerInput.inputValue();
+
+    const spaceId = await page.evaluate(() => window.__APP_STORE__?.getState().currentSpaceId);
+    return { name, spaceId };
+};
+
+const openStationDrawer = async (page) => {
+    await page.evaluate(() => {
+        window.__APP_STORE__?.getState().setViewContext('home');
+    });
+    await page.mouse.move(2, 120);
+    await expect(page.getByText('Recent', { exact: true })).toBeVisible();
+};
+
 test.describe('Regression: Critical Flows', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
@@ -60,6 +87,21 @@ test.describe('Regression: Critical Flows', () => {
 
         // 4. Verify Context Actions
         await expect(page.locator('button[title="Enter Node"]')).toBeVisible();
+    });
+
+    test('Radial context menu renders and action menu opens', async ({ page }) => {
+        await page.evaluate(() => window.__APP_STORE__?.getState().setContextMenuMode('radial'));
+
+        const coreNode = page.locator(`[data-node-id="${CORE_ID}"]`);
+        await coreNode.click();
+
+        await expect(page.getByText('Core').first()).toBeVisible();
+
+        const actionsButton = page.getByTitle('Actions');
+        await expect(actionsButton).toBeVisible();
+        await actionsButton.click();
+
+        await expect(page.getByRole('button', { name: /Delete/i })).toBeVisible();
     });
 
     test('Dive/Enter NOW works via Double Click', async ({ page }) => {
@@ -85,11 +127,15 @@ test.describe('Regression: Critical Flows', () => {
         await page.getByTitle('Settings').click();
         await expect(page.getByText('Settings', { exact: true })).toBeVisible();
 
-        await page.getByRole('button', { name: 'Radial' }).click();
+        const contextRow = page.getByText('Context menu mode').locator('..');
+        const contextSwitch = contextRow.getByRole('switch');
+        await expect(contextSwitch).toBeVisible();
+
+        await contextSwitch.click();
         let mode = await page.evaluate(() => window.__APP_STORE__?.getState().contextMenuMode);
         expect(mode).toBe('radial');
 
-        await page.getByRole('button', { name: 'Bar' }).click();
+        await contextSwitch.click();
         mode = await page.evaluate(() => window.__APP_STORE__?.getState().contextMenuMode);
         expect(mode).toBe('bar');
 
@@ -98,23 +144,91 @@ test.describe('Regression: Critical Flows', () => {
         await expect(page.getByText('Settings', { exact: true })).not.toBeVisible();
     });
 
-    test('Command palette opens and closes via UI', async ({ page }) => {
+    test('Omni input opens and closes via UI', async ({ page }) => {
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
-        await expect(page.getByText('Command Palette')).toBeVisible();
+        await expect(page.getByText('Omni Input — Expanded')).toBeVisible();
 
-        const palette = page.locator('.glass-panel', { hasText: 'Command Palette' });
+        const palette = page.locator('.glass-panel', { hasText: 'Omni Input — Expanded' });
         await palette.getByRole('button', { name: '✕' }).click();
-        await expect(page.getByText('Command Palette')).not.toBeVisible();
+        await expect(page.getByText('Omni Input — Expanded')).not.toBeVisible();
     });
 
-    test('Time chip toggles log drawer and scale buttons respond', async ({ page }) => {
+    test('Omni input runs quick command and shows navigation hints', async ({ page }) => {
+        await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
+        await expect(page.getByText('Omni Input — Expanded')).toBeVisible();
+        await expect(page.getByText('↑↓ navigate')).toBeVisible();
+
+        const palette = page.locator('.glass-panel', { hasText: 'Omni Input — Expanded' });
+        const input = palette.getByPlaceholder('Search or type /command...');
+        await input.fill('link');
+        await page.keyboard.press('Enter');
+
+        const activeTool = await page.evaluate(() => window.__APP_STORE__?.getState().activeTool);
+        expect(activeTool).toBe('link');
+    });
+
+    test('Backspace moves selected station space to trash (soft delete)', async ({ page }) => {
+        await page.evaluate(() => window.__APP_STORE__?.getState().setViewContext('home'));
+
+        const newSpaceButton = page.getByRole('button', { name: /\+\s*New Space/i }).first();
+        await expect(newSpaceButton).toBeVisible();
+        await newSpaceButton.click();
+
+        const spaceId = await page.evaluate(() => window.__APP_STORE__?.getState().currentSpaceId);
+        expect(spaceId).toBeTruthy();
+
+        await page.evaluate(() => window.__APP_STORE__?.getState().setViewContext('home'));
+
+        const spaceName = await page.evaluate((id) => {
+            try {
+                const raw = localStorage.getItem('sf_spaces_index');
+                const list = raw ? JSON.parse(raw) : [];
+                const found = list.find(item => item.id === id);
+                return found?.name ?? 'New Space';
+            } catch {
+                return 'New Space';
+            }
+        }, spaceId);
+
+        await page.on('dialog', dialog => dialog.accept());
+        const stationLabel = page.locator('svg text').filter({ hasText: spaceName }).first();
+        await expect(stationLabel).toBeVisible();
+        await stationLabel.click();
+        await page.keyboard.press('Backspace');
+
+        await page.waitForFunction((id) => {
+            try {
+                const raw = localStorage.getItem('sf_spaces_index');
+                const list = raw ? JSON.parse(raw) : [];
+                return list.find(item => item.id === id)?.trashed === true;
+            } catch {
+                return false;
+            }
+        }, spaceId);
+    });
+
+    test('Tool dock buttons switch active tool', async ({ page }) => {
+        await page.getByTitle('Link (L)').click();
+        let activeTool = await page.evaluate(() => window.__APP_STORE__?.getState().activeTool);
+        expect(activeTool).toBe('link');
+
+        await page.getByTitle('Area (A)').click();
+        activeTool = await page.evaluate(() => window.__APP_STORE__?.getState().activeTool);
+        expect(activeTool).toBe('area');
+
+        await page.getByTitle('Pointer (P)').click();
+        activeTool = await page.evaluate(() => window.__APP_STORE__?.getState().activeTool);
+        expect(activeTool).toBe('pointer');
+    });
+
+    test('Time chip toggles NowCore drawer and scale buttons respond', async ({ page }) => {
         const timeChip = page.locator('.os-shell .absolute.bottom-4.right-4');
         await timeChip.click();
-        await expect(page.getByText('Temporal Log')).toBeVisible();
-        await page.getByRole('button', { name: '✕' }).click();
-        await expect(page.getByText('Temporal Log')).not.toBeVisible();
+        await expect(page.getByText('NowCore')).toBeVisible();
+        await page.getByRole('button', { name: 'Close NowCore' }).click();
+        await expect(page.getByText('NowCore')).not.toBeVisible();
 
-        const weekButton = page.getByRole('button', { name: 'w' });
+        const weekButton = page.getByRole('button', { name: 'w', exact: true });
         await weekButton.click();
         await expect(weekButton).toHaveClass(/bg-white\/20/);
     });
@@ -155,20 +269,21 @@ test.describe('Regression: Critical Flows', () => {
         const shapes = await page.evaluate(() => window.__AREA_STORE__?.getState().areas.map(area => area.shape));
         expect(shapes).toContain('circle');
 
-        await page.evaluate(() => {
-            document.querySelector('[data-area-id] svg')?.dispatchEvent(
-                new MouseEvent('dblclick', { bubbles: true })
-            );
+        const areaId = await page.evaluate(() => {
+            const store = window.__AREA_STORE__?.getState();
+            const id = store?.areas?.[0]?.id;
+            if (id) {
+                store?.setSelectedAreaId(id);
+            }
+            return id ?? null;
         });
+        expect(areaId).toBeTruthy();
+        await page.keyboard.press('Enter');
         await page.waitForFunction(() => window.__AREA_STORE__?.getState().focusedAreaId !== null);
         let focusedAreaId = await page.evaluate(() => window.__AREA_STORE__?.getState().focusedAreaId);
         expect(focusedAreaId).not.toBeNull();
 
-        await page.evaluate(() => {
-            document.querySelector('[data-area-id] svg')?.dispatchEvent(
-                new MouseEvent('dblclick', { bubbles: true })
-            );
-        });
+        await page.keyboard.press('Escape');
         await page.waitForFunction(() => window.__AREA_STORE__?.getState().focusedAreaId === null);
         focusedAreaId = await page.evaluate(() => window.__AREA_STORE__?.getState().focusedAreaId);
         expect(focusedAreaId).toBeNull();
@@ -176,7 +291,7 @@ test.describe('Regression: Critical Flows', () => {
 
     test('Station navigation returns to home and back to space', async ({ page }) => {
         await page.getByTitle('Return to Station').click();
-        await expect(page.getByPlaceholder('Search or dive...')).toBeVisible();
+        await expect(page.getByPlaceholder('Search or type /command...')).toBeVisible();
 
         await page.getByRole('button', { name: 'New Space' }).click();
         const viewContext = await page.evaluate(() => window.__APP_STORE__?.getState().viewContext);
@@ -185,21 +300,85 @@ test.describe('Regression: Critical Flows', () => {
     });
 
     test('Station recents and templates open spaces', async ({ page }) => {
-        await page.evaluate(() => {
-            window.__APP_STORE__?.getState().setViewContext('home');
-        });
-        await expect(page.getByText('Recent', { exact: true })).toBeVisible();
+        await openStationDrawer(page);
 
         await page.getByRole('button', { name: /Playground/i }).click();
         let viewContext = await page.evaluate(() => window.__APP_STORE__?.getState().viewContext);
         expect(viewContext).toBe('space');
 
-        await page.evaluate(() => {
-            window.__APP_STORE__?.getState().setViewContext('home');
-        });
+        await openStationDrawer(page);
         await expect(page.getByText('Templates', { exact: true })).toBeVisible();
         await page.getByRole('button', { name: /Default Space/i }).click();
         viewContext = await page.evaluate(() => window.__APP_STORE__?.getState().viewContext);
         expect(viewContext).toBe('space');
+    });
+
+    test('Station dropdown rename updates space name', async ({ page }) => {
+        const created = await createSpaceViaStation(page);
+        const oldName = created.name;
+        const newName = `${oldName} Renamed`;
+
+        await page.getByTitle('Return to Station').click();
+        await openStationDrawer(page);
+
+        const row = page
+            .locator('h3', { hasText: oldName })
+            .first()
+            .locator('xpath=ancestor::div[contains(@class,"relative")]')
+            .first();
+        await row.locator('button[aria-label="Space actions"]').first().click();
+
+        page.once('dialog', (dialog) => dialog.accept(newName));
+        await page.getByRole('button', { name: 'Rename' }).click();
+
+        await expect(page.getByRole('button', { name: new RegExp(newName) }).first()).toBeVisible();
+    });
+
+    test('Space header rename persists to Station recents', async ({ page }) => {
+        const created = await createSpaceViaStation(page);
+        const newName = `Core ${Date.now().toString().slice(-4)}`;
+
+        const headerInput = page.locator('input[placeholder="Untitled"]').first();
+        await headerInput.click();
+        await headerInput.fill(newName);
+        await headerInput.press('Enter');
+        await expect(headerInput).toHaveValue(newName);
+
+        await page.getByTitle('Return to Station').click();
+        await openStationDrawer(page);
+        await expect(page.getByRole('button', { name: new RegExp(newName) }).first()).toBeVisible();
+    });
+
+    test('Station rename enforces unique names', async ({ page }) => {
+        const first = await createSpaceViaStation(page);
+        const second = await createSpaceViaStation(page);
+
+        await page.getByTitle('Return to Station').click();
+        await openStationDrawer(page);
+
+        const row = page
+            .locator('h3', { hasText: second.name })
+            .first()
+            .locator('xpath=ancestor::div[contains(@class,"relative")]')
+            .first();
+        await row.locator('button[aria-label="Space actions"]').first().click();
+
+        page.once('dialog', (dialog) => dialog.accept(first.name));
+        await page.getByRole('button', { name: 'Rename' }).click();
+
+        const renamed = await page.evaluate((spaceId) => {
+            try {
+                const raw = localStorage.getItem('sf_spaces_index');
+                if (!raw) return null;
+                const list = JSON.parse(raw);
+                return list.find(s => s.id === spaceId)?.name ?? null;
+            } catch {
+                return null;
+            }
+        }, second.spaceId);
+
+        expect(renamed).toBeTruthy();
+        expect(renamed).not.toBe(first.name);
+        expect(renamed.startsWith(first.name)).toBe(true);
     });
 });

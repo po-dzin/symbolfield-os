@@ -1,13 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { eventBus, EVENTS } from '../../core/events/EventBus';
 import { spaceManager, type SpaceMeta } from '../../core/state/SpaceManager';
+import { useAppStore } from '../../store/useAppStore';
 
 const RecentsRail = () => {
     // Local state for spaces list
     const [spaces, setSpaces] = useState<SpaceMeta[]>([]);
+    const showPlaygroundOnStation = useAppStore(state => state.showPlaygroundOnStation);
 
     useEffect(() => {
-        const refresh = () => setSpaces(spaceManager.getSpaces());
+        const refresh = () => {
+            if (showPlaygroundOnStation) {
+                spaceManager.ensureOnboardingSpaces();
+            }
+            setSpaces(spaceManager.getSpacesWithOptions({ includePlayground: showPlaygroundOnStation }));
+        };
         refresh();
         const unsub = [
             eventBus.on(EVENTS.SPACE_CREATED, refresh),
@@ -15,7 +22,7 @@ const RecentsRail = () => {
             eventBus.on(EVENTS.SPACE_DELETED, refresh)
         ];
         return () => unsub.forEach(fn => fn());
-    }, []);
+    }, [showPlaygroundOnStation]);
 
     const handleClick = (id: string) => {
         spaceManager.loadSpace(id);
@@ -30,7 +37,7 @@ const RecentsRail = () => {
         <div>
             <h2 className="text-white/80 text-[9px] font-medium uppercase tracking-[0.35em] mb-4">Recent</h2>
             <div className="space-y-3">
-                {playground && (
+                {showPlaygroundOnStation && playground && (
                     <SpaceRow
                         key={playground.id}
                         item={playground}

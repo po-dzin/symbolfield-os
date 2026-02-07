@@ -13,7 +13,7 @@ import { stateEngine } from '../../core/state/StateEngine';
 import NodeRenderer from './NodeRenderer';
 import EdgeRenderer from './EdgeRenderer';
 import InteractionLayer from './InteractionLayer';
-import { eventBus, type BusEvent } from '../../core/events/EventBus';
+import { eventBus, EVENTS, type BusEvent } from '../../core/events/EventBus';
 import { graphEngine } from '../../core/graph/GraphEngine';
 import { useCameraStore } from '../../store/useCameraStore';
 import { screenToWorld } from '../../utils/coords';
@@ -25,6 +25,7 @@ import GlyphIcon from '../Icon/GlyphIcon';
 import { asNodeId, type Edge, type NodeId } from '../../core/types';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { getCoreId, getCoreLabel } from '../../core/defaults/coreIds';
+import { GLOBAL_ZOOM_HOTKEY_EVENT, type ZoomHotkeyDetail } from '../../core/hotkeys/zoomHotkeys';
 
 const CanvasView = () => {
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -34,18 +35,26 @@ const CanvasView = () => {
     const areas = useAreaStore(state => state.areas);
     const selectedAreaId = useAreaStore(state => state.selectedAreaId);
     const selectedAreaIds = useAreaStore(state => state.selectedAreaIds);
-    const setSelectedAreaId = useAreaStore(state => state.setSelectedAreaId);
-    const toggleSelectedArea = useAreaStore(state => state.toggleSelectedArea);
     const focusedAreaId = useAreaStore(state => state.focusedAreaId);
     const setFocusedAreaId = useAreaStore(state => state.setFocusedAreaId);
     const clearFocusedArea = useAreaStore(state => state.clearFocusedArea);
+    const setSelectedAreaId = useAreaStore(state => state.setSelectedAreaId);
+    const toggleSelectedArea = useAreaStore(state => state.toggleSelectedArea);
     const updateArea = useAreaStore(state => state.updateArea);
     const removeArea = useAreaStore(state => state.removeArea);
     const activeTool = useAppStore(state => state.activeTool);
+    const showGrid = useAppStore(state => state.showGrid);
+    const showEdges = useAppStore(state => state.showEdges);
+    const showHud = useAppStore(state => state.showHud);
+    const showCounters = useAppStore(state => state.showCounters);
+    const gridStepMul = useAppStore(state => state.gridStepMul);
+    const subspaceLod = useAppStore(state => state.subspaceLod);
+    const setSubspaceLod = useAppStore(state => state.setSubspaceLod);
     const currentSpaceId = useAppStore(state => state.currentSpaceId);
     const fieldScopeId = useAppStore(state => state.fieldScopeId);
     const viewContext = useAppStore(state => state.viewContext);
-    const { pan, zoom, zoomAt, centerOn } = useCameraStore();
+    const setViewContext = useAppStore(state => state.setViewContext);
+    const { pan, zoom, centerOn } = useCameraStore();
     const setPan = useCameraStore(state => state.setPan);
     const setZoom = useCameraStore(state => state.setZoom);
     const [isSmooth, setIsSmooth] = React.useState(false);
@@ -92,6 +101,7 @@ const CanvasView = () => {
         ringId?: string;
         handle?: 'nw' | 'ne' | 'se' | 'sw' | 'n' | 'e' | 's' | 'w' | 'radius';
     }>(null);
+    const interactionCursorRef = useRef<string | null>(null);
 
     const isSpacePressed = useRef(false);
     const regionPalette = useMemo(() => ([
@@ -158,7 +168,7 @@ const CanvasView = () => {
         const selectedNodes = selectionState.getSelection();
         const isAnchored = area.anchor.type === 'node';
         const activeNodeId = selectedNodes.length === 1 ? selectedNodes[0] : null;
-        const anchorNodeId = isAnchored ? area.anchor.nodeId : null;
+        const anchorNodeId = area.anchor.type === 'node' ? area.anchor.nodeId : null;
         const anchorNode = anchorNodeId ? graphEngine.getNode(asNodeId(anchorNodeId)) : null;
         const targetNode = activeNodeId ? graphEngine.getNode(activeNodeId) : null;
 
@@ -172,30 +182,30 @@ const CanvasView = () => {
 
         if (isAnchored && anchorNode) {
             if (!targetNode || anchorNode.id === targetNode.id) {
-            if (area.shape === 'circle' && area.circle) {
-                updateArea(areaId, {
-                    anchor: { type: 'canvas' },
-                    circle: {
-                        cx: anchorNode.position.x,
-                        cy: anchorNode.position.y,
-                        r: area.circle.r
-                    }
-                });
-                return;
-            }
-            if (area.shape === 'rect' && area.rect) {
-                const rect = getAreaRectBounds(area);
-                updateArea(areaId, {
-                    anchor: { type: 'canvas' },
-                    rect: {
-                        x: rect?.x ?? area.rect.x,
-                        y: rect?.y ?? area.rect.y,
-                        w: area.rect.w,
-                        h: area.rect.h
-                    }
-                });
-                return;
-            }
+                if (area.shape === 'circle' && area.circle) {
+                    updateArea(areaId, {
+                        anchor: { type: 'canvas' },
+                        circle: {
+                            cx: anchorNode.position.x,
+                            cy: anchorNode.position.y,
+                            r: area.circle.r
+                        }
+                    });
+                    return;
+                }
+                if (area.shape === 'rect' && area.rect) {
+                    const rect = getAreaRectBounds(area);
+                    updateArea(areaId, {
+                        anchor: { type: 'canvas' },
+                        rect: {
+                            x: rect?.x ?? area.rect.x,
+                            y: rect?.y ?? area.rect.y,
+                            w: area.rect.w,
+                            h: area.rect.h
+                        }
+                    });
+                    return;
+                }
             }
         }
 
@@ -269,7 +279,7 @@ const CanvasView = () => {
         if (!area || area.shape !== 'rect') return;
         const rect = getAreaRectBounds(area);
         if (!rect) return;
-        const cell = GRID_METRICS.cell;
+        const cell = GRID_METRICS.cell * gridStepMul;
         const bounds = {
             x: snapToGrid(rect.x, cell),
             y: snapToGrid(rect.y, cell),
@@ -326,14 +336,31 @@ const CanvasView = () => {
         });
     };
 
+    const cycleRegionColor = (areaId: string) => {
+        const area = areas.find(r => r.id === areaId);
+        if (!area) return;
+        const currentIndex = regionPalette.findIndex(
+            palette => palette.fill === area.color && palette.stroke === area.borderColor
+        );
+        const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % regionPalette.length : 0;
+        const next = regionPalette[nextIndex];
+        if (!next) return;
+        updateArea(areaId, { color: next.fill, borderColor: next.stroke });
+    };
+
+    const beginRenameRegion = (areaId: string, currentName: string) => {
+        setEditingRegionId(areaId);
+        setRegionNameDraft(currentName);
+    };
+
     const focusArea = (areaId: string) => {
         const area = areas.find(a => a.id === areaId);
         if (!area || !containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
         let bounds = { x: 0, y: 0, w: 0, h: 0 };
         if (area.shape === 'rect') {
-            const rect = getAreaRectBounds(area);
-            if (rect) bounds = rect;
+            const rectBounds = getAreaRectBounds(area);
+            if (rectBounds) bounds = rectBounds;
         } else if (area.shape === 'circle' && area.circle) {
             const center = getAreaCenter(area);
             const radius = getCircleBoundsRadius(area);
@@ -354,22 +381,6 @@ const CanvasView = () => {
             y: rect.height / 2 - centerY * clampedZoom
         });
         setFocusedAreaId(areaId);
-    };
-
-    const cycleRegionColor = (areaId: string) => {
-        const area = areas.find(r => r.id === areaId);
-        if (!area) return;
-        const currentIndex = regionPalette.findIndex(
-            palette => palette.fill === area.color && palette.stroke === area.borderColor
-        );
-        const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % regionPalette.length : 0;
-        const next = regionPalette[nextIndex];
-        updateArea(areaId, { color: next.fill, borderColor: next.stroke });
-    };
-
-    const beginRenameRegion = (areaId: string, currentName: string) => {
-        setEditingRegionId(areaId);
-        setRegionNameDraft(currentName);
     };
 
     const commitRegionName = () => {
@@ -397,14 +408,18 @@ const CanvasView = () => {
         const startAreas = activeAreaIds.map(id => {
             const target = areas.find(item => item.id === id);
             if (!target || target.anchor.type === 'node') return null;
-            return {
-                id,
-                rect: target.shape === 'rect' && target.rect ? { ...target.rect } : undefined,
-                circle: target.shape === 'circle' && target.circle ? {
+            const rect = target.shape === 'rect' && target.rect ? { ...target.rect } : null;
+            const circle = target.shape === 'circle' && target.circle
+                ? {
                     cx: getAreaCenter(target)?.cx ?? 0,
                     cy: getAreaCenter(target)?.cy ?? 0,
                     r: target.circle.r
-                } : undefined
+                }
+                : null;
+            return {
+                id,
+                ...(rect ? { rect } : {}),
+                ...(circle ? { circle } : {})
             };
         }).filter((item): item is { id: string; rect?: { x: number; y: number; w: number; h: number }; circle?: { cx: number; cy: number; r: number } } => Boolean(item));
         const pendingSingleSelect = !e.shiftKey;
@@ -415,8 +430,8 @@ const CanvasView = () => {
                 startX: proj.worldX,
                 startY: proj.worldY,
                 startRect: { ...area.rect },
-                startNodes: startNodes.length > 0 ? startNodes : undefined,
-                startAreas: startAreas.length > 0 ? startAreas : undefined,
+                ...(startNodes.length > 0 ? { startNodes } : {}),
+                ...(startAreas.length > 0 ? { startAreas } : {}),
                 pendingSingleSelect,
                 hasDragged: false
             });
@@ -431,8 +446,8 @@ const CanvasView = () => {
                 startX: proj.worldX,
                 startY: proj.worldY,
                 startCircle: { cx, cy, r: area.circle.r },
-                startNodes: startNodes.length > 0 ? startNodes : undefined,
-                startAreas: startAreas.length > 0 ? startAreas : undefined,
+                ...(startNodes.length > 0 ? { startNodes } : {}),
+                ...(startAreas.length > 0 ? { startAreas } : {}),
                 pendingSingleSelect,
                 hasDragged: false
             });
@@ -557,7 +572,54 @@ const CanvasView = () => {
         };
     };
 
+    const pinchRef = useRef<null | {
+        pointers: Map<number, { x: number; y: number }>;
+        startDistance: number;
+    }>(null);
+
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (e.pointerType === 'touch') {
+            if (!pinchRef.current) {
+                pinchRef.current = {
+                    pointers: new Map(),
+                    startDistance: 0,
+                };
+            }
+            pinchRef.current.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            e.currentTarget.setPointerCapture(e.pointerId);
+
+            // Only intercept when a real 2-finger pinch begins.
+            // Single-finger touch should continue through the normal gesture pipeline.
+            if (pinchRef.current.pointers.size === 2) {
+                e.preventDefault();
+                const pts = Array.from(pinchRef.current.pointers.values());
+                const [p0, p1] = pts;
+                if (!p0 || !p1) return;
+                const dx = p0.x - p1.x;
+                const dy = p0.y - p1.y;
+                pinchRef.current.startDistance = Math.max(1, Math.hypot(dx, dy));
+
+                // If the first touch already started a router interaction (drag/box-select/etc),
+                // end it now so it doesn't interfere with pinch (we skip router pointer-up for pinches).
+                const proj = getProjection(e);
+                gestureRouter.handlePointerUp({
+                    x: proj.worldX,
+                    y: proj.worldY,
+                    screenX: proj.x,
+                    screenY: proj.y,
+                    targetType: 'empty',
+                    targetId: null,
+                    modifiers: {
+                        alt: false,
+                        shift: false,
+                        ctrl: false,
+                        meta: false,
+                        space: false
+                    }
+                });
+                return;
+            }
+        }
         const proj = getProjection(e);
 
         // Basic normalized gesture object
@@ -658,7 +720,41 @@ const CanvasView = () => {
         }
     };
 
+    const getResizeCursor = (handle?: 'nw' | 'ne' | 'se' | 'sw' | 'n' | 'e' | 's' | 'w' | 'radius') => {
+        if (!handle) return 'grabbing';
+        if (handle === 'n' || handle === 's') return 'ns-resize';
+        if (handle === 'e' || handle === 'w' || handle === 'radius') return 'ew-resize';
+        return handle === 'nw' || handle === 'se' ? 'nwse-resize' : 'nesw-resize';
+    };
+
     const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (e.pointerType === 'touch' && pinchRef.current) {
+            const pinch = pinchRef.current;
+            if (pinch.pointers.has(e.pointerId)) {
+                pinch.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            }
+            if (pinch.pointers.size === 2) {
+                e.preventDefault();
+                const pts = Array.from(pinch.pointers.values());
+                const [p0, p1] = pts;
+                if (!p0 || !p1) return;
+                const dx = p0.x - p1.x;
+                const dy = p0.y - p1.y;
+                const dist = Math.max(1, Math.hypot(dx, dy));
+                const ratio = dist / Math.max(1, pinch.startDistance);
+                if (Number.isFinite(ratio) && ratio > 0.0001) {
+                    const rect = containerRef.current?.getBoundingClientRect();
+                    if (rect) {
+                        const cx = (p0.x + p1.x) / 2;
+                        const cy = (p0.y + p1.y) / 2;
+                        const delta = -Math.log(ratio) / 0.0022;
+                        useCameraStore.getState().zoomAt(cx, cy, delta, rect);
+                    }
+                    pinch.startDistance = dist;
+                }
+                return;
+            }
+        }
         if (!areaInteraction) {
             const target = e.target as HTMLElement | null;
             const areaEl = target?.closest('[data-area-id]');
@@ -669,10 +765,14 @@ const CanvasView = () => {
             if (nextHoverId) {
                 document.body.style.cursor = 'pointer';
             } else if (!isSpacePressed.current) {
-                document.body.style.cursor = '';
+                if (!interactionCursorRef.current) {
+                    document.body.style.cursor = '';
+                }
             }
         } else {
-            document.body.style.cursor = 'grabbing';
+            document.body.style.cursor = areaInteraction.type === 'move'
+                ? 'grabbing'
+                : getResizeCursor(areaInteraction.handle);
         }
         const proj = getProjection(e);
         if (areaInteraction) {
@@ -809,6 +909,16 @@ const CanvasView = () => {
     };
 
     const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+        let skipRouterPointerUp = false;
+        if (e.pointerType === 'touch' && pinchRef.current) {
+            const wasPinching = pinchRef.current.pointers.size >= 2;
+            pinchRef.current.pointers.delete(e.pointerId);
+            if (pinchRef.current.pointers.size < 2) {
+                pinchRef.current = null;
+            }
+            // If this touch sequence participated in a pinch, don't treat the end as a click/select.
+            skipRouterPointerUp = wasPinching;
+        }
         const proj = getProjection(e);
         if (areaInteraction) {
             if (!areaInteraction.hasDragged && areaInteraction.pendingSingleSelect) {
@@ -821,6 +931,8 @@ const CanvasView = () => {
         }
         if (isSpacePressed.current) {
             document.body.style.cursor = 'grab';
+        } else if (!interactionCursorRef.current) {
+            document.body.style.cursor = '';
         }
 
         // Manual Hit Test
@@ -834,25 +946,52 @@ const CanvasView = () => {
                 ? edgeEl.getAttribute('data-edge-id')
                 : null;
 
-        gestureRouter.handlePointerUp({
-            x: proj.worldX,
-            y: proj.worldY,
-            screenX: proj.x,
-            screenY: proj.y,
-            targetType,
-            targetId,
-            modifiers: {
-                alt: e.altKey,
-                shift: e.shiftKey,
-                ctrl: e.ctrlKey,
-                meta: e.metaKey,
-                space: isSpacePressed.current
-            }
-        });
+        if (!skipRouterPointerUp) {
+            gestureRouter.handlePointerUp({
+                x: proj.worldX,
+                y: proj.worldY,
+                screenX: proj.x,
+                screenY: proj.y,
+                targetType,
+                targetId,
+                modifiers: {
+                    alt: e.altKey,
+                    shift: e.shiftKey,
+                    ctrl: e.ctrlKey,
+                    meta: e.metaKey,
+                    space: isSpacePressed.current
+                }
+            });
+        }
     };
 
+    useEffect(() => {
+        const onInteractionStart = (e: BusEvent<'UI_INTERACTION_START'>) => {
+            const type = e.payload?.type;
+            if (!type) return;
+            if (['DRAG_NODES', 'PAN', 'LINK_DRAG', 'BOX_SELECT', 'REGION_DRAW'].includes(type)) {
+                interactionCursorRef.current = 'grabbing';
+                document.body.style.cursor = 'grabbing';
+            }
+        };
+        const onInteractionEnd = (e: BusEvent<'UI_INTERACTION_END'>) => {
+            const type = e.payload?.type;
+            if (!type) return;
+            if (['DRAG_NODES', 'PAN', 'LINK_DRAG', 'BOX_SELECT', 'REGION_DRAW'].includes(type)) {
+                interactionCursorRef.current = null;
+                document.body.style.cursor = isSpacePressed.current ? 'grab' : '';
+            }
+        };
+        const unsubStart = eventBus.on('UI_INTERACTION_START', onInteractionStart);
+        const unsubEnd = eventBus.on('UI_INTERACTION_END', onInteractionEnd);
+        return () => {
+            unsubStart();
+            unsubEnd();
+        };
+    }, []);
+
     const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (stateEngine.getState().viewContext === 'now') return;
+        if (stateEngine.getState().viewContext === 'node') return;
         if (nodes.length === 0 && currentSpaceId && containerRef.current) {
             const rect = containerRef.current.getBoundingClientRect();
             const { pan, zoom } = useCameraStore.getState();
@@ -902,8 +1041,8 @@ const CanvasView = () => {
                 }
                 return;
             }
-            if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'ENTER_NOW' });
-            stateEngine.enterNow(resolvedId);
+            if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'OPEN_NODE' });
+            stateEngine.enterNode(resolvedId);
             return;
         }
         gestureRouter.handlePointerDown({
@@ -919,17 +1058,6 @@ const CanvasView = () => {
             targetType: 'empty',
             targetId: null
         });
-    };
-
-    const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-        if (!containerRef.current) return;
-        if (e.ctrlKey || e.metaKey) {
-            e.preventDefault();
-            const rect = containerRef.current.getBoundingClientRect();
-            zoomAt(e.clientX, e.clientY, e.deltaY, rect);
-            return;
-        }
-        useCameraStore.getState().updatePan(-e.deltaX, -e.deltaY);
     };
 
     const adjustZoomTo = (nextZoom: number) => {
@@ -973,7 +1101,7 @@ const CanvasView = () => {
     };
 
     const focusVisibleNodeIds = useMemo(() => {
-        if (!fieldScopeId) return null;
+        if (!fieldScopeId && !focusedAreaId) return null;
         const set = new Set<string>();
         nodes.forEach(node => {
             if (!node.meta?.focusHidden) {
@@ -981,10 +1109,10 @@ const CanvasView = () => {
             }
         });
         return set;
-    }, [fieldScopeId, nodes]);
+    }, [fieldScopeId, focusedAreaId, nodes]);
 
     const focusGhostNodeIds = useMemo(() => {
-        if (!fieldScopeId) return null;
+        if (!fieldScopeId && !focusedAreaId) return null;
         const set = new Set<string>();
         nodes.forEach(node => {
             if (node.meta?.focusGhost) {
@@ -992,18 +1120,18 @@ const CanvasView = () => {
             }
         });
         return set;
-    }, [fieldScopeId, nodes]);
+    }, [fieldScopeId, focusedAreaId, nodes]);
 
-    const fitToContent = () => {
+    const fitToContent = (options?: { clampToOne?: boolean }) => {
         if (!containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
-        if (nodes.length === 0) {
+        if (nodes.length === 0 && areas.length === 0) {
             adjustZoomTo(1);
             centerOn(0, 0, rect.width, rect.height);
             return;
         }
 
-        const getRadius = (nodeType: string) => {
+        const getRadius = (nodeType?: string) => {
             if (nodeType === 'core') return NODE_SIZES.root / 2;
             if (nodeType === 'cluster') return NODE_SIZES.cluster / 2;
             return NODE_SIZES.base / 2;
@@ -1022,13 +1150,43 @@ const CanvasView = () => {
             maxY = Math.max(maxY, node.position.y + r);
         });
 
+        areas.forEach(area => {
+            if (area.shape === 'rect') {
+                const rectBounds = getAreaRectBounds(area);
+                if (rectBounds) {
+                    minX = Math.min(minX, rectBounds.x);
+                    minY = Math.min(minY, rectBounds.y);
+                    maxX = Math.max(maxX, rectBounds.x + rectBounds.w);
+                    maxY = Math.max(maxY, rectBounds.y + rectBounds.h);
+                }
+            } else if (area.shape === 'circle') {
+                const center = getAreaCenter(area);
+                if (center) {
+                    const radius = getCircleBoundsRadius(area);
+                    minX = Math.min(minX, center.cx - radius);
+                    minY = Math.min(minY, center.cy - radius);
+                    maxX = Math.max(maxX, center.cx + radius);
+                    maxY = Math.max(maxY, center.cy + radius);
+                }
+            }
+        });
+
+        if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+            adjustZoomTo(1);
+            centerOn(0, 0, rect.width, rect.height);
+            return;
+        }
+
         const boundsW = Math.max(1, maxX - minX);
         const boundsH = Math.max(1, maxY - minY);
         const padding = 80;
-        const availableW = Math.max(1, rect.width - padding * 2);
-        const availableH = Math.max(1, rect.height - padding * 2);
+        // Use only 90% of available space to leave room for HUD panels and analytics
+        const scaleFactor = 0.90;
+        const availableW = Math.max(1, (rect.width - padding * 2) * scaleFactor);
+        const availableH = Math.max(1, (rect.height - padding * 2) * scaleFactor);
         const nextZoom = Math.min(availableW / boundsW, availableH / boundsH);
-        const clampedZoom = Math.min(Math.max(nextZoom, 0.25), 2.0);
+        const targetZoom = options?.clampToOne ? Math.min(nextZoom, 1) : nextZoom;
+        const clampedZoom = Math.min(Math.max(targetZoom, 0.25), 2.0);
         const centerX = (minX + maxX) / 2;
         const centerY = (minY + maxY) / 2;
 
@@ -1043,18 +1201,212 @@ const CanvasView = () => {
     useEffect(() => {
         const el = containerRef.current;
         if (!el) return;
+        const GESTURE_WHEEL_GUARD_MS = 120;
+        let gestureActive = false;
+        let lastGestureEventTs = 0;
+        let lastGestureChangeTs = 0;
+        let gestureFallbackTimer: number | null = null;
+        const markGestureWindow = () => {
+            gestureActive = true;
+            lastGestureEventTs = Date.now();
+            if (gestureFallbackTimer) {
+                window.clearTimeout(gestureFallbackTimer);
+            }
+            // Safari sometimes fails to deliver gestureend; don't let the guard window get stuck.
+            gestureFallbackTimer = window.setTimeout(() => {
+                gestureActive = false;
+            }, 240);
+        };
+        const normalizeWheelDelta = (event: WheelEvent, pageHeight: number) => {
+            const modeFactor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? pageHeight : 1;
+            return {
+                dx: event.deltaX * modeFactor,
+                dy: event.deltaY * modeFactor
+            };
+        };
 
-        // Disable native pinch-zoom gestures
-        const preventDefault = (e: Event) => e.preventDefault();
         const preventWheelZoom = (e: WheelEvent) => {
             if (e.ctrlKey || e.metaKey) e.preventDefault();
         };
-        el.addEventListener('gesturestart', preventDefault);
-        el.addEventListener('gesturechange', preventDefault);
         el.addEventListener('wheel', preventWheelZoom, { passive: false });
+
+        const debugPinch = () => {
+            try {
+                return window.localStorage.getItem('sf_debug_pinch') === '1';
+            } catch {
+                return false;
+            }
+        };
+
+        const wheelZoomEnabled = () => {
+            try {
+                return window.localStorage.getItem('sf_wheel_zoom') === '1';
+            } catch {
+                return false;
+            }
+        };
+
+        const handleWheel = (event: WheelEvent) => {
+            const root = containerRef.current;
+            if (!root) return;
+            const target = event.target as Node | null;
+            if (!target || !root.contains(target)) return;
+
+            const now = Date.now();
+            const inNativeGestureWindow = (now - lastGestureChangeTs) < GESTURE_WHEEL_GUARD_MS;
+            const wantsZoom = wheelZoomEnabled() || event.ctrlKey || event.metaKey;
+            const shouldZoom = wantsZoom && !inNativeGestureWindow;
+
+            if (debugPinch()) {
+                const anyEvent = event as unknown as {
+                    wheelDelta?: number;
+                    wheelDeltaX?: number;
+                    wheelDeltaY?: number;
+                    webkitDirectionInvertedFromDevice?: boolean;
+                    sourceCapabilities?: unknown;
+                };
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch] wheel', {
+                    ctrlKey: event.ctrlKey,
+                    metaKey: event.metaKey,
+                    shiftKey: event.shiftKey,
+                    altKey: event.altKey,
+                    wheelZoomEnabled: wheelZoomEnabled(),
+                    deltaX: event.deltaX,
+                    deltaY: event.deltaY,
+                    deltaZ: event.deltaZ,
+                    deltaMode: event.deltaMode,
+                    wheelDelta: anyEvent.wheelDelta,
+                    wheelDeltaX: anyEvent.wheelDeltaX,
+                    wheelDeltaY: anyEvent.wheelDeltaY,
+                    invertedFromDevice: anyEvent.webkitDirectionInvertedFromDevice,
+                    sourceCapabilities: anyEvent.sourceCapabilities,
+                    inNativeGestureWindow,
+                    shouldZoom
+                });
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            if (inNativeGestureWindow) return;
+
+            const rect = root.getBoundingClientRect();
+            const normalized = normalizeWheelDelta(event, Math.max(1, rect.height));
+            if (shouldZoom) {
+                useCameraStore.getState().zoomAt(event.clientX, event.clientY, normalized.dy, rect);
+                return;
+            }
+            useCameraStore.getState().updatePan(-normalized.dx, -normalized.dy);
+        };
+
+        const handleGlobalWheelCapture = (event: WheelEvent) => {
+            if (debugPinch()) {
+                const root = containerRef.current;
+                const target = event.target as Node | null;
+                const inside = Boolean(root && target && root.contains(target));
+                const anyEvent = event as unknown as {
+                    wheelDelta?: number;
+                    wheelDeltaX?: number;
+                    wheelDeltaY?: number;
+                    webkitDirectionInvertedFromDevice?: boolean;
+                    sourceCapabilities?: unknown;
+                };
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch] window wheel', {
+                    inside,
+                    ctrlKey: event.ctrlKey,
+                    metaKey: event.metaKey,
+                    shiftKey: event.shiftKey,
+                    altKey: event.altKey,
+                    deltaX: event.deltaX,
+                    deltaY: event.deltaY,
+                    deltaZ: event.deltaZ,
+                    deltaMode: event.deltaMode
+                    ,
+                    wheelDelta: anyEvent.wheelDelta,
+                    wheelDeltaX: anyEvent.wheelDeltaX,
+                    wheelDeltaY: anyEvent.wheelDeltaY,
+                    invertedFromDevice: anyEvent.webkitDirectionInvertedFromDevice,
+                    sourceCapabilities: anyEvent.sourceCapabilities
+                });
+            }
+            handleWheel(event);
+        };
+        el.addEventListener('wheel', handleWheel, { passive: false });
+        window.addEventListener('wheel', handleGlobalWheelCapture, { passive: false, capture: true });
+
+        let lastGestureScale = 1;
+        const handleGestureStart = (event: Event) => {
+            const e = event as unknown as { preventDefault: () => void; scale?: number };
+            const scale = typeof e.scale === 'number' ? e.scale : null;
+            if (scale === null || !Number.isFinite(scale) || scale <= 0) return;
+            e.preventDefault();
+            markGestureWindow();
+            lastGestureScale = scale;
+            if (debugPinch()) {
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch] gesturestart', { scale });
+            }
+        };
+        const handleGestureChange = (event: Event) => {
+            const e = event as unknown as {
+                preventDefault: () => void;
+                scale?: number;
+                clientX?: number;
+                clientY?: number;
+            };
+            const scale = typeof e.scale === 'number' ? e.scale : null;
+            if (scale === null || !Number.isFinite(scale) || scale <= 0) return;
+            e.preventDefault();
+            markGestureWindow();
+            lastGestureChangeTs = Date.now();
+            const ratio = scale / Math.max(0.0001, lastGestureScale);
+            lastGestureScale = scale;
+            if (debugPinch()) {
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch] gesturechange', { scale, ratio });
+            }
+            if (!Number.isFinite(ratio) || ratio <= 0) return;
+
+            const rect = el.getBoundingClientRect();
+            const state = useCameraStore.getState();
+            const nextZoom = Math.min(Math.max(state.zoom * ratio, 0.25), 2.0);
+            const localX = (typeof e.clientX === 'number' ? e.clientX : rect.left + rect.width / 2) - rect.left;
+            const localY = (typeof e.clientY === 'number' ? e.clientY : rect.top + rect.height / 2) - rect.top;
+            const worldX = (localX - state.pan.x) / state.zoom;
+            const worldY = (localY - state.pan.y) / state.zoom;
+            const newPanX = localX - worldX * nextZoom;
+            const newPanY = localY - worldY * nextZoom;
+            setZoom(nextZoom);
+            setPan({ x: newPanX, y: newPanY });
+        };
+        const handleGestureEnd = (event: Event) => {
+            const e = event as unknown as { preventDefault: () => void };
+            if (!gestureActive) return;
+            e.preventDefault();
+            gestureActive = false;
+            lastGestureEventTs = Date.now();
+            lastGestureScale = 1;
+            if (debugPinch()) {
+                // eslint-disable-next-line no-console
+                console.log('[sf pinch] gestureend');
+            }
+            if (gestureFallbackTimer) {
+                window.clearTimeout(gestureFallbackTimer);
+                gestureFallbackTimer = null;
+            }
+        };
+
+        window.addEventListener('gesturestart', handleGestureStart as EventListener, { passive: false });
+        window.addEventListener('gesturechange', handleGestureChange as EventListener, { passive: false });
+        window.addEventListener('gestureend', handleGestureEnd as EventListener, { passive: false });
+        document.addEventListener('gesturestart', handleGestureStart as EventListener, { passive: false });
+        document.addEventListener('gesturechange', handleGestureChange as EventListener, { passive: false });
+        document.addEventListener('gestureend', handleGestureEnd as EventListener, { passive: false });
 
         // Global hotkey listener for Router & local state
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.defaultPrevented) return;
             const target = e.target as HTMLElement | null;
             if (target?.closest('input, textarea, [contenteditable="true"]')) {
                 return;
@@ -1065,31 +1417,6 @@ const CanvasView = () => {
             }
             if ((e.key === 'Escape' || e.key === 'Esc' || e.code === 'Escape') && stateEngine.getState().fieldScopeId) {
                 stateEngine.setFieldScope(null);
-                return;
-            }
-            const isMod = e.metaKey || e.ctrlKey;
-            if (isMod && (e.key === '+' || e.key === '=')) {
-                e.preventDefault();
-                const currentZoom = useCameraStore.getState().zoom;
-                const next = getZoomStep(currentZoom, 'in');
-                adjustZoomTo(next);
-                return;
-            }
-            if (isMod && e.key === '-') {
-                e.preventDefault();
-                const currentZoom = useCameraStore.getState().zoom;
-                const next = getZoomStep(currentZoom, 'out');
-                adjustZoomTo(next);
-                return;
-            }
-            if (isMod && e.key === '0') {
-                e.preventDefault();
-                adjustZoomTo(1);
-                return;
-            }
-            if (e.shiftKey && (e.code === 'Digit1' || e.key === '!')) {
-                e.preventDefault();
-                fitToContent();
                 return;
             }
             gestureRouter.handleKeyDown(e);
@@ -1103,6 +1430,32 @@ const CanvasView = () => {
 
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
+
+        const onGlobalZoomHotkey = (event: Event) => {
+            const detail = (event as CustomEvent<ZoomHotkeyDetail>).detail;
+            if (!detail) return;
+            switch (detail.command) {
+                case 'zoom_in': {
+                    const currentZoom = useCameraStore.getState().zoom;
+                    const next = getZoomStep(currentZoom, 'in');
+                    adjustZoomTo(next);
+                    break;
+                }
+                case 'zoom_out': {
+                    const currentZoom = useCameraStore.getState().zoom;
+                    const next = getZoomStep(currentZoom, 'out');
+                    adjustZoomTo(next);
+                    break;
+                }
+                case 'zoom_reset':
+                    adjustZoomTo(1);
+                    break;
+                case 'zoom_fit':
+                    fitToContent();
+                    break;
+            }
+        };
+        window.addEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as EventListener);
 
         // Ego-focus listener
         const onFocus = (e: BusEvent<'UI_FOCUS_NODE'>) => {
@@ -1132,11 +1485,21 @@ const CanvasView = () => {
         const unsubRedo = eventBus.on('GRAPH_REDO', triggerUndoSmooth);
 
         return () => {
-            el.removeEventListener('gesturestart', preventDefault);
-            el.removeEventListener('gesturechange', preventDefault);
             el.removeEventListener('wheel', preventWheelZoom);
+            el.removeEventListener('wheel', handleWheel);
+            window.removeEventListener('wheel', handleGlobalWheelCapture, true);
+            window.removeEventListener('gesturestart', handleGestureStart as EventListener);
+            window.removeEventListener('gesturechange', handleGestureChange as EventListener);
+            window.removeEventListener('gestureend', handleGestureEnd as EventListener);
+            document.removeEventListener('gesturestart', handleGestureStart as EventListener);
+            document.removeEventListener('gesturechange', handleGestureChange as EventListener);
+            document.removeEventListener('gestureend', handleGestureEnd as EventListener);
+            if (gestureFallbackTimer) {
+                window.clearTimeout(gestureFallbackTimer);
+            }
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
+            window.removeEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as EventListener);
             unsubFocus();
             unsubUndo();
             unsubRedo();
@@ -1147,26 +1510,63 @@ const CanvasView = () => {
     }, []);
 
     const lastCenteredSpaceId = useRef<string | null>(null);
+    const fitTimerRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (viewContext !== 'space') {
+            lastCenteredSpaceId.current = null;
+        }
+    }, [viewContext]);
+
+    useEffect(() => {
+        const unsub = eventBus.on('UI_SIGNAL', (e) => {
+            if (e.payload.type !== 'EXIT_TO_STATION') return;
+            setViewContext('home');
+        });
+        return () => unsub();
+    }, [setViewContext]);
 
     useEffect(() => {
         if (viewContext !== 'space' || !currentSpaceId || !containerRef.current) return;
         if (lastCenteredSpaceId.current === currentSpaceId) return;
 
-        const coreNode = nodes.find(node => node.type === 'core');
-        if (!coreNode && nodes.length > 0) return;
+        if (fitTimerRef.current) {
+            window.clearTimeout(fitTimerRef.current);
+            fitTimerRef.current = null;
+        }
 
-        const rect = containerRef.current.getBoundingClientRect();
-        const target = coreNode?.position ?? { x: 0, y: 0 };
-        centerOn(target.x, target.y, rect.width, rect.height);
+        if (nodes.length === 0 && areas.length === 0) {
+            fitTimerRef.current = window.setTimeout(() => {
+                if (lastCenteredSpaceId.current === currentSpaceId) return;
+                fitToContent({ clampToOne: true });
+                lastCenteredSpaceId.current = currentSpaceId;
+                fitTimerRef.current = null;
+            }, 120);
+            return () => {
+                if (fitTimerRef.current) {
+                    window.clearTimeout(fitTimerRef.current);
+                    fitTimerRef.current = null;
+                }
+            };
+        }
+
+        fitToContent({ clampToOne: true });
         lastCenteredSpaceId.current = currentSpaceId;
-    }, [viewContext, currentSpaceId, centerOn, nodes]);
+        return () => {
+            if (fitTimerRef.current) {
+                window.clearTimeout(fitTimerRef.current);
+                fitTimerRef.current = null;
+            }
+        };
+    }, [viewContext, currentSpaceId, nodes, areas, fitToContent]);
 
     useEffect(() => {
         if (!viewContext || viewContext !== 'space') return;
         const currentScope = fieldScopeId;
         const nodeMap = new Map(nodes.map(node => [node.id, node]));
         const focusSet = new Set<string>();
-        const ghostSet = new Set<string>();
+        const areaFocusSet = new Set<string>();
+        const ghostSetLevel1 = new Set<string>();
 
         const collectChildren = (clusterId: string) => {
             nodes.forEach(node => {
@@ -1176,29 +1576,31 @@ const CanvasView = () => {
             });
         };
 
+        const adjacency = new Map<NodeId, Set<NodeId>>();
+        const nodeTypeMap = new Map<NodeId, string | undefined>(nodes.map(node => [node.id, node.type]));
+        edges.forEach(edge => {
+            if (!adjacency.has(edge.source)) adjacency.set(edge.source, new Set());
+            if (!adjacency.has(edge.target)) adjacency.set(edge.target, new Set());
+            adjacency.get(edge.source)?.add(edge.target);
+            adjacency.get(edge.target)?.add(edge.source);
+        });
+
+        const maxGhostDepthForScope = Math.max(0, subspaceLod - 1);
+
         if (currentScope) {
             focusSet.add(currentScope);
             collectChildren(currentScope);
 
-            const adjacency = new Map<string, Set<string>>();
-            const nodeTypeMap = new Map(nodes.map(node => [node.id, node.type]));
-            edges.forEach(edge => {
-                if (!adjacency.has(edge.source)) adjacency.set(edge.source, new Set());
-                if (!adjacency.has(edge.target)) adjacency.set(edge.target, new Set());
-                adjacency.get(edge.source)?.add(edge.target);
-                adjacency.get(edge.target)?.add(edge.source);
-            });
-
-            const visited = new Set<string>([currentScope]);
-            const queue: Array<{ id: string; depth: number }> = [{ id: currentScope, depth: 0 }];
-            const maxDepth = 2;
+            const visited = new Set<NodeId>([currentScope]);
+            const queue: Array<{ id: NodeId; depth: number }> = [{ id: currentScope, depth: 0 }];
+            const maxDepth = 1 + maxGhostDepthForScope;
 
             while (queue.length > 0) {
                 const current = queue.shift();
                 if (!current) break;
                 const neighbors = adjacency.get(current.id);
                 if (!neighbors) continue;
-                neighbors.forEach(neighbor => {
+                neighbors.forEach((neighbor) => {
                     if (visited.has(neighbor)) return;
                     const neighborType = nodeTypeMap.get(neighbor);
                     if (neighborType === 'core') return;
@@ -1206,10 +1608,39 @@ const CanvasView = () => {
                     if (nextDepth > maxDepth) return;
                     visited.add(neighbor);
                     queue.push({ id: neighbor, depth: nextDepth });
-                    if (nextDepth === 1) {
+                    if (nextDepth <= maxDepth - 1) {
                         focusSet.add(neighbor);
-                    } else if (nextDepth === 2) {
-                        ghostSet.add(neighbor);
+                    } else if (nextDepth === maxDepth && maxGhostDepthForScope > 0) {
+                        ghostSetLevel1.add(neighbor);
+                    }
+                });
+            }
+        }
+
+        let areaFocusActive = false;
+        if (!currentScope && focusedAreaId) {
+            const area = areas.find(item => item.id === focusedAreaId);
+            if (area) {
+                areaFocusActive = true;
+                nodes.forEach(node => {
+                    if (area.shape === 'rect') {
+                        const rect = getAreaRectBounds(area);
+                        if (!rect) return;
+                        const inside = node.position.x >= rect.x
+                            && node.position.x <= rect.x + rect.w
+                            && node.position.y >= rect.y
+                            && node.position.y <= rect.y + rect.h;
+                        if (inside) areaFocusSet.add(node.id);
+                    } else if (area.shape === 'circle' && area.circle) {
+                        const center = getAreaCenter(area);
+                        const cx = center?.cx ?? 0;
+                        const cy = center?.cy ?? 0;
+                        const r = area.circle.r;
+                        const dx = node.position.x - cx;
+                        const dy = node.position.y - cy;
+                        if ((dx * dx + dy * dy) <= r * r) {
+                            areaFocusSet.add(node.id);
+                        }
                     }
                 });
             }
@@ -1217,12 +1648,28 @@ const CanvasView = () => {
 
         nodes.forEach(node => {
             const isCore = node.type === 'core';
-            const shouldGhost = currentScope ? ghostSet.has(node.id) && !isCore : false;
-            const shouldHide = currentScope ? (!focusSet.has(node.id) && !ghostSet.has(node.id)) : false;
+            const focusActive = Boolean(currentScope || areaFocusActive);
+            const ghostLevel = ghostSetLevel1.has(node.id) ? 1 : 0;
+            const shouldGhost = ghostLevel > 0 && !isCore;
+            const shouldHide = focusActive
+                ? (currentScope
+                    ? (!focusSet.has(node.id) && ghostLevel === 0)
+                    : (!areaFocusSet.has(node.id)))
+                : false;
             const nextFocusHidden = shouldHide;
             const nextFocusGhost = shouldGhost;
-            if (node.meta?.focusHidden === nextFocusHidden && node.meta?.focusGhost === nextFocusGhost) return;
-            const meta = { ...(node.meta ?? {}), focusHidden: nextFocusHidden, focusGhost: nextFocusGhost };
+            const nextFocusGhostLevel = shouldGhost ? ghostLevel : 0;
+            if (
+                node.meta?.focusHidden === nextFocusHidden
+                && node.meta?.focusGhost === nextFocusGhost
+                && node.meta?.focusGhostLevel === nextFocusGhostLevel
+            ) return;
+            const meta = {
+                ...(node.meta ?? {}),
+                focusHidden: nextFocusHidden,
+                focusGhost: nextFocusGhost,
+                focusGhostLevel: nextFocusGhostLevel
+            };
             updateNode(node.id, { meta });
         });
 
@@ -1235,7 +1682,7 @@ const CanvasView = () => {
                 setTimeout(() => setIsSmooth(false), 420);
             }
         }
-    }, [fieldScopeId, nodes, edges, updateNode, viewContext, centerOn]);
+    }, [fieldScopeId, focusedAreaId, areas, nodes, edges, updateNode, viewContext, centerOn, subspaceLod]);
 
     useEffect(() => {
         if (areaInteraction?.type === 'move') {
@@ -1265,66 +1712,77 @@ const CanvasView = () => {
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            onPointerLeave={() => {
+            onPointerCancel={handlePointerUp}
+            onPointerLeave={(e) => {
                 lastHoverEdgeId.current = null;
                 useEdgeSelectionStore.getState().setHover(null);
                 setHoverAreaId(null);
+                if (e.pointerType !== 'touch') {
+                    pinchRef.current = null;
+                }
                 if (!isSpacePressed.current) {
                     document.body.style.cursor = '';
                 }
             }}
             onDoubleClick={handleDoubleClick}
-            onWheel={handleWheel}
             onContextMenu={(e) => e.preventDefault()}
         >
             {/* Dot Matrix Background */}
-            <div
-                className="absolute inset-0 pointer-events-none"
-                data-grid="dot-matrix"
-                style={{
-                    opacity: Math.min(0.45, 0.2 + zoom * 0.08),
-                    backgroundImage: (() => {
+            {showGrid && (
+                <div
+                    className="absolute inset-0 pointer-events-none"
+                    data-grid="dot-matrix"
+                    style={{
+                        opacity: Math.min(0.45, 0.2 + zoom * 0.08),
+                        backgroundImage: (() => {
                         let gridScale = zoom;
-                        const minPx = 8;
-                        const maxPx = 24;
-                        while (GRID_METRICS.cell * gridScale < minPx) gridScale *= 2;
-                        while (GRID_METRICS.cell * gridScale > maxPx) gridScale /= 2;
+                        const minPx = 8 * gridStepMul;
+                        const maxPx = 24 * gridStepMul;
+                        const cell = GRID_METRICS.cell * gridStepMul;
+                        while (cell * gridScale < minPx) gridScale *= 2;
+                        while (cell * gridScale > maxPx) gridScale /= 2;
                         const dotPx = Math.max(1.1, GRID_METRICS.dotRadius * gridScale);
                         return `radial-gradient(circle at 0% 0%, rgba(255,255,255,0.55) ${dotPx}px, transparent ${dotPx}px)`;
                     })(),
                     backgroundSize: (() => {
                         let gridScale = zoom;
-                        const minPx = 8;
-                        const maxPx = 24;
-                        while (GRID_METRICS.cell * gridScale < minPx) gridScale *= 2;
-                        while (GRID_METRICS.cell * gridScale > maxPx) gridScale /= 2;
-                        return `${GRID_METRICS.cell * gridScale}px ${GRID_METRICS.cell * gridScale}px`;
+                        const minPx = 8 * gridStepMul;
+                        const maxPx = 24 * gridStepMul;
+                        const cell = GRID_METRICS.cell * gridStepMul;
+                        while (cell * gridScale < minPx) gridScale *= 2;
+                        while (cell * gridScale > maxPx) gridScale /= 2;
+                        return `${cell * gridScale}px ${cell * gridScale}px`;
                     })(),
                     backgroundPosition: (() => {
                         let gridScale = zoom;
-                        const minPx = 8;
-                        const maxPx = 24;
-                        while (GRID_METRICS.cell * gridScale < minPx) gridScale *= 2;
-                        while (GRID_METRICS.cell * gridScale > maxPx) gridScale /= 2;
+                        const minPx = 8 * gridStepMul;
+                        const maxPx = 24 * gridStepMul;
+                        const cell = GRID_METRICS.cell * gridStepMul;
+                        while (cell * gridScale < minPx) gridScale *= 2;
+                        while (cell * gridScale > maxPx) gridScale /= 2;
                         const ratio = gridScale / zoom;
                         return `${pan.x * ratio}px ${pan.y * ratio}px`;
                     })()
                 }}
             />
+        )}
 
             {/* Cosmogenesis Source Node moved to transform layer */}
 
             {/* Transform Layer (Camera) */}
             <div
                 className={`transform-layer absolute inset-0 origin-top-left ${isSmooth ? 'camera-smooth' : ''} ${undoSmooth ? 'undo-smooth' : ''}`}
-                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+                style={{
+                    transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
+                    willChange: 'transform'
+                }}
             >
                 {/* Regions Layer (Area overlays) */}
                 {sortedAreas.length > 0 && (
                     <div className="absolute inset-0 pointer-events-none">
                         {sortedAreas.map((area, areaIndex) => {
                             let focusVisibility: 'visible' | 'ghost' | 'hidden' = 'visible';
-                            if (fieldScopeId && focusVisibleNodeIds && focusGhostNodeIds) {
+                            if ((fieldScopeId || focusedAreaId) && focusVisibleNodeIds && focusGhostNodeIds) {
                                 if (area.anchor.type === 'node') {
                                     if (focusVisibleNodeIds.has(area.anchor.nodeId)) {
                                         focusVisibility = 'visible';
@@ -1376,6 +1834,7 @@ const CanvasView = () => {
                             const isSelected = selectedAreaIds.includes(area.id);
                             const isHovered = hoverAreaId === area.id;
                             if (area.shape === 'circle' && area.circle) {
+                                const circle = area.circle;
                                 const center = getAreaCenter(area);
                                 const cx = center?.cx ?? 0;
                                 const cy = center?.cy ?? 0;
@@ -1385,7 +1844,7 @@ const CanvasView = () => {
                                 return (
                                     <React.Fragment key={area.id}>
                                         {area.rings?.map(ring => {
-                                            const basePct = Math.max(0, Math.min(100, (area.circle.r / ring.r) * 100));
+                                            const basePct = Math.max(0, Math.min(100, (circle.r / ring.r) * 100));
                                             const color = area.color ?? 'rgba(255,255,255,0.08)';
                                             const colorStrong = color.replace('0.08', '0.18');
                                             const innerPct = Math.max(0, basePct - 16);
@@ -1413,10 +1872,10 @@ const CanvasView = () => {
                                         })}
                                         {(() => {
                                             const baseBounds = {
-                                                x: cx - area.circle.r,
-                                                y: cy - area.circle.r,
-                                                w: area.circle.r * 2,
-                                                h: area.circle.r * 2
+                                                x: cx - circle.r,
+                                                y: cy - circle.r,
+                                                w: circle.r * 2,
+                                                h: circle.r * 2
                                             };
                                             const blurOverlaps = sortedAreas.slice(areaIndex + 1).map(other => {
                                                 const otherZ = other.zIndex ?? 0;
@@ -1439,7 +1898,7 @@ const CanvasView = () => {
                                                 const wrapperLeft = baseBounds.x;
                                                 const wrapperTop = baseBounds.y;
                                                 const wrapperSize = baseBounds.w;
-                                                const maskImage = `radial-gradient(circle ${area.circle.r}px at ${area.circle.r}px ${area.circle.r}px, #fff 98%, transparent 100%)`;
+                                                const maskImage = `radial-gradient(circle ${circle.r}px at ${circle.r}px ${circle.r}px, #fff 98%, transparent 100%)`;
                                                 const offsetLeft = left - wrapperLeft;
                                                 const offsetTop = top - wrapperTop;
                                                 return (
@@ -1683,14 +2142,6 @@ const CanvasView = () => {
                                         height="100%"
                                         viewBox={`0 0 ${width} ${height}`}
                                         style={{ cursor: 'pointer' }}
-                                        onDoubleClick={(e) => {
-                                            e.stopPropagation();
-                                            if (focusedAreaId === area.id) {
-                                                clearFocusedArea();
-                                            } else {
-                                                focusArea(area.id);
-                                            }
-                                        }}
                                     >
                                         {area.shape === 'rect' && (
                                             <rect
@@ -1934,11 +2385,13 @@ const CanvasView = () => {
                 <InteractionLayer />
 
                 {/* Edges Layer (SVG) */}
-                <svg className="absolute inset-0 pointer-events-auto overflow-visible w-full h-full z-0">
-                    {renderedEdges.map(edge => (
-                        <EdgeRenderer key={edge.id} edge={edge} />
-                    ))}
-                </svg>
+                {showEdges && (
+                    <svg className="absolute inset-0 pointer-events-auto overflow-visible w-full h-full z-0">
+                        {renderedEdges.map(edge => (
+                            <EdgeRenderer key={edge.id} edge={edge} />
+                        ))}
+                    </svg>
+                )}
 
                 {/* Nodes Layer (Html) */}
                 <div className="nodes-layer absolute inset-0 pointer-events-none z-10">
@@ -1949,38 +2402,11 @@ const CanvasView = () => {
 
             </div>
 
-            {fieldScopeId && (
-                <div
-                    className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-auto z-50"
-                    onPointerDown={(e) => e.stopPropagation()}
-                >
-                    <div className="flex items-center gap-3 rounded-full bg-black/70 border border-white/10 px-4 py-2 backdrop-blur-md">
-                        <span className="text-[10px] uppercase tracking-[0.2em] text-white/70">
-                            Focus Mode
-                        </span>
-                        <button
-                            type="button"
-                            onPointerDown={(e) => {
-                                e.stopPropagation();
-                                stateEngine.setFieldScope(null);
-                                selectionState.clear();
-                                useAreaStore.getState().clearSelectedAreas();
-                                useEdgeSelectionStore.getState().clear();
-                            }}
-                            className="text-white/70 hover:text-white"
-                            title="Exit focus (Esc)"
-                        >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                                <path d="M6 6l12 12M18 6l-12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            )}
-
             {/* HUD: Stats & Status (Bottom-Left) */}
-            <div className="absolute bottom-4 left-4 pointer-events-auto flex flex-col items-start gap-2 z-50">
-                {activeTool === TOOLS.LINK && (
+            <div
+                className="absolute bottom-4 left-4 pointer-events-auto flex flex-col items-start gap-2 z-50"
+            >
+                {showHud && activeTool === TOOLS.LINK && (
                     <div className="pointer-events-none flex items-center gap-2 pr-3 py-1.5 pl-4 opacity-70">
                         <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
                         <span className="text-[9px] uppercase tracking-[0.4em] text-white/40 font-medium">
@@ -1988,27 +2414,30 @@ const CanvasView = () => {
                         </span>
                     </div>
                 )}
-                <div className="pointer-events-none flex gap-4 items-center pr-3 py-1.5 pl-4 opacity-60 hover:opacity-100 transition-opacity">
-                    <div className="flex items-baseline gap-1">
-                        <span className="text-xs font-medium text-white/80">{nodes.length}</span>
-                        <span className="text-[8px] uppercase tracking-widest text-white/40">Nodes</span>
+                {showHud && showCounters && (
+                    <div className="pointer-events-none flex gap-4 items-center pr-3 py-1.5 pl-4 opacity-60 hover:opacity-100 transition-opacity">
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xs font-medium text-white/80">{nodes.length}</span>
+                            <span className="text-[8px] uppercase tracking-widest text-white/40">Nodes</span>
+                        </div>
+                        <div className="w-[1px] h-3 bg-white/10" />
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xs font-medium text-white/80">{edges.length}</span>
+                            <span className="text-[8px] uppercase tracking-widest text-white/40">Edges</span>
+                        </div>
                     </div>
-                    <div className="w-[1px] h-3 bg-white/10" />
-                    <div className="flex items-baseline gap-1">
-                        <span className="text-xs font-medium text-white/80">{edges.length}</span>
-                        <span className="text-[8px] uppercase tracking-widest text-white/40">Edges</span>
-                    </div>
-                </div>
-                <div
-                    className="pointer-events-auto flex items-center gap-2 pr-3 py-1.5 pl-4 opacity-70 hover:opacity-100 transition-opacity"
-                    onPointerDown={(e) => e.stopPropagation()}
-                >
-                    <button
-                        onClick={() => {
-                            setZoomPulse('fit');
-                            window.setTimeout(() => setZoomPulse(null), 180);
-                            fitToContent();
-                        }}
+                )}
+                <div className="pointer-events-auto flex items-center gap-3 pr-3 py-1.5 pl-4 opacity-70 hover:opacity-100 transition-opacity">
+                    <div
+                        className="flex items-center gap-2"
+                        onPointerDown={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => {
+                                setZoomPulse('fit');
+                                window.setTimeout(() => setZoomPulse(null), 180);
+                                fitToContent();
+                            }}
                         className={`w-6 h-6 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors ${zoomPulse === 'fit' ? 'bg-white/20 text-white' : ''} -ml-1`}
                         aria-label="Fit to content"
                     >
@@ -2046,8 +2475,56 @@ const CanvasView = () => {
                     >
                         +
                     </button>
+                    </div>
+                    {fieldScopeId && (
+                        <div
+                            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10"
+                            onPointerDown={(e) => e.stopPropagation()}
+                        >
+                            {[1, 2, 3].map(level => (
+                                <button
+                                    key={level}
+                                    type="button"
+                                    onClick={() => setSubspaceLod(level as 1 | 2 | 3)}
+                                    className={`w-5 h-5 rounded-full text-[10px] font-semibold transition-colors ${subspaceLod === level ? 'bg-white/20 text-white' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
+                                    title={`LOD ${level}`}
+                                >
+                                    {level}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {focusedAreaId && (
+                <div
+                    className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-auto z-50"
+                    onPointerDown={(e) => e.stopPropagation()}
+                >
+                    <div className="flex items-center gap-3 rounded-full bg-black/70 border border-white/10 px-4 py-2 backdrop-blur-md">
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-white/70">
+                            Focus Mode
+                        </span>
+                        <button
+                            type="button"
+                            onPointerDown={(e) => {
+                                e.stopPropagation();
+                                clearFocusedArea();
+                                selectionState.clear();
+                                useAreaStore.getState().clearSelectedAreas();
+                                useEdgeSelectionStore.getState().clear();
+                            }}
+                            className="text-white/70 hover:text-white"
+                            title="Exit focus (Esc)"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                                <path d="M6 6l12 12M18 6l-12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

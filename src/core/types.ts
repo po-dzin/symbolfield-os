@@ -91,6 +91,7 @@ export interface Area {
 export interface NodeData {
     label?: string
     icon_value?: string
+    icon_source?: 'sf' | 'generated' | 'blocksuite' | 'unicode'
     color?: string
     color_body?: string
     color_stroke?: string
@@ -157,7 +158,7 @@ export type ActiveTab = 'canvas' | 'settings' | 'debug'
 // Graph Addressing (Navigation)
 // =============================================================================
 
-export type GraphAddressTargetMode = 'field' | 'note' | 'now'
+export type GraphAddressTargetMode = 'field' | 'node' | 'now'
 
 export interface GraphAddressScope {
     clusterId?: NodeId

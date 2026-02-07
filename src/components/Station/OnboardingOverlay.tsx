@@ -5,7 +5,6 @@
  */
 
 import React from 'react';
-import { useAppStore } from '../../store/useAppStore';
 import { completeOnboarding, markWelcomeSeen } from '../../core/state/onboardingState';
 
 interface OnboardingOverlayProps {
@@ -53,7 +52,7 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onDismiss }) => {
                         </h1>
                         <p className="text-white/50 text-sm leading-relaxed">
                             Your space for networked thinking.<br />
-                            Field is space. Note is interior. NOW is depth.
+                            Field is space. Node is interior. NOW is depth.
                         </p>
                     </div>
 

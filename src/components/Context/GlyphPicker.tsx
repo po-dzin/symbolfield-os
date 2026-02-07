@@ -4,8 +4,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { GLYPH_LIBRARY } from '../../utils/glyphLibrary';
-import { getGlyphById } from '../../utils/customGlyphs';
+import { getGlyphDisplayLabel, getGlyphPickerCategories, getGlyphRingPalette } from '../../utils/sfGlyphLayer';
 import GlyphIcon from '../Icon/GlyphIcon';
 
 type ViewMode = 'matrix' | 'palette';
@@ -16,35 +15,16 @@ interface GlyphPickerProps {
     currentGlyph?: string;
 }
 
-const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose, currentGlyph }) => {
+const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose: _onClose, currentGlyph: _currentGlyph }) => {
     const [viewMode, setViewMode] = useState<ViewMode>('matrix');
-    const categories = GLYPH_LIBRARY;
+    const categories = useMemo(() => getGlyphPickerCategories(), []);
     const [activeCategory, setActiveCategory] = useState<string>(categories[0]?.id ?? 'base');
 
     const currentCat = categories.find(c => c.id === activeCategory) || categories[0];
-
-    const getCategoryGlyphs = (id: string, fallback: string[] = []) =>
-        categories.find(cat => cat.id === id)?.glyphs ?? fallback;
-
-    const glyphsByRing = useMemo(() => ({
-        ring1: getCategoryGlyphs('base').slice(0, 6),
-        ring2: getCategoryGlyphs('math').slice(0, 6),
-        ring3: getCategoryGlyphs('runes').slice(0, 6)
-    }), [categories]);
+    const glyphsByRing = useMemo(() => getGlyphRingPalette(categories), [categories]);
 
     const renderGlyph = (glyphId: string, size: number) => {
-        const custom = getGlyphById(glyphId);
-        if (custom) {
-            return <GlyphIcon id={glyphId} size={size} className="text-white" />;
-        }
-        return (
-            <span
-                className="flex items-center justify-center leading-none text-white"
-                style={{ fontSize: size, lineHeight: 1 }}
-            >
-                {glyphId}
-            </span>
-        );
+        return <GlyphIcon id={glyphId} size={size} className="text-white" />;
     };
 
     return (
@@ -86,11 +66,12 @@ const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose, currentGly
 
                     {/* Grid */}
                     <div className="p-3 grid grid-cols-6 gap-2 bg-gradient-to-b from-black/50 to-transparent">
-                        {currentCat.glyphs.map((glyphId) => (
+                        {currentCat?.glyphs.map((glyphId) => (
                             <button
                                 key={glyphId}
                                 onClick={() => onSelect(glyphId)}
                                 className="aspect-square flex items-center justify-center rounded-lg bg-white/5 border border-white/5 text-white text-lg active:scale-95"
+                                title={getGlyphDisplayLabel(glyphId)}
                             >
                                 {renderGlyph(glyphId, 18)}
                             </button>
@@ -116,7 +97,7 @@ const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose, currentGly
                                 onClick={() => onSelect(glyphId)}
                                 className="absolute w-9 h-9 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-white text-base leading-none"
                                 style={{ transform: `translate(${x}px, ${y}px)` }}
-                                title={getGlyphById(glyphId)?.label || glyphId}
+                                title={getGlyphDisplayLabel(glyphId)}
                             >
                                 {renderGlyph(glyphId, 16)}
                             </button>
@@ -136,7 +117,7 @@ const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose, currentGly
                                 onClick={() => onSelect(glyphId)}
                                 className="absolute w-9 h-9 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-white text-lg leading-none"
                                 style={{ transform: `translate(${x}px, ${y}px)` }}
-                                title={getGlyphById(glyphId)?.label || glyphId}
+                                title={getGlyphDisplayLabel(glyphId)}
                             >
                                 {renderGlyph(glyphId, 16)}
                             </button>
@@ -156,7 +137,7 @@ const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose, currentGly
                                 onClick={() => onSelect(glyphId)}
                                 className="absolute w-9 h-9 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-white text-xl leading-none"
                                 style={{ transform: `translate(${x}px, ${y}px)` }}
-                                title={getGlyphById(glyphId)?.label || glyphId}
+                                title={getGlyphDisplayLabel(glyphId)}
                             >
                                 {renderGlyph(glyphId, 16)}
                             </button>

@@ -16,6 +16,7 @@ export interface SpaceMeta {
     gridSnapEnabled?: boolean;
     parentSpaceId?: string;
     kind?: 'user' | 'playground';
+    favorite?: boolean;
     trashed?: boolean;
     deletedAt?: number | null;
 }
@@ -42,7 +43,7 @@ class SpaceManager {
 
         // Subscribe to changes for auto-persistence
         eventBus.on(EVENTS.NODE_CREATED, () => this.scheduleSave());
-        eventBus.on(EVENTS.NODE_UPDATED, () => this.scheduleSave()); // Note: UpdateNode might be frequent during drag
+        eventBus.on(EVENTS.NODE_UPDATED, () => this.scheduleSave()); // NB: UpdateNode might be frequent during drag
         eventBus.on(EVENTS.NODE_DELETED, () => this.scheduleSave());
         eventBus.on(EVENTS.LINK_CREATED, () => this.scheduleSave());
         eventBus.on(EVENTS.LINK_DELETED, () => this.scheduleSave());
@@ -183,6 +184,14 @@ class SpaceManager {
             return uniqueName;
         }
         return name;
+    }
+
+    toggleFavorite(id: string) {
+        const meta = this.spaces.get(id);
+        if (!meta) return;
+        meta.favorite = !meta.favorite;
+        meta.updatedAt = Date.now();
+        this.saveIndex();
     }
 
     softDeleteSpace(id: string) {
@@ -417,6 +426,10 @@ class SpaceManager {
             this.seedPlaygroundSpace();
             return;
         }
+        if (playgroundMeta.trashed) {
+            playgroundMeta.trashed = false;
+            this.saveIndex();
+        }
         if (!playgroundMeta.kind) {
             playgroundMeta.kind = 'playground';
             this.saveIndex();
@@ -436,6 +449,7 @@ class SpaceManager {
             data: {
                 label: nodeDef.label,
                 icon_value: nodeDef.icon_value,
+                icon_source: nodeDef.icon_source,
                 content: nodeDef.content
             },
             style: {},

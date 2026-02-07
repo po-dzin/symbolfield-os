@@ -26,6 +26,8 @@ export const EVENTS = {
     TOOL_CHANGED: 'ToolChanged',
     DRAWER_OPENED: 'DrawerOpened',
     DRAWER_CLOSED: 'DrawerClosed',
+    NODE_ENTERED: 'NodeEntered',
+    NODE_EXITED: 'NodeExited',
     NOW_ENTERED: 'NowEntered',
     NOW_EXITED: 'NowExited',
     SETTINGS_TOGGLED: 'SettingsToggled',
@@ -35,6 +37,15 @@ export const EVENTS = {
     FIELD_SCOPE_CHANGED: 'FieldScopeChanged',
     CONTEXT_MENU_MODE_CHANGED: 'ContextMenuModeChanged',
     GRID_SNAP_CHANGED: 'GridSnapChanged',
+    GRID_VISIBILITY_CHANGED: 'GridVisibilityChanged',
+    EDGES_VISIBILITY_CHANGED: 'EdgesVisibilityChanged',
+    HUD_VISIBILITY_CHANGED: 'HudVisibilityChanged',
+    COUNTERS_VISIBILITY_CHANGED: 'CountersVisibilityChanged',
+    GRID_STEP_CHANGED: 'GridStepChanged',
+    FOCUS_DIM_CHANGED: 'FocusDimChanged',
+    SUBSPACE_LOD_CHANGED: 'SubspaceLodChanged',
+    STATION_LABELS_VISIBILITY_CHANGED: 'StationLabelsVisibilityChanged',
+    STATION_PLAYGROUND_VISIBILITY_CHANGED: 'StationPlaygroundVisibilityChanged',
     SPACE_CREATED: 'SpaceCreated',
     SPACE_RENAMED: 'SpaceRenamed',
     SPACE_DELETED: 'SpaceDeleted',
@@ -83,7 +94,7 @@ export interface UISignalPayload {
     y: number;
     id?: string;
     sourceId?: string;
-    type?: 'ENTER_NOW' | 'GROUP_CREATED' | string;
+    type?: 'OPEN_NODE' | 'ENTER_NOW' | 'GROUP_CREATED' | string;
 }
 
 export interface EventMap {
@@ -103,6 +114,8 @@ export interface EventMap {
     [EVENTS.TOOL_CHANGED]: { tool: string };
     [EVENTS.DRAWER_OPENED]: { side?: string } | undefined;
     [EVENTS.DRAWER_CLOSED]: { side?: string } | undefined;
+    [EVENTS.NODE_ENTERED]: { nodeId: NodeId };
+    [EVENTS.NODE_EXITED]: undefined;
     [EVENTS.NOW_ENTERED]: { nodeId: NodeId };
     [EVENTS.NOW_EXITED]: undefined;
     [EVENTS.SETTINGS_TOGGLED]: { open: boolean };
@@ -112,6 +125,15 @@ export interface EventMap {
     [EVENTS.FIELD_SCOPE_CHANGED]: { hubId: NodeId | null };
     [EVENTS.CONTEXT_MENU_MODE_CHANGED]: { mode: 'bar' | 'radial' };
     [EVENTS.GRID_SNAP_CHANGED]: { enabled: boolean };
+    [EVENTS.GRID_VISIBILITY_CHANGED]: { enabled: boolean };
+    [EVENTS.EDGES_VISIBILITY_CHANGED]: { enabled: boolean };
+    [EVENTS.HUD_VISIBILITY_CHANGED]: { enabled: boolean };
+    [EVENTS.COUNTERS_VISIBILITY_CHANGED]: { enabled: boolean };
+    [EVENTS.GRID_STEP_CHANGED]: { multiplier: number };
+    [EVENTS.FOCUS_DIM_CHANGED]: { enabled: boolean };
+    [EVENTS.SUBSPACE_LOD_CHANGED]: { level: 1 | 2 | 3 };
+    [EVENTS.STATION_LABELS_VISIBILITY_CHANGED]: { enabled: boolean };
+    [EVENTS.STATION_PLAYGROUND_VISIBILITY_CHANGED]: { enabled: boolean };
     [EVENTS.SPACE_CREATED]: { spaceId: string; name: string; kind?: string };
     [EVENTS.SPACE_RENAMED]: { spaceId: string; name: string };
     [EVENTS.SPACE_DELETED]: { spaceId: string; deletedAt: number };

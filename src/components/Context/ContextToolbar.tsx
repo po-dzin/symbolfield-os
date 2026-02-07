@@ -4,7 +4,7 @@
  * Anchor: Near the primary selected node (or bottom-center default for v0.5).
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelectionStore } from '../../store/useSelectionStore';
 import { useAppStore } from '../../store/useAppStore';
 import { useGraphStore } from '../../store/useGraphStore';
@@ -19,19 +19,20 @@ import ColorPicker from './ColorPicker';
 import GlyphIcon from '../Icon/GlyphIcon';
 import { GRID_METRICS, NODE_SIZES } from '../../utils/layoutMetrics';
 import { useCameraStore } from '../../store/useCameraStore';
-import { getGlyphById } from '../../utils/customGlyphs';
+import { inferGlyphSource, resolveNodeGlyph } from '../../utils/sfGlyphLayer';
 import type { NodeData } from '../../core/types';
 import { gestureRouter } from '../../core/interaction/GestureRouter';
 
 const ContextToolbar = () => {
     const selectedIds = useSelectionStore(state => state.selectedIds);
     const clearSelection = useSelectionStore(state => state.clear);
-    const enterNow = useAppStore(state => state.enterNow);
+    const enterNode = useAppStore(state => state.enterNode);
     const fieldScopeId = useAppStore(state => state.fieldScopeId);
     const setFieldScope = useAppStore(state => state.setFieldScope);
     const contextMenuMode = useAppStore(state => state.contextMenuMode);
     const setTool = useAppStore(state => state.setTool);
     const activeTool = useAppStore(state => state.activeTool);
+    const gridStepMul = useAppStore(state => state.gridStepMul);
     const nodes = useGraphStore(state => state.nodes) as NodeBase[];
     const updateNode = useGraphStore(state => state.updateNode);
     const edges = useGraphStore(state => state.edges) as Edge[];
@@ -54,6 +55,7 @@ const ContextToolbar = () => {
     const [viewport, setViewport] = useState({ width: 0, height: 0 });
     const [isEditingLabel, setIsEditingLabel] = useState(false);
     const [labelDraft, setLabelDraft] = useState('');
+    const [pendingLabel, setPendingLabel] = useState<string | null>(null);
     const pan = useCameraStore(state => state.pan);
     const zoom = useCameraStore(state => state.zoom);
     const setPan = useCameraStore(state => state.setPan);
@@ -74,6 +76,11 @@ const ContextToolbar = () => {
         setShowLinks(false);
         setShowAreaStyle(false);
         setShowActionMenu(false);
+    };
+    const exitLinkMode = () => {
+        if (activeTool === 'link') {
+            setTool('pointer');
+        }
     };
 
     const updateActionMenuPos = () => {
@@ -110,6 +117,16 @@ const ContextToolbar = () => {
         return () => window.removeEventListener('resize', updateViewport);
     }, []);
 
+    useEffect(() => {
+        const unsub = eventBus.on(EVENTS.SPACE_CHANGED, () => {
+            closeAllMenus();
+            setIsEditingLabel(false);
+            setLabelDraft('');
+            setPendingLabel(null);
+        });
+        return () => unsub();
+    }, []);
+
     const count = totalSelected;
     const primaryNode = primaryId ? nodes.find(n => n.id === primaryId) : undefined;
     const primaryArea = primaryAreaId ? areas.find(area => area.id === primaryAreaId) : undefined;
@@ -122,6 +139,13 @@ const ContextToolbar = () => {
     const primaryAreaLabel = primaryArea?.title ?? 'Area';
     const displayPrimaryLabel = primaryLabel.length > 12 ? primaryLabel.slice(0, 12) : primaryLabel;
     const displayPrimaryAreaLabel = primaryAreaLabel.length > 12 ? primaryAreaLabel.slice(0, 12) : primaryAreaLabel;
+
+    useEffect(() => {
+        if (!pendingLabel) return;
+        if (pendingLabel === primaryLabel) {
+            setPendingLabel(null);
+        }
+    }, [pendingLabel, primaryLabel]);
     const primaryCircleArea = primaryArea?.shape === 'circle' ? primaryArea : undefined;
     const anchoredAreasForNode = primaryId
         ? areas.filter(area => area.anchor.type === 'node' && area.anchor.nodeId === primaryId)
@@ -134,14 +158,18 @@ const ContextToolbar = () => {
     const nodeGlyphColor = primaryNodeData?.color_glyph ?? 'rgba(255,255,255,0.9)';
     const nodeIconValueRaw = typeof primaryNodeData?.icon_value === 'string' ? primaryNodeData.icon_value.trim() : '';
     const nodeIconValue = nodeIconValueRaw === '•' ? '' : nodeIconValueRaw;
-    const nodeGlyphIsCustom = nodeIconValue ? getGlyphById(nodeIconValue) : undefined;
+    const nodeIconSource = typeof primaryNodeData?.icon_source === 'string' ? primaryNodeData.icon_source : null;
     const nodeGlyphFallback = primaryNode?.type === 'core'
         ? (primaryNode.id === 'archecore' ? 'archecore' : 'core')
         : primaryNode?.type === 'cluster'
             ? 'cluster'
             : '';
-    const nodeGlyphDisplay = nodeGlyphIsCustom ? nodeIconValue : nodeIconValue;
-    const nodeGlyphResolved = nodeGlyphDisplay || nodeGlyphFallback;
+    const nodeGlyphResolved = resolveNodeGlyph({
+        iconValue: nodeIconValue,
+        iconSource: nodeIconSource,
+        fallbackId: nodeGlyphFallback,
+        fallbackSource: 'sf'
+    });
     const areaPalette = [
         { fill: 'rgba(255,255,255,0.12)', stroke: 'rgba(255,255,255,0.45)' },
         { fill: 'rgba(248,113,113,0.2)', stroke: 'rgba(248,113,113,0.6)' },
@@ -190,7 +218,14 @@ const ContextToolbar = () => {
 
     const handleGlyphSelect = (glyph: string) => {
         if (!primaryNode) return;
-        updateNode(primaryId, { data: { ...primaryNode.data, icon_value: glyph } });
+        if (!primaryId) return;
+        const nextData = { ...primaryNode.data, icon_value: glyph };
+        if (glyph) {
+            nextData.icon_source = inferGlyphSource(glyph);
+        } else {
+            delete nextData.icon_source;
+        }
+        updateNode(primaryId, { data: nextData });
         setShowGlyphPicker(false);
     };
     const handleToggleFocusMode = () => {
@@ -203,6 +238,7 @@ const ContextToolbar = () => {
     };
     const handleColorSelect = (role: 'body' | 'stroke' | 'glow' | 'glyph', color: string) => {
         if (!primaryNode) return;
+        if (!primaryId) return;
         const data = primaryNode.data as NodeData;
         const nextData = { ...data };
         if (role === 'body') nextData.color_body = color;
@@ -252,6 +288,7 @@ const ContextToolbar = () => {
     };
     const handleUngroup = () => {
         if (!primaryNode || primaryNode.type !== 'cluster') return;
+        if (!primaryId) return;
         releaseClusterChildren(primaryId);
         removeNode(primaryId);
         clearSelection();
@@ -356,17 +393,19 @@ const ContextToolbar = () => {
         if (!primaryArea) return;
         const isAnchored = primaryArea.anchor.type === 'node';
         const activeNodeId = selectedIds.length === 1 ? selectedIds[0] : null;
-        const anchorNodeId = isAnchored ? primaryArea.anchor.nodeId : null;
-        const anchorNode = anchorNodeId ? graphEngine.getNode(anchorNodeId) : null;
+        const anchorNodeId = primaryArea.anchor.type === 'node' ? primaryArea.anchor.nodeId : null;
+        const anchorNode = anchorNodeId ? graphEngine.getNode(asNodeId(anchorNodeId)) : null;
         const targetNode = activeNodeId ? graphEngine.getNode(activeNodeId) : null;
 
         if (isAnchored) {
             if (primaryArea.shape === 'circle' && primaryArea.circle) {
+                const cx = anchorNode?.position.x ?? primaryArea.circle.cx ?? 0;
+                const cy = anchorNode?.position.y ?? primaryArea.circle.cy ?? 0;
                 updateArea(primaryArea.id, {
                     anchor: { type: 'canvas' },
                     circle: {
-                        cx: anchorNode?.position.x ?? primaryArea.circle.cx,
-                        cy: anchorNode?.position.y ?? primaryArea.circle.cy,
+                        cx,
+                        cy,
                         r: primaryArea.circle.r
                     }
                 });
@@ -414,14 +453,17 @@ const ContextToolbar = () => {
     const handleDetachAreasFromNode = () => {
         if (selectedIds.length !== 1) return;
         const nodeId = selectedIds[0];
+        if (!nodeId) return;
         const anchorNode = graphEngine.getNode(asNodeId(nodeId));
         anchoredAreasForNode.forEach(area => {
             if (area.shape === 'circle' && area.circle) {
+                const cx = anchorNode?.position.x ?? area.circle.cx ?? 0;
+                const cy = anchorNode?.position.y ?? area.circle.cy ?? 0;
                 updateArea(area.id, {
                     anchor: { type: 'canvas' },
                     circle: {
-                        cx: anchorNode?.position.x ?? area.circle.cx,
-                        cy: anchorNode?.position.y ?? area.circle.cy,
+                        cx,
+                        cy,
                         r: area.circle.r
                     }
                 });
@@ -448,6 +490,7 @@ const ContextToolbar = () => {
         );
         const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % areaPalette.length : 0;
         const next = areaPalette[nextIndex];
+        if (!next) return;
         updateArea(primaryArea.id, { color: next.fill, borderColor: next.stroke });
     };
     const handleAreaStyleSelect = (fill: string, stroke: string) => {
@@ -460,7 +503,7 @@ const ContextToolbar = () => {
     };
     const handleAlignAreaToGrid = () => {
         if (!primaryArea || primaryArea.shape !== 'rect' || !primaryArea.rect) return;
-        const cell = GRID_METRICS.cell;
+        const cell = GRID_METRICS.cell * gridStepMul;
         const snap = (value: number) => Math.round(value / cell) * cell;
         updateArea(primaryArea.id, {
             rect: {
@@ -471,6 +514,7 @@ const ContextToolbar = () => {
             }
         });
     };
+
     const handleFocusArea = () => {
         if (!primaryArea) return;
         if (focusedAreaId === primaryArea.id) {
@@ -521,6 +565,7 @@ const ContextToolbar = () => {
         if (idx < 0 || idx === ordered.length - 1) return;
         const current = ordered[idx];
         const next = ordered[idx + 1];
+        if (!current || !next) return;
         updateArea(current.id, { zIndex: next.zIndex ?? 0 });
         updateArea(next.id, { zIndex: current.zIndex ?? 0 });
     };
@@ -531,6 +576,7 @@ const ContextToolbar = () => {
         if (idx <= 0) return;
         const current = ordered[idx];
         const prev = ordered[idx - 1];
+        if (!current || !prev) return;
         updateArea(current.id, { zIndex: prev.zIndex ?? 0 });
         updateArea(prev.id, { zIndex: current.zIndex ?? 0 });
     };
@@ -693,11 +739,633 @@ const ContextToolbar = () => {
         };
     }, [showActionMenu, toolbarPosition]);
 
-    if (totalSelected === 0 || contextMenuMode === 'radial' || nodes.length === 0) return null;
+    const isRadial = contextMenuMode === 'radial';
+    const useRadial = isRadial && count === 1;
+    const showRadial = useRadial;
+    const radialInteractive = true;
+
+    const radialPosition = useMemo(() => {
+        let worldX = 0;
+        let worldY = 0;
+        if (count > 1) {
+            const selectedNodes = nodes.filter(n => selectedIds.includes(n.id));
+            const selectedAreas = areas.filter(a => selectedAreaIds.includes(a.id));
+            const points = [
+                ...selectedNodes.map(n => n.position),
+                ...selectedAreas.flatMap(area => {
+                    if (area.shape === 'rect' && area.rect) {
+                        return [
+                            { x: area.rect.x, y: area.rect.y },
+                            { x: area.rect.x + area.rect.w, y: area.rect.y + area.rect.h }
+                        ];
+                    }
+                    if (area.shape === 'circle' && area.circle) {
+                        const center = getAreaCenter(area);
+                        const radius = getCircleBoundsRadius(area);
+                        const cx = center?.cx ?? 0;
+                        const cy = center?.cy ?? 0;
+                        return [
+                            { x: cx - radius, y: cy - radius },
+                            { x: cx + radius, y: cy + radius }
+                        ];
+                    }
+                    return [];
+                })
+            ];
+            if (points.length > 0) {
+                const xs = points.map(p => p.x);
+                const ys = points.map(p => p.y);
+                worldX = (Math.min(...xs) + Math.max(...xs)) / 2;
+                worldY = (Math.min(...ys) + Math.max(...ys)) / 2;
+            }
+        } else if (hasNodes && primaryNode) {
+            worldX = primaryNode.position.x;
+            worldY = primaryNode.position.y;
+        } else if (hasAreas && primaryArea) {
+            if (primaryArea.shape === 'rect' && primaryArea.rect) {
+                worldX = primaryArea.rect.x + primaryArea.rect.w / 2;
+                worldY = primaryArea.rect.y + primaryArea.rect.h / 2;
+            } else if (primaryArea.shape === 'circle' && primaryArea.circle) {
+                const center = getAreaCenter(primaryArea);
+                worldX = center?.cx ?? 0;
+                worldY = center?.cy ?? 0;
+            }
+        } else if (hasEdges && selectedEdgeIds.length === 1) {
+            const edge = edges.find(item => item.id === selectedEdgeIds[0]);
+            if (edge) {
+                const source = nodes.find(n => n.id === edge.source);
+                const target = nodes.find(n => n.id === edge.target);
+                if (source && target) {
+                    worldX = (source.position.x + target.position.x) / 2;
+                    worldY = (source.position.y + target.position.y) / 2;
+                }
+            }
+        }
+        const screenX = worldX * zoom + pan.x;
+        const screenY = worldY * zoom + pan.y;
+        const padding = 32;
+        const clampedX = Math.max(padding, Math.min(viewport.width - padding, screenX));
+        const clampedY = Math.max(padding, Math.min(viewport.height - padding, screenY));
+        return {
+            left: `${clampedX}px`,
+            top: `${clampedY}px`,
+            transform: 'translate(-50%, -50%)'
+        } as React.CSSProperties;
+    }, [count, viewport, hasNodes, hasAreas, hasEdges, primaryNode, primaryArea, selectedEdgeIds, selectedAreaIds, selectedIds, edges, nodes, zoom, pan]);
+
+    const radialTitle = useMemo(() => {
+        if (!showRadial) return '';
+        if (count === 1) {
+            if (primaryNode) {
+                const nextLabel = pendingLabel ?? primaryLabel;
+                return nextLabel.length > 12 ? nextLabel.slice(0, 12) : nextLabel;
+            }
+            if (primaryArea) return displayPrimaryAreaLabel;
+            if (hasEdges) return 'Edge selected';
+            return 'Selected';
+        }
+        return `${count} selected`;
+    }, [count, hasEdges, primaryNode, primaryArea, displayPrimaryAreaLabel, pendingLabel, primaryLabel, useRadial]);
+
+    if (totalSelected === 0 || nodes.length === 0) return null;
+
+    if (showRadial) {
+        const radialItems: Array<{
+            key: string;
+            title: string;
+            content: React.ReactNode;
+            onClick: () => void;
+            active?: boolean;
+            isMenu?: boolean;
+        }> = [];
+
+        if (count === 1 && hasNodes && !hasAreas && !hasEdges) {
+            radialItems.push({
+                key: 'enter',
+                title: primaryNode?.type === 'cluster'
+                    ? (fieldScopeId === primaryId ? 'Exit Cluster' : 'Enter Cluster')
+                    : `Enter ${primaryNode?.type === 'portal' ? 'Portal' : 'Node'}`,
+                content: '↵',
+                onClick: () => {
+                    exitLinkMode();
+                    if (primaryNode?.type === 'cluster') {
+                        handleToggleFocusMode();
+                        return;
+                    }
+                    if (primaryId) {
+                        enterNode(primaryId);
+                    }
+                }
+            });
+            radialItems.push({
+                key: 'link',
+                title: 'Create Link',
+                content: <GlyphIcon id="link-action" size={20} className={activeTool === 'link' ? 'text-color-os-dark' : 'text-white/80'} />,
+                active: activeTool === 'link',
+                onClick: () => {
+                    setTool('link');
+                    if (primaryId) {
+                        gestureRouter.startLinkPreview(asNodeId(primaryId));
+                    }
+                }
+            });
+            radialItems.push({
+                key: 'glyph',
+                title: 'Pick Glyph',
+                content: nodeGlyphResolved ? (
+                    <GlyphIcon id={nodeGlyphResolved.id} size={20} className={showGlyphPicker ? 'text-color-os-dark' : 'text-white/90'} style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }} />
+                ) : (
+                    <span className="text-[18px] leading-none" style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }}>
+                        {'○'}
+                    </span>
+                ),
+                active: showGlyphPicker,
+                onClick: () => {
+                    exitLinkMode();
+                    const next = !showGlyphPicker;
+                    closeAllMenus();
+                    setShowGlyphPicker(next);
+                }
+            });
+            radialItems.push({
+                key: 'color',
+                title: 'Colors',
+                content: <span className="w-3.5 h-3.5 rounded-full border border-white/30" style={{ backgroundColor: nodeBodyColor }} />,
+                active: showColorPicker,
+                onClick: () => {
+                    exitLinkMode();
+                    const next = !showColorPicker;
+                    closeAllMenus();
+                    setShowColorPicker(next);
+                }
+            });
+        } else if (count === 1 && hasAreas && !hasNodes && !hasEdges && primaryArea) {
+            radialItems.push({
+                key: 'focus',
+                title: focusedAreaId === primaryArea.id ? 'Exit focus' : 'Focus area',
+                content: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 21h-5" />
+                        <circle cx="12" cy="12" r="3.5" />
+                    </svg>
+                ),
+                onClick: () => {
+                    exitLinkMode();
+                    handleFocusArea();
+                }
+            });
+            radialItems.push({
+                key: 'style',
+                title: 'Style',
+                content: <span className="w-3 h-3 rounded-full border border-white/30" style={{ backgroundColor: primaryArea.color ?? 'rgba(255,255,255,0.06)' }} />,
+                active: showAreaStyle,
+                onClick: () => {
+                    exitLinkMode();
+                    const next = !showAreaStyle;
+                    closeAllMenus();
+                    setShowAreaStyle(next);
+                }
+            });
+            if (canAnchorToNode) {
+                radialItems.push({
+                    key: 'anchor',
+                    title: primaryArea.anchor.type === 'node' ? 'Detach area from node' : 'Anchor area to node',
+                    content: (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="4" />
+                            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                        </svg>
+                    ),
+                    onClick: () => {
+                        exitLinkMode();
+                        handleAnchorToNode();
+                    }
+                });
+            } else if (primaryArea.shape === 'rect') {
+                radialItems.push({
+                    key: 'align',
+                    title: 'Align to grid',
+                    content: (
+                        <svg width="20" height="20" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+                            <path d="M1 4.5H11M1 7.5H11M4.5 1V11M7.5 1V11" />
+                        </svg>
+                    ),
+                    onClick: () => {
+                        exitLinkMode();
+                        handleAlignAreaToGrid();
+                    }
+                });
+            }
+            radialItems.push({
+                key: 'lock',
+                title: primaryArea.locked ? 'Unlock area' : 'Lock area',
+                content: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                        {primaryArea.locked ? (
+                            <>
+                                <rect x="5" y="11" width="14" height="9" rx="2" />
+                                <path d="M8 11V8a4 4 0 1 1 8 0v3" />
+                            </>
+                        ) : (
+                            <>
+                                <rect x="5" y="11" width="14" height="9" rx="2" />
+                                <path d="M9 11V8a3 3 0 0 1 6 0" />
+                            </>
+                        )}
+                    </svg>
+                ),
+                onClick: () => {
+                    exitLinkMode();
+                    updateArea(primaryArea.id, { locked: !primaryArea.locked });
+                }
+            });
+        } else if (count > 1 && hasNodes) {
+            radialItems.push({
+                key: 'area',
+                title: 'Area from selection',
+                content: <GlyphIcon id="area" size={20} className="text-white/80" />,
+                onClick: () => {
+                    exitLinkMode();
+                    handleAreaFromSelection();
+                }
+            });
+            if (!hasAreas && !hasEdges) {
+                radialItems.push({
+                    key: 'group',
+                    title: 'Group Selection',
+                    content: <GlyphIcon id="cluster" size={20} className="text-white/80" />,
+                    onClick: () => {
+                        exitLinkMode();
+                        handleGroup();
+                    }
+                });
+            }
+        }
+
+        if (count > 0) {
+            radialItems.push({
+                key: 'actions',
+                title: 'Actions',
+                content: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="6" cy="12" r="1.6" />
+                        <circle cx="12" cy="12" r="1.6" />
+                        <circle cx="18" cy="12" r="1.6" />
+                    </svg>
+                ),
+                onClick: () => {
+                    exitLinkMode();
+                    const next = !showActionMenu;
+                    closeAllMenus();
+                    if (next) {
+                        updateActionMenuPos();
+                    }
+                    setShowActionMenu(next);
+                },
+                isMenu: true,
+                active: showActionMenu
+            });
+        }
+
+        const baseRadius = primaryNode
+            ? (primaryNode.type === 'core' ? NODE_SIZES.root / 2 : primaryNode.type === 'cluster' ? NODE_SIZES.cluster / 2 : NODE_SIZES.base / 2)
+            : 36;
+        const ringRadius = baseRadius + 38;
+        const ringSize = ringRadius * 2 + 28;
+        const iconSpan = 220;
+        const iconStart = -90 - (iconSpan / 2);
+        const titleAngle = 90;
+
+        return (
+            <div ref={toolbarRef} className="absolute z-[var(--z-ui)] pointer-events-none" style={radialPosition}>
+                <div className="relative pointer-events-none" style={{ width: ringSize, height: ringSize }}>
+                        {radialItems.map((item, idx) => {
+                            const angleDeg = radialItems.length > 1
+                                ? iconStart + (iconSpan * (idx / (radialItems.length - 1)))
+                                : -90;
+                            const angle = angleDeg * (Math.PI / 180);
+                            const x = ringSize / 2 + Math.cos(angle) * ringRadius;
+                            const y = ringSize / 2 + Math.sin(angle) * ringRadius;
+                            const isActive = Boolean(item.active);
+                            return (
+                                <div
+                                    key={item.key}
+                                    className={`absolute ${radialInteractive ? 'pointer-events-auto' : 'pointer-events-none'}`}
+                                    style={{ left: x, top: y, transform: 'translate(-50%, -50%)' }}
+                                >
+                                    <button
+                                        ref={item.isMenu ? actionMenuAnchorRef : undefined}
+                                        onClick={item.onClick}
+                                        className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all border border-white/10 shadow-[0_0_12px_rgba(255,255,255,0.08)] ${isActive ? 'glass-panel text-white/95 shadow-[0_0_16px_rgba(255,255,255,0.35)]' : 'glass-panel text-white/85 hover:bg-white/10'}`}
+                                        title={item.title}
+                                        data-context-menu
+                                    >
+                                        {item.content}
+                                    </button>
+                                    {item.key === 'glyph' && showGlyphPicker && (
+                                        <GlyphPicker
+                                            onSelect={handleGlyphSelect}
+                                            onClose={() => setShowGlyphPicker(false)}
+                                            currentGlyph={nodeIconValue}
+                                        />
+                                    )}
+                                    {item.key === 'color' && showColorPicker && (
+                                        <ColorPicker
+                                            onSelect={handleColorSelect}
+                                            onClose={() => setShowColorPicker(false)}
+                                            currentColors={{
+                                                body: nodeBodyColor,
+                                                stroke: nodeStrokeColor,
+                                                glow: nodeGlowColor,
+                                                glyph: nodeGlyphColor
+                                            }}
+                                        />
+                                    )}
+                                    {item.key === 'style' && showAreaStyle && primaryArea && (
+                                        <div
+                                            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[280px] bg-black/90 rounded-xl overflow-hidden shadow-2xl backdrop-blur-md flex flex-col z-[200]"
+                                            onClick={(e) => e.stopPropagation()}
+                                            data-context-menu
+                                        >
+                                            <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+                                                <div className="text-[10px] uppercase tracking-[0.25em] text-white/50 font-bold">
+                                                    Style
+                                                </div>
+                                                <button
+                                                    onClick={() => setShowAreaStyle(false)}
+                                                    className="text-[9px] uppercase tracking-wider text-white/50"
+                                                >
+                                                    Close
+                                                </button>
+                                            </div>
+                                            <div className="px-3 py-2 flex flex-col gap-3">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 w-[68px]">
+                                                        Color
+                                                    </span>
+                                                    <div className="flex-1 grid grid-cols-8 gap-2">
+                                                        {areaPalette.map(palette => {
+                                                            const isActive = primaryArea.color === palette.fill && primaryArea.borderColor === palette.stroke;
+                                                            return (
+                                                                <button
+                                                                    key={palette.fill}
+                                                                    onClick={() => handleAreaStyleSelect(palette.fill, palette.stroke)}
+                                                                    className={`w-4 h-4 rounded-full border ${isActive ? 'border-white' : 'border-transparent'}`}
+                                                                    style={{ backgroundColor: palette.fill }}
+                                                                />
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                        {radialTitle ? (() => {
+                            const angle = titleAngle * (Math.PI / 180);
+                            const titleRadius = ringRadius - 2;
+                            const x = ringSize / 2 + Math.cos(angle) * titleRadius;
+                            const y = ringSize / 2 + Math.sin(angle) * titleRadius + 6;
+                            return (
+                                <div
+                                    className={`absolute ${radialInteractive ? 'pointer-events-auto hover:border-white/30 hover:bg-white/10' : 'pointer-events-none'} glass-panel text-[10px] text-white/70 uppercase tracking-[0.25em] font-medium px-4 py-1.5 rounded-full min-w-[120px] max-w-[160px] text-center shadow-[0_0_16px_rgba(255,255,255,0.08)]`}
+                                    style={{ left: x, top: y, transform: 'translate(-50%, -50%)' }}
+                                    title={primaryNode ? 'Double-click to rename' : undefined}
+                                    onClick={() => {
+                                        exitLinkMode();
+                                    }}
+                                    onDoubleClick={(e) => {
+                                        exitLinkMode();
+                                        e.stopPropagation();
+                                        if (primaryNode) {
+                                            setIsEditingLabel(true);
+                                            setLabelDraft(primaryLabel);
+                                        }
+                                    }}
+                                >
+                                    {primaryNode && isEditingLabel ? (
+                                        <input
+                                            value={labelDraft}
+                                            onChange={(e) => setLabelDraft(e.target.value)}
+                                            onBlur={() => {
+                                                const next = labelDraft.trim() || 'Empty';
+                                                if (primaryNode && next !== primaryLabel) {
+                                                    updateNode(primaryNode.id, { data: { ...primaryNode.data, label: next } });
+                                                    setPendingLabel(next);
+                                                }
+                                                setIsEditingLabel(false);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                e.stopPropagation();
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    const next = labelDraft.trim() || 'Empty';
+                                                    if (primaryNode && next !== primaryLabel) {
+                                                        updateNode(primaryNode.id, { data: { ...primaryNode.data, label: next } });
+                                                        setPendingLabel(next);
+                                                    }
+                                                    setIsEditingLabel(false);
+                                                }
+                                                if (e.key === 'Escape') {
+                                                    e.preventDefault();
+                                                    setIsEditingLabel(false);
+                                                    setLabelDraft(primaryLabel);
+                                                }
+                                            }}
+                                            onPointerDown={(e) => e.stopPropagation()}
+                                            className="bg-transparent text-[10px] tracking-[0.25em] text-white uppercase text-center outline-none w-full"
+                                            autoFocus
+                                        />
+                                    ) : (
+                                        radialTitle
+                                    )}
+                                </div>
+                            );
+                        })() : null}
+                </div>
+
+                {showActionMenu && actionMenuPos && (
+                    <div
+                        className="absolute z-[var(--z-ui)] glass-panel px-2 py-2 min-w-[190px] border-0 flex flex-col gap-1 pointer-events-auto"
+                        style={{
+                            left: actionMenuPos.x,
+                            top: actionMenuPos.y,
+                            transform: actionMenuAlign === 'left' ? 'translate(-100%, -50%)' : 'translateY(-50%)'
+                        }}
+                        data-context-menu
+                    >
+                        {isCluster && count === 1 && hasNodes && !hasAreas && !hasEdges && (
+                            <>
+                                <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 px-2 pt-1">
+                                    Cluster
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleFoldToggle();
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                                >
+                                    {isFolded ? 'Unfold Cluster' : 'Fold Cluster'}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleUngroup();
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                                >
+                                    Collapse Cluster
+                                </button>
+                                <div className="h-px bg-white/10 my-1" />
+                            </>
+                        )}
+                        {canDetachAreasFromNode && (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleDetachAreasFromNode();
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                                >
+                                    Detach areas
+                                </button>
+                                <div className="h-px bg-white/10 my-1" />
+                            </>
+                        )}
+                        {primaryArea && hasAreas && !hasNodes && !hasEdges && (
+                            <>
+                                <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 px-2 pt-1">
+                                    Area
+                                </div>
+                                {primaryArea.shape === 'rect' && (
+                                    <button
+                                        onClick={() => {
+                                            exitLinkMode();
+                                            handleAlignAreaToGrid();
+                                        }}
+                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                                    >
+                                        Align to grid
+                                    </button>
+                                )}
+                                {canAnchorToNode && (
+                                    <button
+                                        onClick={() => {
+                                            exitLinkMode();
+                                            handleAnchorToNode();
+                                        }}
+                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                                    >
+                                        {primaryArea.anchor.type === 'node' ? 'Detach from node' : 'Anchor to node'}
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        updateArea(primaryArea.id, { locked: !primaryArea.locked });
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                                >
+                                    {primaryArea.locked ? 'Unlock area' : 'Lock area'}
+                                </button>
+                                {primaryCircleArea && (
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                exitLinkMode();
+                                                handleAddRing();
+                                            }}
+                                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                                        >
+                                            Add ring
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                exitLinkMode();
+                                                handleRemoveRing();
+                                            }}
+                                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                                        >
+                                            Remove ring
+                                        </button>
+                                    </>
+                                )}
+                                <div className="h-px bg-white/10 my-1" />
+                            </>
+                        )}
+                        {connectedEdges.length > 0 && (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        setShowLinks(prev => !prev);
+                                    }}
+                                    className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm ${showLinks ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5'}`}
+                                >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                                        <circle cx="6.5" cy="7" r="1.6" fill="currentColor" stroke="none" />
+                                        <circle cx="6.5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+                                        <circle cx="6.5" cy="17" r="1.6" fill="currentColor" stroke="none" />
+                                        <path d="M10 7h8M10 12h8M10 17h8" />
+                                    </svg>
+                                    Links
+                                </button>
+                                <div className="h-px bg-white/10 my-1" />
+                            </>
+                        )}
+                        <button
+                            onClick={() => {
+                                exitLinkMode();
+                                handleDelete();
+                            }}
+                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-red-300 hover:bg-red-500/15"
+                        >
+                            <GlyphIcon id="delete" size={18} className="text-red-300" />
+                            Delete
+                        </button>
+                        {showLinks && connectedEdges.length > 0 && (
+                            <div className="absolute top-1/2 left-full ml-3 -translate-y-1/2 glass-panel px-2 py-2 min-w-[210px] border-0 flex flex-col gap-1" data-context-menu>
+                                <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 px-2 pb-1">
+                                    Links
+                                </div>
+                                <div className="flex flex-col gap-1 max-h-52 overflow-auto px-1">
+                                    {connectedEdges.map(edge => {
+                                        const otherId = edge.source === primaryId ? edge.target : edge.source;
+                                        const otherNode = nodes.find(n => n.id === otherId);
+                                        const label = typeof otherNode?.data?.label === 'string' ? otherNode.data.label : otherId;
+                                        return (
+                                            <div key={edge.id} className="flex items-center justify-between gap-2 px-1 py-1 rounded hover:bg-white/5">
+                                                <span className="text-xs text-white/70 truncate">
+                                                    {label}
+                                                </span>
+                                                <button
+                                                    onClick={() => {
+                                                        exitLinkMode();
+                                                        removeEdge(edge.id);
+                                                    }}
+                                                    className="text-xs text-white/40 hover:text-white/80"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div ref={toolbarRef} className="absolute z-[var(--z-ui)] animate-materialize" style={toolbarPosition}>
-            <div className="glass-panel py-1.5 px-3 flex items-center gap-4 cursor-default context-toolbar relative">
+            <div className="glass-panel py-1.5 px-3 flex items-center gap-4 cursor-default context-toolbar relative overflow-visible">
 
                 {/* Info Section */}
                 <div className="flex items-center gap-2 pl-4 pr-4 border-r border-white/10 overflow-hidden max-w-[300px]">
@@ -735,21 +1403,25 @@ const ContextToolbar = () => {
                                 className="text-sm font-bold text-white tracking-tight truncate max-w-[12ch] cursor-pointer"
                                 title="Double-click to rename"
                                 onClick={() => {
+                                    exitLinkMode();
                                     if (typeof window !== 'undefined' && (window as any).__E2E__) {
                                         setIsEditingLabel(true);
                                         setLabelDraft(primaryLabel);
                                     }
                                 }}
                                 onDoubleClick={() => {
+                                    exitLinkMode();
                                     if (contextMenuMode === 'bar') {
                                         setIsEditingLabel(true);
                                         setLabelDraft(primaryLabel);
                                         return;
                                     }
-                                    eventBus.emit(EVENTS.UI_REQ_EDIT_LABEL, { nodeId: primaryId });
+                                    if (primaryId) {
+                                        eventBus.emit(EVENTS.UI_REQ_EDIT_LABEL, { nodeId: primaryId });
+                                    }
                                 }}
                             >
-                                <span className="context-label cursor-text">{displayPrimaryLabel}</span>
+                                <span className="context-label">{displayPrimaryLabel}</span>
                             </button>
                         )
                     ) : count === 1 && hasAreas && !hasNodes && !hasEdges ? (
@@ -773,11 +1445,14 @@ const ContextToolbar = () => {
                         <>
                             <button
                                 onClick={() => {
+                                    exitLinkMode();
                                     if (primaryNode?.type === 'cluster') {
                                         handleToggleFocusMode();
                                         return;
                                     }
-                                    enterNow(primaryId);
+                                    if (primaryId) {
+                                        enterNode(primaryId);
+                                    }
                                 }}
                                 className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-xl text-lg leading-none transition-colors"
                                 title={primaryNode?.type === 'cluster' ? (fieldScopeId === primaryId ? 'Exit Cluster' : 'Enter Cluster') : `Enter ${primaryNode?.type === 'portal' ? 'Portal' : 'Node'}`}
@@ -798,6 +1473,7 @@ const ContextToolbar = () => {
                                 </button>
                             <button
                                 onClick={() => {
+                                    exitLinkMode();
                                     const next = !showGlyphPicker;
                                     closeAllMenus();
                                     setShowGlyphPicker(next);
@@ -806,11 +1482,11 @@ const ContextToolbar = () => {
                                 title="Pick Glyph"
                                 data-context-menu
                             >
-                                {nodeGlyphIsCustom || getGlyphById(nodeGlyphResolved) ? (
-                                    <GlyphIcon id={nodeGlyphResolved} size={20} className={showGlyphPicker ? 'text-color-os-dark' : 'text-white/90'} style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }} />
+                                {nodeGlyphResolved ? (
+                                    <GlyphIcon id={nodeGlyphResolved.id} size={20} className={showGlyphPicker ? 'text-color-os-dark' : 'text-white/90'} style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }} />
                                 ) : (
                                     <span className="text-[18px] leading-none" style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }}>
-                                        {nodeGlyphResolved || '○'}
+                                        {'○'}
                                     </span>
                                 )}
                                 {showGlyphPicker && (
@@ -821,17 +1497,20 @@ const ContextToolbar = () => {
                                     />
                                 )}
                             </button>
-                            <button
-                                onClick={() => {
-                                    const next = !showColorPicker;
-                                    closeAllMenus();
-                                    setShowColorPicker(next);
-                                }}
-                                className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors relative border border-transparent focus:outline-none ${showColorPicker ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-white/80 hover:bg-white/10'}`}
-                                title="Colors"
-                                data-context-menu
-                            >
-                                <span className="w-3.5 h-3.5 rounded-full border border-white/30" style={{ backgroundColor: nodeBodyColor }} />
+                            <div className="relative" data-context-menu>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        const next = !showColorPicker;
+                                        closeAllMenus();
+                                        setShowColorPicker(next);
+                                    }}
+                                    className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors border border-transparent focus:outline-none ${showColorPicker ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-white/80 hover:bg-white/10'}`}
+                                    title="Colors"
+                                    data-context-menu
+                                >
+                                    <span className="w-3.5 h-3.5 rounded-full border border-white/30" style={{ backgroundColor: nodeBodyColor }} />
+                                </button>
                                 {showColorPicker && (
                                     <ColorPicker
                                         onSelect={handleColorSelect}
@@ -844,10 +1523,13 @@ const ContextToolbar = () => {
                                         }}
                                     />
                                 )}
-                            </button>
+                            </div>
                             {canDetachAreasFromNode && (
                                 <button
-                                    onClick={handleDetachAreasFromNode}
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleDetachAreasFromNode();
+                                    }}
                                     className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-xl text-lg leading-none transition-colors text-white/80"
                                     title="Detach areas from node"
                                 >
@@ -859,7 +1541,10 @@ const ContextToolbar = () => {
                             )}
                         {isCluster && (
                             <button
-                                onClick={handleFoldToggle}
+                                onClick={() => {
+                                    exitLinkMode();
+                                    handleFoldToggle();
+                                }}
                                 className="w-10 h-10 flex items-center justify-center hover:bg-white/10 hover:scale-110 rounded-xl text-base leading-none transition-all text-white/80"
                                 title={isFolded ? 'Unfold Cluster' : 'Fold Cluster'}
                             >
@@ -879,25 +1564,26 @@ const ContextToolbar = () => {
                                 </svg>
                             </button>
                         )}
-                        {isCluster && (
-                            <button
-                                onClick={handleUngroup}
-                                className="w-10 h-10 flex items-center justify-center hover:bg-white/10 hover:scale-110 rounded-xl text-base leading-none transition-all text-white/80"
-                                title="Collapse Cluster"
-                                aria-label="Collapse Cluster"
-                            >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="6.5" />
-                                    <path d="M12 7v10" />
-                                </svg>
-                            </button>
-                        )}
                         </>
                     )}
                     {primaryArea && count === 1 && hasAreas && !hasNodes && !hasEdges && (
                         <>
                             <button
                                 onClick={() => {
+                                    exitLinkMode();
+                                    handleFocusArea();
+                                }}
+                                className="w-10 h-10 flex items-center justify-center hover:bg-white/10 hover:scale-110 rounded-xl transition-all text-white/80"
+                                title={focusedAreaId === primaryArea?.id ? 'Exit focus' : 'Focus area'}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 21h-5" />
+                                    <circle cx="12" cy="12" r="3.5" />
+                                </svg>
+                            </button>
+                            <button
+                                onClick={() => {
+                                    exitLinkMode();
                                     const next = !showAreaStyle;
                                     closeAllMenus();
                                     setShowAreaStyle(next);
@@ -1011,7 +1697,10 @@ const ContextToolbar = () => {
                             {primaryArea?.shape === 'rect' && (
                                 <>
                                     <button
-                                        onClick={handleAlignAreaToGrid}
+                                        onClick={() => {
+                                            exitLinkMode();
+                                            handleAlignAreaToGrid();
+                                        }}
                                         className="w-10 h-10 flex items-center justify-center hover:bg-white/10 hover:scale-110 rounded-xl transition-all text-white/80"
                                         title="Align to grid"
                                     >
@@ -1021,16 +1710,12 @@ const ContextToolbar = () => {
                                     </button>
                                 </>
                             )}
-                            <button
-                                onClick={handleFocusArea}
-                                className="w-10 h-10 flex items-center justify-center hover:bg-white/10 hover:scale-110 rounded-xl transition-all text-white/80"
-                                title={focusedAreaId === primaryArea?.id ? 'Exit area' : 'Enter area'}
-                            >
-                                ↵
-                            </button>
                             {canAnchorToNode && (
                                 <button
-                                    onClick={handleAnchorToNode}
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleAnchorToNode();
+                                    }}
                                     className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${primaryArea?.anchor.type === 'node' ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-white/80 hover:bg-white/10'}`}
                                     title={primaryArea?.anchor.type === 'node' ? 'Detach area from node' : 'Anchor area to node'}
                                 >
@@ -1041,7 +1726,10 @@ const ContextToolbar = () => {
                                 </button>
                             )}
                             <button
-                                onClick={() => updateArea(primaryArea.id, { locked: !primaryArea.locked })}
+                                onClick={() => {
+                                    exitLinkMode();
+                                    updateArea(primaryArea.id, { locked: !primaryArea.locked });
+                                }}
                                 className="w-10 h-10 flex items-center justify-center hover:bg-white/10 hover:scale-110 rounded-xl transition-all text-white/80"
                                 title={primaryArea.locked ? 'Unlock area' : 'Lock area'}
                             >
@@ -1062,7 +1750,10 @@ const ContextToolbar = () => {
                             {primaryCircleArea && (
                                 <>
                                     <button
-                                        onClick={handleAddRing}
+                                        onClick={() => {
+                                            exitLinkMode();
+                                            handleAddRing();
+                                        }}
                                         className="w-10 h-10 flex items-center justify-center hover:bg-white/10 hover:scale-110 rounded-xl transition-all text-white/80"
                                         title="Add ring"
                                     >
@@ -1072,7 +1763,10 @@ const ContextToolbar = () => {
                                         </svg>
                                     </button>
                                     <button
-                                        onClick={handleRemoveRing}
+                                        onClick={() => {
+                                            exitLinkMode();
+                                            handleRemoveRing();
+                                        }}
                                         className="w-10 h-10 flex items-center justify-center hover:bg-white/10 hover:scale-110 rounded-xl transition-all text-white/80"
                                         title="Remove ring"
                                     >
@@ -1088,7 +1782,10 @@ const ContextToolbar = () => {
                     {count > 1 && hasNodes && (
                         <>
                             <button
-                                onClick={handleAreaFromSelection}
+                                onClick={() => {
+                                    exitLinkMode();
+                                    handleAreaFromSelection();
+                                }}
                                 className="w-10 h-10 flex items-center justify-center hover:bg-white/10 hover:scale-110 rounded-xl text-lg leading-none transition-all text-white/80"
                                 title="Area from selection"
                             >
@@ -1096,7 +1793,10 @@ const ContextToolbar = () => {
                             </button>
                             {canAnchorToNode && (
                                 <button
-                                    onClick={handleAnchorToNode}
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleAnchorToNode();
+                                    }}
                                     className="w-10 h-10 flex items-center justify-center hover:bg-white/10 hover:scale-110 rounded-xl text-lg leading-none transition-all text-white/80"
                                     title={primaryArea?.anchor.type === 'node' ? 'Detach area from node' : 'Anchor area to node'}
                                 >
@@ -1108,7 +1808,10 @@ const ContextToolbar = () => {
                             )}
                             {!hasAreas && !hasEdges && (
                                 <button
-                                    onClick={handleGroup}
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleGroup();
+                                    }}
                                     className="w-10 h-10 flex items-center justify-center hover:bg-white/10 hover:scale-110 rounded-xl text-lg leading-none transition-all text-white/80"
                                     title="Group Selection"
                                 >
@@ -1122,6 +1825,7 @@ const ContextToolbar = () => {
                             <button
                                 ref={actionMenuAnchorRef}
                                 onClick={() => {
+                                    exitLinkMode();
                                     const next = !showActionMenu;
                                     closeAllMenus();
                                     if (next) {
@@ -1156,10 +1860,114 @@ const ContextToolbar = () => {
                     }}
                     data-context-menu
                 >
+                    {isCluster && count === 1 && hasNodes && !hasAreas && !hasEdges && (
+                        <>
+                            <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 px-2 pt-1">
+                                Cluster
+                            </div>
+                            <button
+                                onClick={() => {
+                                    exitLinkMode();
+                                    handleFoldToggle();
+                                }}
+                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                            >
+                                {isFolded ? 'Unfold Cluster' : 'Fold Cluster'}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    exitLinkMode();
+                                    handleUngroup();
+                                }}
+                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                            >
+                                Collapse Cluster
+                            </button>
+                            <div className="h-px bg-white/10 my-1" />
+                        </>
+                    )}
+                    {canDetachAreasFromNode && (
+                        <>
+                            <button
+                                onClick={() => {
+                                    exitLinkMode();
+                                    handleDetachAreasFromNode();
+                                }}
+                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                            >
+                                Detach areas
+                            </button>
+                            <div className="h-px bg-white/10 my-1" />
+                        </>
+                    )}
+                    {primaryArea && hasAreas && !hasNodes && !hasEdges && (
+                        <>
+                            <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 px-2 pt-1">
+                                Area
+                            </div>
+                            {primaryArea.shape === 'rect' && (
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleAlignAreaToGrid();
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                                >
+                                    Align to grid
+                                </button>
+                            )}
+                            {canAnchorToNode && (
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleAnchorToNode();
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                                >
+                                    {primaryArea.anchor.type === 'node' ? 'Detach from node' : 'Anchor to node'}
+                                </button>
+                            )}
+                            <button
+                                onClick={() => {
+                                    exitLinkMode();
+                                    updateArea(primaryArea.id, { locked: !primaryArea.locked });
+                                }}
+                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                            >
+                                {primaryArea.locked ? 'Unlock area' : 'Lock area'}
+                            </button>
+                            {primaryCircleArea && (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            exitLinkMode();
+                                            handleAddRing();
+                                        }}
+                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                                    >
+                                        Add ring
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            exitLinkMode();
+                                            handleRemoveRing();
+                                        }}
+                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
+                                    >
+                                        Remove ring
+                                    </button>
+                                </>
+                            )}
+                            <div className="h-px bg-white/10 my-1" />
+                        </>
+                    )}
                     {connectedEdges.length > 0 && (
                         <>
                             <button
-                                onClick={() => setShowLinks(prev => !prev)}
+                                onClick={() => {
+                                    exitLinkMode();
+                                    setShowLinks(prev => !prev);
+                                }}
                                 className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm ${showLinks ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5'}`}
                             >
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -1179,7 +1987,10 @@ const ContextToolbar = () => {
                                 Layer
                             </div>
                             <button
-                                onClick={handleBringAreaToFront}
+                                onClick={() => {
+                                    exitLinkMode();
+                                    handleBringAreaToFront();
+                                }}
                                 className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -1189,7 +2000,10 @@ const ContextToolbar = () => {
                                 Bring to front
                             </button>
                             <button
-                                onClick={handleBringAreaForward}
+                                onClick={() => {
+                                    exitLinkMode();
+                                    handleBringAreaForward();
+                                }}
                                 className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -1198,7 +2012,10 @@ const ContextToolbar = () => {
                                 Bring forward
                             </button>
                             <button
-                                onClick={handleSendAreaBackward}
+                                onClick={() => {
+                                    exitLinkMode();
+                                    handleSendAreaBackward();
+                                }}
                                 className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -1207,7 +2024,10 @@ const ContextToolbar = () => {
                                 Send backward
                             </button>
                             <button
-                                onClick={handleSendAreaToBack}
+                                onClick={() => {
+                                    exitLinkMode();
+                                    handleSendAreaToBack();
+                                }}
                                 className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -1220,7 +2040,10 @@ const ContextToolbar = () => {
                         </>
                     )}
                     <button
-                        onClick={handleDelete}
+                        onClick={() => {
+                            exitLinkMode();
+                            handleDelete();
+                        }}
                         className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-red-300 hover:bg-red-500/15"
                     >
                         <GlyphIcon id="delete" size={18} className="text-red-300" />
@@ -1242,7 +2065,10 @@ const ContextToolbar = () => {
                                                 {label}
                                             </span>
                                             <button
-                                                onClick={() => removeEdge(edge.id)}
+                                                onClick={() => {
+                                                    exitLinkMode();
+                                                    removeEdge(edge.id);
+                                                }}
                                                 className="text-xs text-white/40 hover:text-white/80"
                                             >
                                                 ✕

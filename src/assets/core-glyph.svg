@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <radialGradient id="core-halo" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(32 32) rotate(90) scale(31)">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.24"/>
+      <stop offset="0.72" stop-color="#D5DFEE" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="core-iris" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(32 32) rotate(90) scale(24)">
+      <stop offset="0" stop-color="#FAFCFF"/>
+      <stop offset="1" stop-color="#DCE4EE"/>
+    </radialGradient>
+  </defs>
+
+  <circle cx="32" cy="32" r="31" fill="url(#core-halo)"/>
+  <circle cx="32" cy="32" r="23.5" fill="url(#core-iris)" stroke="#A7B2C2" stroke-opacity="0.62" stroke-width="1.2"/>
+  <circle cx="32" cy="32" r="14.5" fill="#0D1118"/>
+  <circle cx="36.2" cy="27.8" r="2.6" fill="#F7FBFF" fill-opacity="0.92"/>
+</svg>

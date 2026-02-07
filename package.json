@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:watch": "zsh ./scripts/dev-watch.sh",
+    "dev:watch:5173": "zsh ./scripts/dev-watch.sh 5173 0.0.0.0",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -17,9 +19,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@blocksuite/blocks": "^0.0.0-canary-20250316001624",
+    "@blocksuite/icons": "^2.1.75",
+    "@blocksuite/presets": "^0.0.0-canary-20250316001624",
+    "@blocksuite/store": "^0.0.0-canary-20250316001624",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "uuid": "^13.0.0",
+    "yjs": "^13.6.29",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

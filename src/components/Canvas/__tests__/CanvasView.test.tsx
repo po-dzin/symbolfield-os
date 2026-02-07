@@ -1,5 +1,5 @@
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import CanvasView from '../CanvasView';
 import { useGraphStore } from '../../../store/useGraphStore';
@@ -44,21 +44,21 @@ describe('CanvasView Cosmogenesis', () => {
         // Mock empty nodes
         (useGraphStore as any).mockImplementation((sel: any) => sel({ nodes: [], edges: [] }));
 
-        render(<CanvasView />);
-        expect(screen.getByText('Source')).toBeInTheDocument();
-        expect(screen.getByText('Double-click to materialize')).toBeInTheDocument();
+        const view = render(<CanvasView />);
+        expect(view.getByText('Source')).toBeInTheDocument();
+        expect(view.getByText('Double-click to materialize')).toBeInTheDocument();
     });
 
     test('delegates double click to gesture router on Source', () => {
         (useGraphStore as any).mockImplementation((sel: any) => sel({ nodes: [], edges: [] }));
 
-        render(<CanvasView />);
+        const view = render(<CanvasView />);
         // Get the div with the handler. The span is inside it.
-        const sourceNode = screen.getByText('Source').closest('div');
+        const sourceNode = view.getByText('Source').closest('div');
         if (sourceNode) {
-            fireEvent.doubleClick(sourceNode);
+            sourceNode.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
             if (sourceNode) {
-                fireEvent.doubleClick(sourceNode);
+                sourceNode.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
                 expect(gestureRouter.handlePointerDown).toHaveBeenCalled();
             }
         }
@@ -70,7 +70,7 @@ describe('CanvasView Cosmogenesis', () => {
             edges: []
         }));
 
-        render(<CanvasView />);
-        expect(screen.queryByText('Source')).not.toBeInTheDocument();
+        const view = render(<CanvasView />);
+        expect(view.queryByText('Source')).not.toBeInTheDocument();
     });
 });

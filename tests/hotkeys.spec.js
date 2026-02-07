@@ -52,9 +52,9 @@ test.describe('Hotkeys: Canon v0.5', () => {
         expect(activeTool).toBe('pointer');
     });
 
-    test('Cmd/Ctrl+K toggles command palette event', async ({ page }) => {
+    test('Cmd/Ctrl+K toggles omni input', async ({ page }) => {
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
-        await expect(page.getByText('Command Palette')).toBeVisible();
+        await expect(page.getByText('Omni Input — Expanded')).toBeVisible();
     });
 
     test('Backslash toggles right drawer event', async ({ page }) => {
@@ -213,7 +213,7 @@ test.describe('Hotkeys: Canon v0.5', () => {
         await expect(page.getByText('Now Focus')).toBeVisible();
     });
 
-    test('Esc exits NOW and closes command palette', async ({ page }) => {
+    test('Esc exits NOW and closes omni input', async ({ page }) => {
         const rootNode = page.locator(`[data-node-id="${CORE_ID}"]`);
         await rootNode.click();
         await page.keyboard.press('Enter');
@@ -224,10 +224,10 @@ test.describe('Hotkeys: Canon v0.5', () => {
         expect(nowVisible).toBe(false);
 
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
-        await expect(page.getByText('Command Palette')).toBeVisible();
+        await expect(page.getByText('Omni Input — Expanded')).toBeVisible();
 
         await page.keyboard.press('Escape');
-        await expect(page.getByText('Command Palette')).not.toBeVisible();
+        await expect(page.getByText('Omni Input — Expanded')).not.toBeVisible();
     });
 
     test('Settings hotkey toggles open state', async ({ page }) => {
