@@ -1,5 +1,4 @@
 import React from 'react';
-import { useAppStore } from '../../store/useAppStore';
 import OmniInputCollapsed from '../Omni/OmniInputCollapsed';
 import coreGlyph from '../../assets/core-glyph.svg';
 
@@ -7,9 +6,9 @@ const TopBar = () => {
     return (
         <div className="topbar-shell justify-between">
             {/* Logo */}
-            <div className="flex items-center gap-3 cursor-pointer opacity-80 hover:opacity-100 transition-opacity">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center">
-                    <img src={coreGlyph} alt="Core" className="w-6 h-6 opacity-90" />
+            <div className="flex items-center gap-3 cursor-pointer opacity-85 hover:opacity-100 transition-opacity">
+                <div className="w-8 h-8 rounded-full bg-sf-zinc-900 border border-white/5 flex items-center justify-center">
+                    <img src={coreGlyph} alt="Core" className="w-full h-full block opacity-85" />
                 </div>
                 <span className="text-white/80 font-medium tracking-wide text-sm">SymbolField</span>
             </div>

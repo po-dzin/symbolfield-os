@@ -5,6 +5,7 @@ import type { NodeBase } from '../../core/types';
 import { stationStorage, type StationLayout } from '../../core/storage/StationStorage';
 import { useAppStore } from '../../store/useAppStore';
 import { NODE_SIZES } from '../../utils/layoutMetrics';
+import { GLOBAL_ZOOM_HOTKEY_EVENT, type ZoomHotkeyDetail } from '../../core/hotkeys/zoomHotkeys';
 
 type DetailLevel = 0 | 1 | 2;
 
@@ -39,11 +40,28 @@ type SpaceCluster = {
 };
 
 const DEFAULT_VIEWBOX = { x: -700, y: -700, w: 1400, h: 1400 };
+const MIN_STATION_ZOOM = 0.6;
+const MAX_STATION_ZOOM = 2.8;
+const STATION_ZOOM_STEPS = [0.6, 0.75, 0.9, 1, 1.15, 1.35, 1.6, 1.9, 2.2, 2.5, 2.8];
 const ARCHECORE_RADIUS = 90;
 const ARCHECORE_PADDING = 60;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const TWO_PI = Math.PI * 2;
 const AREA_STORAGE_PREFIX = 'sf_areas_';
+
+const clampStationZoom = (zoom: number) => Math.min(MAX_STATION_ZOOM, Math.max(MIN_STATION_ZOOM, zoom));
+
+const getStationZoomStep = (zoom: number, direction: 'in' | 'out') => {
+    if (direction === 'in') {
+        const next = STATION_ZOOM_STEPS.find(step => step > zoom + 0.0001);
+        return next ?? MAX_STATION_ZOOM;
+    }
+    for (let i = STATION_ZOOM_STEPS.length - 1; i >= 0; i -= 1) {
+        const step = STATION_ZOOM_STEPS[i];
+        if (step !== undefined && step < zoom - 0.0001) return step;
+    }
+    return MIN_STATION_ZOOM;
+};
 
 const createSeededRandom = (seed: string) => {
     let hash = 0;
@@ -334,12 +352,15 @@ const buildClusters = (includePlayground: boolean): SpaceCluster[] => {
         const leafNodes = nodes.filter(n => n.type !== 'cluster');
 
         const links = (data?.edges ?? [])
-            .map(edge => {
-                const source = nodePointMap.get(String(edge.source));
-                const target = nodePointMap.get(String(edge.target));
+            .map((edge, edgeIndex) => {
+                const edgeSource = String((edge as { source?: string; from?: string }).source ?? (edge as { source?: string; from?: string }).from ?? '');
+                const edgeTarget = String((edge as { target?: string; to?: string }).target ?? (edge as { target?: string; to?: string }).to ?? '');
+                if (!edgeSource || !edgeTarget) return null;
+                const source = nodePointMap.get(edgeSource);
+                const target = nodePointMap.get(edgeTarget);
                 if (!source || !target) return null;
                 return {
-                    id: String(edge.id),
+                    id: String((edge as { id?: string }).id ?? `legacy-${space.id}-${edgeIndex}`),
                     x1: source.x,
                     y1: source.y,
                     x2: target.x,
@@ -486,6 +507,11 @@ const GlobalGraphOverview = ({
     selectedSpaceId?: string | null;
     onSelectSpace?: (metrics: SpaceMetrics | null) => void;
 }) => {
+    const showGrid = useAppStore(state => state.showGrid);
+    const showEdges = useAppStore(state => state.showEdges);
+    const showHud = useAppStore(state => state.showHud);
+    const drawerRightOpen = useAppStore(state => state.drawerRightOpen);
+    const drawerRightWidth = useAppStore(state => state.drawerRightWidth);
     const showStationLabels = useAppStore(state => state.showStationLabels);
     const showPlaygroundOnStation = useAppStore(state => state.showPlaygroundOnStation);
     const [detailLevel, setDetailLevel] = React.useState<DetailLevel>(1);
@@ -557,19 +583,54 @@ const GlobalGraphOverview = ({
         if (showPlaygroundOnStation || !playgroundId) return clustersWithOffsets;
         return clustersWithOffsets.filter(cluster => cluster.id !== playgroundId);
     }, [clustersWithOffsets, showPlaygroundOnStation, playgroundId]);
+    const stationHudSummary = React.useMemo(() => {
+        let nodeCount = 0;
+        let edgeCount = 0;
+        let clusterCount = 0;
+        visibleClusters.forEach(cluster => {
+            nodeCount += cluster.nodes.length;
+            edgeCount += cluster.links.length;
+            clusterCount += cluster.clusters.length;
+        });
+        return {
+            spaces: visibleClusters.length,
+            nodes: nodeCount,
+            edges: edgeCount,
+            clusters: clusterCount
+        };
+    }, [visibleClusters]);
+    const rightDrawerWidthToken = drawerRightWidth === 'sm'
+        ? 'var(--panel-width-sm)'
+        : drawerRightWidth === 'md'
+            ? 'var(--panel-width-md)'
+            : 'var(--panel-width-lg)';
+    const stationHudRightInset = drawerRightOpen
+        ? `calc(${rightDrawerWidthToken} + 24px)`
+        : '24px';
     const [highlightSpaceId, setHighlightSpaceId] = React.useState<string | null>(null);
     const svgRef = React.useRef<SVGSVGElement | null>(null);
     const viewBoxRef = React.useRef({ ...DEFAULT_VIEWBOX });
     const viewBoxVelocity = React.useRef({ x: 0, y: 0, w: 0, h: 0 });
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const [stationZoom, setStationZoom] = React.useState(1);
+    const [stationPan, setStationPan] = React.useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = React.useState(false);
+    const stationZoomRef = React.useRef(stationZoom);
+    const stationPanRef = React.useRef(stationPan);
     const draggingRef = React.useRef(false);
     const renderClustersRef = React.useRef<SpaceCluster[]>(visibleClusters);
     const [renderClusters, setRenderClusters] = React.useState<SpaceCluster[]>(visibleClusters);
+    const suppressClusterClickRef = React.useRef<string | null>(null);
     const dragRef = React.useRef<null | {
         id: string;
         start: { x: number; y: number };
         base: { x: number; y: number };
+        moved: boolean;
+    }>(null);
+    const panRef = React.useRef<null | {
+        pointerId: number;
+        startClient: { x: number; y: number };
+        basePan: { x: number; y: number };
         moved: boolean;
     }>(null);
 
@@ -588,6 +649,18 @@ const GlobalGraphOverview = ({
             unsubHover();
         };
     }, [showPlaygroundOnStation]);
+
+    React.useEffect(() => {
+        stationZoomRef.current = stationZoom;
+    }, [stationZoom]);
+
+    React.useEffect(() => {
+        stationPanRef.current = stationPan;
+    }, [stationPan]);
+
+    React.useEffect(() => {
+        setStationPan({ x: 0, y: 0 });
+    }, [focusedSpaceId]);
 
     React.useEffect(() => {
         const target = visibleClusters;
@@ -699,6 +772,31 @@ const GlobalGraphOverview = ({
         return () => window.cancelAnimationFrame(raf);
     }, [visibleClusters]);
 
+    const buildTargetViewBox = React.useCallback((zoomInput: number, panInput: { x: number; y: number }) => {
+        const zoom = clampStationZoom(zoomInput);
+        if (!focusedSpaceId) {
+            const w = DEFAULT_VIEWBOX.w / zoom;
+            const h = DEFAULT_VIEWBOX.h / zoom;
+            const centerX = (DEFAULT_VIEWBOX.x + DEFAULT_VIEWBOX.w / 2) + panInput.x;
+            const centerY = (DEFAULT_VIEWBOX.y + DEFAULT_VIEWBOX.h / 2) + panInput.y;
+            return {
+                x: centerX - w / 2,
+                y: centerY - h / 2,
+                w,
+                h
+            };
+        }
+        const cluster = visibleClusters.find(item => item.id === focusedSpaceId);
+        if (!cluster) return DEFAULT_VIEWBOX;
+        const size = Math.max(360, cluster.radius * 3.2) / zoom;
+        return {
+            x: cluster.center.x + panInput.x - size / 2,
+            y: cluster.center.y + panInput.y - size / 2,
+            w: size,
+            h: size
+        };
+    }, [focusedSpaceId, visibleClusters]);
+
     const toSvgPoint = (clientX: number, clientY: number) => {
         const svg = svgRef.current;
         if (!svg) return { x: 0, y: 0 };
@@ -712,6 +810,40 @@ const GlobalGraphOverview = ({
         };
     };
 
+    const zoomAroundPoint = React.useCallback((nextZoomInput: number, clientX: number, clientY: number) => {
+        const nextZoom = clampStationZoom(nextZoomInput);
+        const host = containerRef.current;
+        if (!host) {
+            setStationZoom(nextZoom);
+            return;
+        }
+        const rect = host.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+            setStationZoom(nextZoom);
+            return;
+        }
+
+        const nx = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+        const ny = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+        const currentView = viewBoxRef.current;
+        const worldX = currentView.x + currentView.w * nx;
+        const worldY = currentView.y + currentView.h * ny;
+
+        const currentPan = stationPanRef.current;
+        const nextBase = buildTargetViewBox(nextZoom, currentPan);
+        const worldAfterX = nextBase.x + nextBase.w * nx;
+        const worldAfterY = nextBase.y + nextBase.h * ny;
+        const nextPan = {
+            x: currentPan.x + (worldX - worldAfterX),
+            y: currentPan.y + (worldY - worldAfterY)
+        };
+
+        stationPanRef.current = nextPan;
+        stationZoomRef.current = nextZoom;
+        setStationPan(nextPan);
+        setStationZoom(nextZoom);
+    }, [buildTargetViewBox]);
+
     const startDrag = (spaceId: string, e: React.PointerEvent<SVGGElement>) => {
         e.stopPropagation();
         const start = toSvgPoint(e.clientX, e.clientY);
@@ -721,7 +853,42 @@ const GlobalGraphOverview = ({
         (e.currentTarget as SVGGElement).setPointerCapture(e.pointerId);
     };
 
+    const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+        if (e.button !== 0) return;
+        if (e.target !== e.currentTarget) return;
+        panRef.current = {
+            pointerId: e.pointerId,
+            startClient: { x: e.clientX, y: e.clientY },
+            basePan: stationPanRef.current,
+            moved: false
+        };
+        setIsPanning(true);
+        (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
+    };
+
     const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+        if (panRef.current && panRef.current.pointerId === e.pointerId) {
+            const svg = svgRef.current;
+            if (!svg) return;
+            const rect = svg.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) return;
+            const dx = e.clientX - panRef.current.startClient.x;
+            const dy = e.clientY - panRef.current.startClient.y;
+            if (Math.hypot(dx, dy) > 1.5) {
+                panRef.current.moved = true;
+            }
+            const currentView = viewBoxRef.current;
+            const scaleX = currentView.w / rect.width;
+            const scaleY = currentView.h / rect.height;
+            const nextPan = {
+                x: panRef.current.basePan.x - dx * scaleX,
+                y: panRef.current.basePan.y - dy * scaleY
+            };
+            stationPanRef.current = nextPan;
+            setStationPan(nextPan);
+            return;
+        }
+
         if (!dragRef.current) return;
         const current = toSvgPoint(e.clientX, e.clientY);
         const dx = current.x - dragRef.current.start.x;
@@ -760,33 +927,31 @@ const GlobalGraphOverview = ({
         setLayoutOffsets(nextOffset);
     };
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (event?: React.PointerEvent<SVGSVGElement>) => {
+        if (panRef.current && (!event || panRef.current.pointerId === event.pointerId)) {
+            panRef.current = null;
+            setIsPanning(false);
+        }
+
         if (!dragRef.current) return;
+        const finishedDrag = dragRef.current;
         stationStorage.saveStationLayout(layoutOffsets);
         dragRef.current = null;
         draggingRef.current = false;
+        if (finishedDrag.moved) {
+            suppressClusterClickRef.current = finishedDrag.id;
+            window.setTimeout(() => {
+                if (suppressClusterClickRef.current === finishedDrag.id) {
+                    suppressClusterClickRef.current = null;
+                }
+            }, 0);
+        }
     };
 
-    const targetViewBox = React.useMemo(() => {
-        const zoom = Math.min(2.6, Math.max(0.6, stationZoom));
-        if (!focusedSpaceId) {
-            return {
-                x: DEFAULT_VIEWBOX.x + (DEFAULT_VIEWBOX.w * (1 - 1 / zoom)) / 2,
-                y: DEFAULT_VIEWBOX.y + (DEFAULT_VIEWBOX.h * (1 - 1 / zoom)) / 2,
-                w: DEFAULT_VIEWBOX.w / zoom,
-                h: DEFAULT_VIEWBOX.h / zoom
-            };
-        }
-        const cluster = visibleClusters.find(item => item.id === focusedSpaceId);
-        if (!cluster) return DEFAULT_VIEWBOX;
-        const size = Math.max(360, cluster.radius * 3.2) / zoom;
-        return {
-            x: cluster.center.x - size / 2,
-            y: cluster.center.y - size / 2,
-            w: size,
-            h: size
-        };
-    }, [focusedSpaceId, visibleClusters, stationZoom]);
+    const targetViewBox = React.useMemo(
+        () => buildTargetViewBox(stationZoom, stationPan),
+        [buildTargetViewBox, stationZoom, stationPan]
+    );
 
     const [viewBox, setViewBox] = React.useState(DEFAULT_VIEWBOX);
 
@@ -833,14 +998,51 @@ const GlobalGraphOverview = ({
         const el = containerRef.current;
         if (!el) return;
         const onWheel = (event: WheelEvent) => {
-            if (!event.ctrlKey) return;
+            if (!(event.ctrlKey || event.metaKey)) return;
             event.preventDefault();
-            const next = Math.min(2.8, Math.max(0.6, stationZoom * (1 - event.deltaY * 0.002)));
-            setStationZoom(next);
+            const currentZoom = stationZoomRef.current;
+            const factor = Math.exp(-event.deltaY * 0.0022);
+            const next = clampStationZoom(currentZoom * factor);
+            if (Math.abs(next - currentZoom) < 0.0001) return;
+            zoomAroundPoint(next, event.clientX, event.clientY);
         };
         el.addEventListener('wheel', onWheel, { passive: false });
         return () => el.removeEventListener('wheel', onWheel);
-    }, [stationZoom]);
+    }, [zoomAroundPoint]);
+
+    React.useEffect(() => {
+        const onGlobalZoomHotkey = (event: Event) => {
+            const detail = (event as CustomEvent<ZoomHotkeyDetail>).detail;
+            if (!detail) return;
+            const host = containerRef.current;
+            const rect = host?.getBoundingClientRect();
+            const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+            const cy = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
+
+            switch (detail.command) {
+                case 'zoom_in': {
+                    const next = getStationZoomStep(stationZoomRef.current, 'in');
+                    zoomAroundPoint(next, cx, cy);
+                    break;
+                }
+                case 'zoom_out': {
+                    const next = getStationZoomStep(stationZoomRef.current, 'out');
+                    zoomAroundPoint(next, cx, cy);
+                    break;
+                }
+                case 'zoom_reset':
+                case 'zoom_fit':
+                    stationPanRef.current = { x: 0, y: 0 };
+                    stationZoomRef.current = 1;
+                    setStationPan({ x: 0, y: 0 });
+                    setStationZoom(1);
+                    break;
+            }
+        };
+
+        window.addEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as (event: Event) => void);
+        return () => window.removeEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as (event: Event) => void);
+    }, [zoomAroundPoint]);
 
     const renderOrbitalHud = (cluster: SpaceCluster) => {
         if (!selectedMetrics || selectedMetrics.id !== cluster.id) return null;
@@ -897,19 +1099,21 @@ const GlobalGraphOverview = ({
             ref={containerRef}
             className={className ?? 'relative w-full h-full'}
             style={{
-                backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)',
+                backgroundImage: showGrid ? 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)' : 'none',
                 backgroundSize: '32px 32px'
             }}
         >
             <svg
                 viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
-                className="w-full h-full"
+                className={`w-full h-full ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
                 role="img"
                 aria-label="Global graph overview"
                 preserveAspectRatio="xMidYMid meet"
                 ref={svgRef}
+                onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
                 onPointerLeave={handlePointerUp}
             >
                 <defs>
@@ -920,7 +1124,7 @@ const GlobalGraphOverview = ({
                 </defs>
 
                 {/* Level 0/1: ArcheNode -> Space Links */}
-                {detailLevel < 2 && renderClusters.map(cluster => (
+                {showEdges && renderClusters.map(cluster => (
                     renderLink(0, 0, cluster.center.x, cluster.center.y, 40, cluster.hasCore ? 10 : 0, `link-root-${cluster.id}`)
                 ))}
 
@@ -928,23 +1132,24 @@ const GlobalGraphOverview = ({
                 <circle cx="0" cy="0" r="45" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth={3} />
                 <circle cx="0" cy="0" r="40" fill="none" stroke="rgba(255,255,255,0.78)" strokeWidth={3} />
                 <circle cx="0" cy="0" r="28" fill="rgba(255,255,255,0.9)" />
-                <text
-                    x="0"
-                    y="106"
-                    fill="rgba(255,255,255,0.85)"
-                    fontSize="10"
-                    textAnchor="middle"
-                    className="font-mono uppercase tracking-[0.3em]"
-                >
-                    ArcheCore
-                </text>
+                {showStationLabels && (
+                    <text
+                        x="0"
+                        y="106"
+                        fill="rgba(255,255,255,0.85)"
+                        fontSize="10"
+                        textAnchor="middle"
+                        className="font-mono uppercase tracking-[0.3em]"
+                    >
+                        ArcheCore
+                    </text>
+                )}
 
                 {renderClusters.map(cluster => {
                     const isHighlight = highlightSpaceId === cluster.id;
                     const isSelected = selectedSpaceId === cluster.id;
                     const isActive = isHighlight || isSelected;
                     const coreAnchor = cluster.corePoint ?? cluster.center;
-                    const clusterMap = new Map(cluster.clusters.map(h => [h.id, h]));
 
                     return (
                         <g
@@ -952,7 +1157,10 @@ const GlobalGraphOverview = ({
                             className="cursor-pointer"
                             onPointerDown={(e) => startDrag(cluster.id, e)}
                             onClick={() => {
-                                if (dragRef.current?.moved) return;
+                                if (suppressClusterClickRef.current === cluster.id) {
+                                    suppressClusterClickRef.current = null;
+                                    return;
+                                }
                                 onSelectSpace?.(computeMetrics(cluster.id, showPlaygroundOnStation));
                             }}
                             onDoubleClick={() => spaceManager.loadSpace(cluster.id)}
@@ -1029,7 +1237,7 @@ const GlobalGraphOverview = ({
                             />
 
                             {/* Internal Links: Space Core -> Clusters/Independent Nodes */}
-                            {detailLevel === 1 && (
+                            {showEdges && detailLevel >= 1 && (
                                 <>
                                     {cluster.clusters.map(sub =>
                                         renderLink(coreAnchor.x, coreAnchor.y, sub.x, sub.y, 10, 6, `link-${cluster.id}-c-${sub.id}`, true)
@@ -1067,7 +1275,7 @@ const GlobalGraphOverview = ({
                                 )
                             ))}
 
-                            {detailLevel >= 2 && cluster.links.map(link =>
+                            {showEdges && detailLevel >= 2 && cluster.links.map(link =>
                                 renderRawLink(link.x1, link.y1, link.x2, link.y2, `link-real-${cluster.id}-${link.id}`)
                             )}
 
@@ -1142,6 +1350,26 @@ const GlobalGraphOverview = ({
                     );
                 })}
             </svg>
+
+            {showHud && (
+                <div
+                    className="absolute flex flex-wrap items-center justify-end gap-2 text-[10px] uppercase tracking-[0.25em] text-white/70 pointer-events-none transition-all duration-200"
+                    style={{ right: stationHudRightInset, bottom: '104px' }}
+                >
+                    <div className="rounded-full border border-white/10 bg-black/30 px-3 py-1">
+                        Spaces {stationHudSummary.spaces}
+                    </div>
+                    <div className="rounded-full border border-white/10 bg-black/30 px-3 py-1">
+                        Nodes {stationHudSummary.nodes}
+                    </div>
+                    <div className="rounded-full border border-white/10 bg-black/30 px-3 py-1">
+                        Links {stationHudSummary.edges}
+                    </div>
+                    <div className="rounded-full border border-white/10 bg-black/30 px-3 py-1">
+                        Clusters {stationHudSummary.clusters}
+                    </div>
+                </div>
+            )}
 
             <div className="absolute top-20 right-8 flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[10px] uppercase tracking-[0.3em] text-white/50">
                 <button

@@ -7,24 +7,10 @@ import { eventBus } from '../../core/events/EventBus';
 import coreGlyph from '../../assets/core-glyph.svg';
 
 const SpaceHeader = () => {
-    const setViewContext = useAppStore(state => state.setViewContext);
     const viewContext = useAppStore(state => state.viewContext);
     const currentSpaceId = useAppStore(state => state.currentSpaceId);
     const fieldScopeId = useAppStore(state => state.fieldScopeId);
-    const contextMenuMode = useAppStore(state => state.contextMenuMode);
-    const setContextMenuMode = useAppStore(state => state.setContextMenuMode);
-    const showGrid = useAppStore(state => state.showGrid);
-    const setShowGrid = useAppStore(state => state.setShowGrid);
-    const gridSnapEnabled = useAppStore(state => state.gridSnapEnabled);
-    const setGridSnapEnabled = useAppStore(state => state.setGridSnapEnabled);
-    const showEdges = useAppStore(state => state.showEdges);
-    const setShowEdges = useAppStore(state => state.setShowEdges);
-    const showHud = useAppStore(state => state.showHud);
-    const setShowHud = useAppStore(state => state.setShowHud);
-    const showCounters = useAppStore(state => state.showCounters);
-    const setShowCounters = useAppStore(state => state.setShowCounters);
-    const settingsOpen = useAppStore(state => state.settingsOpen);
-    const closeSettings = useAppStore(state => state.closeSettings);
+    const openSettings = useAppStore(state => state.openSettings);
 
     // Let's rely on spaceManager for metadata
     const [name, setName] = useState('New Space');
@@ -32,7 +18,6 @@ const SpaceHeader = () => {
     const [isEditingName, setIsEditingName] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [infoOpen, setInfoOpen] = useState(false);
-    const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
     const [isHoveringTitle, setIsHoveringTitle] = useState(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -61,12 +46,10 @@ const SpaceHeader = () => {
             if (menuRef.current.contains(target)) return;
             setMenuOpen(false);
             setInfoOpen(false);
-            setViewSettingsOpen(false);
-            closeSettings();
         };
         window.addEventListener('mousedown', handleClick);
         return () => window.removeEventListener('mousedown', handleClick);
-    }, [menuOpen, closeSettings]);
+    }, [menuOpen]);
 
     // Handle Rename
     const handleRename = (newValue: string) => {
@@ -126,25 +109,15 @@ const SpaceHeader = () => {
 
     if (viewContext === 'home') return null;
 
-    const TogglePill = ({ checked, onToggle, labelOn = 'ON', labelOff = 'OFF' }: { checked: boolean; onToggle: () => void; labelOn?: string; labelOff?: string }) => (
-        <button
-            type="button"
-            aria-pressed={checked}
-            onClick={onToggle}
-            className={`relative w-16 h-7 rounded-full border transition-colors ${checked ? 'bg-white/20 border-white/30' : 'bg-white/10 border-white/20'}`}
-        >
-            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold transition-all ${checked ? 'text-white/80' : 'opacity-0'} z-10`}>
-                {labelOn}
-            </span>
-            <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold transition-all ${checked ? 'opacity-0' : 'text-white/80'} z-10`}>
-                {labelOff}
-            </span>
-            <span className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 rounded-full shadow-sm transition-all ${checked ? 'right-0.5 bg-white' : 'left-0.5 bg-white'}`} />
-        </button>
-    );
-
     return (
-        <div className="absolute top-4 left-4 right-4 z-50 flex items-center gap-3">
+        <div
+            className="absolute z-50 flex items-center gap-3"
+            style={{
+                top: 'var(--bar-pad-y)',
+                left: 'var(--bar-pad-x)',
+                right: 'var(--bar-pad-x)'
+            }}
+        >
             <div className="flex items-center gap-3">
                 {/* Logo / Home Button */}
                 <button
@@ -152,7 +125,7 @@ const SpaceHeader = () => {
                     className="w-8 h-8 rounded-full bg-sf-zinc-900 border border-white/5 flex items-center justify-center hover:border-white/20 transition-all shadow-sm group"
                     title="Return to Station"
                 >
-                    <img src={coreGlyph} alt="Core" className="w-8 h-8 opacity-70" />
+                    <img src={coreGlyph} alt="Core" className="w-full h-full block opacity-85" />
                 </button>
 
             {/* Space Name Input */}
@@ -196,8 +169,6 @@ const SpaceHeader = () => {
                         const next = !prev;
                         if (!next) {
                             setInfoOpen(false);
-                            setViewSettingsOpen(false);
-                            closeSettings();
                         }
                         return next;
                     })}
@@ -263,11 +234,14 @@ const SpaceHeader = () => {
                             History
                         </button>
                         <button
-                            onClick={() => setViewSettingsOpen(prev => !prev)}
-                            className="w-full text-left px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5 flex items-center justify-between"
+                            onClick={() => {
+                                openSettings();
+                                setMenuOpen(false);
+                                setInfoOpen(false);
+                            }}
+                            className="w-full text-left px-2 py-1 rounded-lg text-sm text-white/70 hover:bg-white/5"
                         >
-                            <span>View settings</span>
-                            <span className="text-white/40">›</span>
+                            View settings
                         </button>
                         <div className="h-px bg-white/10 my-1" />
                         <button
@@ -297,79 +271,6 @@ const SpaceHeader = () => {
                                         </>
                                     );
                                 })()}
-                            </div>
-                        )}
-                        {viewSettingsOpen && (
-                            <div className="absolute left-full top-0 ml-3 min-w-[240px] glass-panel glass-panel-strong p-2 flex flex-col gap-2 z-[var(--z-drawer)]">
-                                <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 px-2 pt-1">
-                                    View settings
-                                </div>
-                                <div className="flex items-center justify-between text-sm text-white/70 px-2 py-1">
-                                    <span>Context menu mode</span>
-                                    <button
-                                        type="button"
-                                        aria-pressed={contextMenuMode === 'radial'}
-                                        onClick={() => setContextMenuMode(contextMenuMode === 'bar' ? 'radial' : 'bar')}
-                                        className={`relative w-16 h-7 rounded-full border transition-colors ${contextMenuMode === 'radial' ? 'bg-white/20 border-white/30' : 'bg-white/10 border-white/20'}`}
-                                        title={contextMenuMode === 'radial' ? 'Radial' : 'Bar'}
-                                    >
-                                        <span
-                                            className={`absolute left-2 top-1/2 -translate-y-1/2 text-[11px] transition-all ${contextMenuMode === 'bar' ? 'text-white' : 'text-white/40'}`}
-                                        >
-                                            —
-                                        </span>
-                                        <span
-                                            className={`absolute right-2 top-1/2 -translate-y-1/2 transition-all ${contextMenuMode === 'radial' ? 'text-white' : 'text-white/40'}`}
-                                        >
-                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="block">
-                                                <path
-                                                    d="M4 13.5A8 8 0 0 1 12 6a8 8 0 0 1 8 7.5"
-                                                    stroke="currentColor"
-                                                    strokeWidth="1.8"
-                                                    strokeLinecap="round"
-                                                />
-                                            </svg>
-                                        </span>
-                                        <span
-                                            className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 rounded-full shadow-sm transition-all ${contextMenuMode === 'radial' ? 'right-0.5 bg-white' : 'left-0.5 bg-white'}`}
-                                        >
-                                            <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-semibold ${contextMenuMode === 'radial' ? 'text-black/80' : 'text-black/70'}`}>
-                                                {contextMenuMode === 'radial' ? (
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="block">
-                                                        <path
-                                                            d="M5 13A7 7 0 0 1 12 6a7 7 0 0 1 7 7"
-                                                            stroke="currentColor"
-                                                            strokeWidth="2"
-                                                            strokeLinecap="round"
-                                                        />
-                                                    </svg>
-                                                ) : (
-                                                    '—'
-                                                )}
-                                            </span>
-                                        </span>
-                                    </button>
-                                </div>
-                                <div className="flex items-center justify-between text-sm text-white/70 px-2 py-1">
-                                    <span>Show grid</span>
-                                    <TogglePill checked={showGrid} onToggle={() => setShowGrid(!showGrid)} />
-                                </div>
-                                <div className="flex items-center justify-between text-sm text-white/70 px-2 py-1">
-                                    <span>Grid snap</span>
-                                    <TogglePill checked={gridSnapEnabled} onToggle={() => setGridSnapEnabled(!gridSnapEnabled)} />
-                                </div>
-                                <div className="flex items-center justify-between text-sm text-white/70 px-2 py-1">
-                                    <span>Show edges</span>
-                                    <TogglePill checked={showEdges} onToggle={() => setShowEdges(!showEdges)} />
-                                </div>
-                                <div className="flex items-center justify-between text-sm text-white/70 px-2 py-1">
-                                    <span>HUD chips</span>
-                                    <TogglePill checked={showHud} onToggle={() => setShowHud(!showHud)} />
-                                </div>
-                                <div className="flex items-center justify-between text-sm text-white/70 px-2 py-1">
-                                    <span>HUD counters</span>
-                                    <TogglePill checked={showCounters} onToggle={() => setShowCounters(!showCounters)} />
-                                </div>
                             </div>
                         )}
                     </div>

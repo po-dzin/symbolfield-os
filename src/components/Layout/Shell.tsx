@@ -17,6 +17,7 @@ import SettingsDrawer from '../Drawers/SettingsDrawer';
 import CommandPalette from '../Overlays/CommandPalette';
 import Station from '../Station/Station';
 import SpaceHeader from './SpaceHeader';
+import { emitZoomHotkeyFromKeyboard } from '../../core/hotkeys/zoomHotkeys';
 
 const Shell = () => {
     const appMode = useAppStore(state => state.appMode);
@@ -34,12 +35,13 @@ const Shell = () => {
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (!(event.metaKey || event.ctrlKey)) return;
-            if (event.key.toLowerCase() !== 'k') return;
             const target = event.target as HTMLElement | null;
             if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
                 return;
             }
+            if (emitZoomHotkeyFromKeyboard(event)) return;
+            if (!(event.metaKey || event.ctrlKey)) return;
+            if (event.key.toLowerCase() !== 'k') return;
             event.preventDefault();
             togglePalette();
         };
@@ -102,13 +104,13 @@ const Shell = () => {
                     {/* NowCore Drawer (Z3) */}
                     <NowCoreDrawer />
 
-                    {/* Settings Drawer (Z3) */}
-                    <SettingsDrawer />
-
                     {/* Node Overlay */}
                     <NodeOverlay />
                 </>
             )}
+
+            {/* Settings Drawer (Z3) */}
+            <SettingsDrawer />
 
             {/* Omni Input (Z3) */}
             <CommandPalette />

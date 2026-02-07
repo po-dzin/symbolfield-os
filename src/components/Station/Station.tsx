@@ -11,6 +11,7 @@ import GlobalGraphOverview from './GlobalGraphOverview';
 import { eventBus, EVENTS } from '../../core/events/EventBus';
 import StationAnalyticsDrawer, { type SpaceMetrics } from './StationAnalyticsDrawer';
 import GraphViewShell from '../GraphView/GraphViewShell';
+import AccountSettingsOverlay from './AccountSettingsOverlay';
 
 const Station = () => {
     const [showOnboarding, setShowOnboarding] = React.useState(false);
@@ -23,6 +24,7 @@ const Station = () => {
     const rightTab = useAppStore(state => state.drawerRightTab);
     const [focusedMetrics, setFocusedMetrics] = React.useState<SpaceMetrics | null>(null);
     const [selectedSpaceId, setSelectedSpaceId] = React.useState<string | null>(null);
+    const [showAccountSettings, setShowAccountSettings] = React.useState(false);
 
     React.useEffect(() => {
         const unsub = eventBus.on(EVENTS.SPACE_CHANGED, () => {
@@ -41,6 +43,15 @@ const Station = () => {
         if (!onboardingState.isCompleted && !onboardingState.hasSeenWelcome) {
             setShowOnboarding(true);
         }
+    }, []);
+
+    React.useEffect(() => {
+        const unsub = eventBus.on('UI_SIGNAL', (event) => {
+            const signalType = event.payload?.type;
+            if (signalType !== 'OPEN_ACCOUNT_SETTINGS') return;
+            setShowAccountSettings(true);
+        });
+        return () => unsub();
     }, []);
 
     React.useEffect(() => {
@@ -143,6 +154,11 @@ const Station = () => {
                         {showOnboarding && (
                             <div className="pointer-events-auto">
                                 <OnboardingOverlay onDismiss={() => setShowOnboarding(false)} />
+                            </div>
+                        )}
+                        {showAccountSettings && (
+                            <div className="pointer-events-auto">
+                                <AccountSettingsOverlay onClose={() => setShowAccountSettings(false)} />
                             </div>
                         )}
                     </>
