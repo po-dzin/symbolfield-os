@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
+import './global.css'
 import App from './App'
 import { loadOnboardingState, markPlaygroundCreated } from './core/state/onboardingState'
 import { spaceManager } from './core/state/SpaceManager'

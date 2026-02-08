@@ -21,22 +21,22 @@ const ToolDock = () => {
     const setTool = useAppStore(state => state.setTool);
 
     return (
-        <div className="flex flex-col gap-2 p-2 glass-panel">
+        <div className="flex flex-col gap-[var(--primitive-space-gap-dense)] p-[var(--primitive-space-gap-dense)] glass-panel rounded-[var(--primitive-radius-panel)]">
             {TOOLS.map((tool) => (
                 <button
                     key={tool.id}
                     onClick={() => setTool(tool.id)}
                     className={`
-            w-10 h-10 rounded-xl flex items-center justify-center
+            w-[var(--component-button-height-lg)] h-[var(--component-button-height-lg)] rounded-[var(--primitive-radius-input)] flex items-center justify-center
             transition-all duration-200
             ${activeTool === tool.id
-                            ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]'
-                            : 'text-text-secondary hover:bg-white/10 hover:text-text-primary'
+                            ? 'bg-[var(--semantic-color-text-primary)] text-[var(--semantic-color-bg-app)] shadow-md'
+                            : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10 hover:text-[var(--semantic-color-text-primary)]'
                         }
           `}
                     title={tool.hotkey ? `${tool.label} (${tool.hotkey})` : tool.label}
                 >
-                    <GlyphIcon id={tool.glyphId} size={26} className="text-current" />
+                    <GlyphIcon id={tool.glyphId} size={24} className="text-current" />
                 </button>
             ))}
 

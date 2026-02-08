@@ -62,15 +62,15 @@ const NowCoreDrawer = () => {
             data-nowcore-drawer
         >
             <div className={isFullscreen
-                ? 'h-full w-full glass-panel rounded-none border-0 p-[var(--panel-padding)] flex flex-col gap-4'
-                : 'h-full glass-panel rounded-none rounded-l-[var(--panel-radius)] border-r-0 p-[var(--panel-padding)] flex flex-col gap-4'}
+                ? 'h-full w-full glass-panel rounded-none border-0 p-[var(--panel-padding)] flex flex-col gap-[var(--primitive-space-gap-section-min)]'
+                : 'h-full glass-panel rounded-none rounded-l-[var(--panel-radius)] border-r-0 p-[var(--panel-padding)] flex flex-col gap-[var(--primitive-space-gap-section-min)]'}
             >
                 <div className="flex items-center justify-between">
                     <div />
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-[var(--primitive-space-gap-default)]">
                         <button
                             onClick={toggleFullscreen}
-                            className="w-7 h-7 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10"
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10"
                             aria-label={isFullscreen ? 'Exit fullscreen tab' : 'Open fullscreen tab'}
                             title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
                         >
@@ -78,7 +78,7 @@ const NowCoreDrawer = () => {
                         </button>
                         <button
                             onClick={() => setDrawerOpen('right', false)}
-                            className="w-7 h-7 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10"
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10"
                             aria-label="Close NowCore"
                         >
                             ×
@@ -86,14 +86,13 @@ const NowCoreDrawer = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-[var(--primitive-space-gap-dense)]">
                     {(['now', 'cycles', 'timeline'] as NowCoreTab[]).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setDrawerRightTab(tab)}
-                            className={`px-3 h-8 rounded-lg text-xs uppercase tracking-[0.2em] transition-colors ${
-                                activeTab === tab ? 'bg-white/20 text-white' : 'text-white/55 hover:bg-white/10 hover:text-white/85'
-                            }`}
+                            className={`px-3 h-8 rounded-[var(--primitive-radius-input)] text-[10px] uppercase tracking-[0.2em] transition-colors ${activeTab === tab ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10 hover:text-[var(--semantic-color-text-primary)]'
+                                }`}
                         >
                             {TAB_LABELS[tab]}
                         </button>
@@ -101,37 +100,37 @@ const NowCoreDrawer = () => {
                 </div>
 
                 {activeTab === 'now' && (
-                    <div className="flex-1 overflow-auto space-y-4 text-sm">
-                        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45 mb-2">Session</div>
-                            <div className="text-white/85">Status: {session.isActive ? 'Active' : 'Idle'}</div>
-                            <div className="text-white/65">Label: {session.label ?? '—'}</div>
-                            <div className="text-white/65">Started: {session.startTime ? new Date(session.startTime).toLocaleTimeString() : '—'}</div>
+                    <div className="flex-1 overflow-auto space-y-[var(--primitive-space-gap-section-min)] text-sm">
+                        <div className="rounded-[var(--primitive-radius-card)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 p-[var(--primitive-space-gap-section-min)]">
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-secondary)] mb-2">Session</div>
+                            <div className="text-[var(--semantic-color-text-primary)]">Status: {session.isActive ? 'Active' : 'Idle'}</div>
+                            <div className="text-[var(--semantic-color-text-muted)]">Label: {session.label ?? '—'}</div>
+                            <div className="text-[var(--semantic-color-text-muted)]">Started: {session.startTime ? new Date(session.startTime).toLocaleTimeString() : '—'}</div>
                         </div>
-                        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45 mb-2">Field Snapshot</div>
-                            <div className="text-white/75">Space: {currentSpaceId ?? '—'}</div>
-                            <div className="text-white/75">Tool: {activeTool}</div>
-                            <div className="text-white/75">Time scale: {scale}</div>
-                            <div className="text-white/75">Anchor: {display}</div>
+                        <div className="rounded-[var(--primitive-radius-card)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 p-[var(--primitive-space-gap-section-min)]">
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-secondary)] mb-2">Field Snapshot</div>
+                            <div className="text-[var(--semantic-color-text-primary)]">Space: {currentSpaceId ?? '—'}</div>
+                            <div className="text-[var(--semantic-color-text-primary)]">Tool: {activeTool}</div>
+                            <div className="text-[var(--semantic-color-text-primary)]">Time scale: {scale}</div>
+                            <div className="text-[var(--semantic-color-text-primary)]">Anchor: {display}</div>
                         </div>
                     </div>
                 )}
 
                 {activeTab === 'cycles' && (
-                    <div className="flex-1 overflow-auto space-y-4 text-sm">
-                        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">Session Log</div>
+                    <div className="flex-1 overflow-auto space-y-[var(--primitive-space-gap-section-min)] text-sm">
+                        <div className="rounded-[var(--primitive-radius-card)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 p-[var(--primitive-space-gap-section-min)]">
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-secondary)] mb-3">Session Log</div>
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => startFocusSession(session.label ?? 'Focus')}
-                                    className="flex-1 h-10 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/25 uppercase tracking-[0.2em] text-xs"
+                                    className="flex-1 h-10 rounded-[var(--primitive-radius-input)] bg-[var(--semantic-color-status-success)]/10 text-[var(--semantic-color-status-success)] hover:bg-[var(--semantic-color-status-success)]/20 uppercase tracking-[0.2em] text-[10px]"
                                 >
                                     Start Focus
                                 </button>
                                 <button
                                     onClick={() => stopFocusSession()}
-                                    className="h-10 px-3 rounded-lg bg-white/10 text-white/70 hover:bg-white/15 uppercase tracking-[0.2em] text-xs"
+                                    className="h-10 px-3 rounded-[var(--primitive-radius-input)] bg-[var(--semantic-color-text-primary)]/10 text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/15 uppercase tracking-[0.2em] text-[10px]"
                                     disabled={!session.isActive}
                                     aria-disabled={!session.isActive}
                                     title={session.isActive ? 'Stop focus session' : 'No active session'}
@@ -139,27 +138,26 @@ const NowCoreDrawer = () => {
                                     Stop
                                 </button>
                             </div>
-                            <div className="mt-3 text-xs text-white/70">
-                                <div>Status: <span className="text-white/85">{session.isActive ? 'Active' : 'Idle'}</span></div>
-                                <div>Label: <span className="text-white/85">{session.label ?? '—'}</span></div>
-                                <div>Started: <span className="text-white/85">{session.startTime ? new Date(session.startTime).toLocaleTimeString() : '—'}</span></div>
+                            <div className="mt-3 text-xs text-[var(--semantic-color-text-secondary)]">
+                                <div>Status: <span className="text-[var(--semantic-color-text-primary)]">{session.isActive ? 'Active' : 'Idle'}</span></div>
+                                <div>Label: <span className="text-[var(--semantic-color-text-primary)]">{session.label ?? '—'}</span></div>
+                                <div>Started: <span className="text-[var(--semantic-color-text-primary)]">{session.startTime ? new Date(session.startTime).toLocaleTimeString() : '—'}</span></div>
                             </div>
                         </div>
-                        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45 mb-2">Cycles Lens</div>
-                            <div className="text-white/85">{anchorDate.toLocaleDateString()}</div>
-                            <div className="text-white/65">Scale: {scale}</div>
+                        <div className="rounded-[var(--primitive-radius-card)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 p-[var(--primitive-space-gap-section-min)]">
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-secondary)] mb-2">Cycles Lens</div>
+                            <div className="text-[var(--semantic-color-text-primary)]">{anchorDate.toLocaleDateString()}</div>
+                            <div className="text-[var(--semantic-color-text-muted)]">Scale: {scale}</div>
                         </div>
-                        <div className="grid grid-cols-7 gap-1 rounded-xl border border-white/10 bg-black/20 p-3">
+                        <div className="grid grid-cols-7 gap-1 rounded-[var(--primitive-radius-card)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 p-[var(--primitive-space-gap-section-min)]">
                             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                                <div key={day} className="text-[10px] uppercase tracking-[0.18em] text-white/45 text-center py-1">{day}</div>
+                                <div key={day} className="text-[8px] uppercase tracking-[0.18em] text-[var(--semantic-color-text-muted)] text-center py-1">{day}</div>
                             ))}
                             {Array.from({ length: 28 }, (_, i) => i + 1).map(day => (
                                 <div
                                     key={day}
-                                    className={`h-8 rounded-md flex items-center justify-center text-xs ${
-                                        day === anchorDate.getDate() ? 'bg-white/20 text-white' : 'bg-white/5 text-white/65'
-                                    }`}
+                                    className={`h-8 rounded-[var(--primitive-radius-input)] flex items-center justify-center text-xs ${day === anchorDate.getDate() ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'bg-[var(--semantic-color-text-primary)]/5 text-[var(--semantic-color-text-secondary)]'
+                                        }`}
                                 >
                                     {day}
                                 </div>
@@ -169,19 +167,19 @@ const NowCoreDrawer = () => {
                 )}
 
                 {activeTab === 'timeline' && (
-                    <div className="flex-1 overflow-auto space-y-4 text-sm">
-                        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45 mb-3">Session Log</div>
+                    <div className="flex-1 overflow-auto space-y-[var(--primitive-space-gap-section-min)] text-sm">
+                        <div className="rounded-[var(--primitive-radius-card)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 p-[var(--primitive-space-gap-section-min)]">
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-secondary)] mb-3">Session Log</div>
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => startFocusSession(session.label ?? 'Focus')}
-                                    className="flex-1 h-10 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/25 uppercase tracking-[0.2em] text-xs"
+                                    className="flex-1 h-10 rounded-[var(--primitive-radius-input)] bg-[var(--semantic-color-status-success)]/10 text-[var(--semantic-color-status-success)] hover:bg-[var(--semantic-color-status-success)]/20 uppercase tracking-[0.2em] text-[10px]"
                                 >
                                     Start Focus
                                 </button>
                                 <button
                                     onClick={() => stopFocusSession()}
-                                    className="h-10 px-3 rounded-lg bg-white/10 text-white/70 hover:bg-white/15 uppercase tracking-[0.2em] text-xs"
+                                    className="h-10 px-3 rounded-[var(--primitive-radius-input)] bg-[var(--semantic-color-text-primary)]/10 text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/15 uppercase tracking-[0.2em] text-[10px]"
                                     disabled={!session.isActive}
                                     aria-disabled={!session.isActive}
                                     title={session.isActive ? 'Stop focus session' : 'No active session'}
@@ -189,22 +187,22 @@ const NowCoreDrawer = () => {
                                     Stop
                                 </button>
                             </div>
-                            <div className="mt-3 text-xs text-white/70">
-                                <div>Status: <span className="text-white/85">{session.isActive ? 'Active' : 'Idle'}</span></div>
-                                <div>Label: <span className="text-white/85">{session.label ?? '—'}</span></div>
-                                <div>Started: <span className="text-white/85">{session.startTime ? new Date(session.startTime).toLocaleTimeString() : '—'}</span></div>
+                            <div className="mt-3 text-xs text-[var(--semantic-color-text-secondary)]">
+                                <div>Status: <span className="text-[var(--semantic-color-text-primary)]">{session.isActive ? 'Active' : 'Idle'}</span></div>
+                                <div>Label: <span className="text-[var(--semantic-color-text-primary)]">{session.label ?? '—'}</span></div>
+                                <div>Started: <span className="text-[var(--semantic-color-text-primary)]">{session.startTime ? new Date(session.startTime).toLocaleTimeString() : '—'}</span></div>
                             </div>
                         </div>
-                        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                            <div className="text-xs uppercase tracking-widest text-text-secondary">Temporal Log</div>
-                            <div className="mt-1 text-[11px] text-white/45">Updated: {updatedAt}</div>
+                        <div className="rounded-[var(--primitive-radius-card)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 p-[var(--primitive-space-gap-section-min)]">
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-secondary)]">Temporal Log</div>
+                            <div className="mt-1 text-[11px] text-[var(--semantic-color-text-muted)]">Updated: {updatedAt}</div>
                         </div>
-                        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                            <div className="mb-2 opacity-50 text-xs uppercase tracking-[0.2em] text-white/45">Today</div>
-                            <div className="pl-2 border-l border-white/10 flex flex-col gap-2 font-mono text-xs">
-                                <div>10:42 <span className="text-white">Node Created</span></div>
-                                <div>09:15 <span className="text-emerald-400">Ritual Complete</span></div>
-                                <div>08:31 <span className="text-white/85">Scope Entered</span></div>
+                        <div className="rounded-[var(--primitive-radius-card)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 p-[var(--primitive-space-gap-section-min)]">
+                            <div className="mb-2 opacity-50 text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-muted)]">Today</div>
+                            <div className="pl-2 border-l border-[var(--semantic-color-border-default)] flex flex-col gap-2 font-mono text-xs">
+                                <div>10:42 <span className="text-[var(--semantic-color-text-primary)]">Node Created</span></div>
+                                <div>09:15 <span className="text-[var(--semantic-color-status-success)]">Ritual Complete</span></div>
+                                <div>08:31 <span className="text-[var(--semantic-color-text-secondary)]">Scope Entered</span></div>
                             </div>
                         </div>
                     </div>

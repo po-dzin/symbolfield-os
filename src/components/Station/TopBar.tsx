@@ -7,7 +7,7 @@ const TopBar = () => {
         <div className="topbar-shell justify-between">
             {/* Logo */}
             <div className="flex items-center gap-[var(--primitive-space-bar-gap)] cursor-pointer opacity-85 hover:opacity-100 transition-opacity">
-                <div className="w-8 h-8 rounded-full bg-sf-zinc-900 border border-[var(--semantic-color-border-default)] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-[var(--primitive-color-n0-deepest)] border border-[var(--semantic-color-border-default)] flex items-center justify-center">
                     <img src={coreGlyph} alt="Core" className="w-full h-full block opacity-85" />
                 </div>
                 <span className="text-[var(--semantic-color-text-primary)]/80 font-medium tracking-wide text-sm">SymbolField</span>
@@ -22,7 +22,7 @@ const TopBar = () => {
             {/* Account Settings */}
             <button
                 onClick={() => import('../../core/events/EventBus').then(({ eventBus }) => eventBus.emit('UI_SIGNAL', { type: 'OPEN_ACCOUNT_SETTINGS', x: 0, y: 0 }))}
-                className="w-[var(--component-hit-icon-min)] h-[var(--component-hit-icon-min)] rounded-full bg-white/5 hover:bg-white/10 border border-[var(--semantic-color-border-default)] hover:border-white/30 flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-all"
+                className="w-[var(--component-hit-icon-min)] h-[var(--component-hit-icon-min)] rounded-full bg-[var(--semantic-color-text-primary)]/5 hover:bg-[var(--semantic-color-text-primary)]/10 border border-[var(--semantic-color-border-default)] hover:border-[var(--semantic-color-text-secondary)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-all"
                 title="Account Settings"
                 aria-label="Account Settings"
             >

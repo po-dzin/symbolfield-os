@@ -41,7 +41,7 @@ const InteractionLayer = () => {
                         .map(s => ({ ...s, t: s.t + dt * 1.2 })) // speed 1.2 units per sec (1.5x Faster)
                         .filter(s => s.t < 1);
                 });
-        }
+            }
 
             frameId = requestAnimationFrame(loop);
         };
@@ -198,7 +198,7 @@ const InteractionLayer = () => {
         <div className="absolute inset-0 pointer-events-none z-[var(--z-overlay)]">
             {box && (
                 <div
-                    className="absolute border border-white/40 bg-white/5 backdrop-blur-[1px]"
+                    className="absolute border border-[var(--semantic-color-text-secondary)]/40 bg-[var(--semantic-color-text-primary)]/5 backdrop-blur-[1px]"
                     style={{
                         left: box.x,
                         top: box.y,
@@ -210,7 +210,7 @@ const InteractionLayer = () => {
 
             {regionBox && (
                 <div
-                    className="absolute border border-dashed border-white/40 bg-white/5 backdrop-blur-[1px]"
+                    className="absolute border border-dashed border-[var(--semantic-color-text-secondary)]/40 bg-[var(--semantic-color-text-primary)]/5 backdrop-blur-[1px]"
                     style={{
                         left: regionBox.x,
                         top: regionBox.y,
@@ -222,7 +222,7 @@ const InteractionLayer = () => {
 
             {regionCircle && (
                 <div
-                    className="absolute rounded-full border border-dashed border-white/40 bg-white/5 backdrop-blur-[1px]"
+                    className="absolute rounded-[var(--primitive-radius-pill)] border border-dashed border-[var(--semantic-color-text-secondary)]/40 bg-[var(--semantic-color-text-primary)]/5 backdrop-blur-[1px]"
                     style={{
                         left: regionCircle.cx - regionCircle.r,
                         top: regionCircle.cy - regionCircle.r,
@@ -237,7 +237,7 @@ const InteractionLayer = () => {
                     <line
                         x1={linkDraft.x1} y1={linkDraft.y1}
                         x2={linkDraft.x2} y2={linkDraft.y2}
-                        stroke="white"
+                        stroke="var(--semantic-color-text-primary)"
                         strokeWidth="1.5"
                         strokeDasharray={linkDraft.associative ? "4 4" : "0"}
                         className="opacity-60"
@@ -263,7 +263,7 @@ const InteractionLayer = () => {
                         <circle
                             key={s.id}
                             cx={x} cy={y} r={3 * scale}
-                            fill="#FFFFFF"
+                            fill="var(--semantic-color-text-primary)"
                             fillOpacity={opacity}
                             opacity={0.9}
                         />

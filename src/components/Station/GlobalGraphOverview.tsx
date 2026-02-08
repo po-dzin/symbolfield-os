@@ -1113,7 +1113,7 @@ const GlobalGraphOverview = ({
             const now = Date.now();
             const inNativeGestureWindow = (now - lastGestureChangeTs) < GESTURE_WHEEL_GUARD_MS;
             const wantsZoom = wheelZoomEnabled() || event.ctrlKey || event.metaKey;
-            
+
             // Heuristic: If we are zooming, track it.
             // If we stop zooming, we might get some "tail" inertia events without ctrlKey.
             // We want to ignore those for a short time to prevent "jerky pan".
@@ -1151,7 +1151,7 @@ const GlobalGraphOverview = ({
 
             event.preventDefault();
             event.stopPropagation();
-            
+
             if (inNativeGestureWindow) return;
 
             const rect = root.getBoundingClientRect();
@@ -1394,7 +1394,8 @@ const GlobalGraphOverview = ({
             className={className ?? 'relative w-full h-full'}
             style={{
                 touchAction: 'none',
-                backgroundImage: showGrid ? 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)' : 'none',
+                backgroundColor: 'var(--primitive-color-n0-deepest)',
+                backgroundImage: showGrid ? 'radial-gradient(circle, color-mix(in srgb, var(--semantic-color-text-primary), transparent 94%) 1px, transparent 1px)' : 'none',
                 backgroundSize: '32px 32px'
             }}
         >
@@ -1501,7 +1502,7 @@ const GlobalGraphOverview = ({
                                             cx={cluster.center.x + cluster.radius + 22}
                                             cy={cluster.center.y}
                                             r={2.2}
-                                            fill="rgba(255,255,255,0.7)"
+                                            fill="var(--semantic-color-text-secondary)"
                                         />
                                         <animateTransform
                                             attributeName="transform"
@@ -1517,7 +1518,7 @@ const GlobalGraphOverview = ({
                                             cx={cluster.center.x + cluster.radius + 34}
                                             cy={cluster.center.y}
                                             r={1.6}
-                                            fill="rgba(255,255,255,0.5)"
+                                            fill="var(--semantic-color-text-muted)"
                                         />
                                         <animateTransform
                                             attributeName="transform"
@@ -1535,8 +1536,9 @@ const GlobalGraphOverview = ({
                                 cx={cluster.center.x}
                                 cy={cluster.center.y}
                                 r={cluster.radius}
-                                fill={isActive ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.02)'}
-                                stroke={isActive ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.08)'}
+                                fill="var(--semantic-color-text-primary)"
+                                fillOpacity={isActive ? 0.03 : 0.02}
+                                stroke={isActive ? 'var(--semantic-color-text-secondary)' : 'var(--semantic-color-border-default)'}
                                 strokeWidth={isActive ? 1.6 : 1}
                             />
 
@@ -1642,14 +1644,14 @@ const GlobalGraphOverview = ({
                             {detailLevel >= 2 && cluster.nodes
                                 .filter(n => n.parentClusterId)
                                 .map(node => (
-                                <circle
-                                    key={node.id}
-                                    cx={node.x}
-                                    cy={node.y}
-                                    r={2}
-                                    fill={node.color}
-                                />
-                            ))}
+                                    <circle
+                                        key={node.id}
+                                        cx={node.x}
+                                        cy={node.y}
+                                        r={2}
+                                        fill={node.color}
+                                    />
+                                ))}
                         </g>
                     );
                 })}
@@ -1657,40 +1659,40 @@ const GlobalGraphOverview = ({
 
             {showHud && (
                 <div
-                    className="absolute flex flex-wrap items-center justify-end gap-2 text-[10px] uppercase tracking-[0.25em] text-white/70 pointer-events-none transition-all duration-200"
+                    className="absolute flex flex-wrap items-center justify-end gap-2 text-[10px] uppercase tracking-[0.25em] text-[var(--semantic-color-text-muted)] pointer-events-none transition-all duration-200"
                     style={{ right: stationHudRightInset, bottom: '104px' }}
                 >
-                    <div className="rounded-full border border-white/10 bg-black/30 px-3 py-1">
+                    <div className="rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 px-3 py-1">
                         Spaces {stationHudSummary.spaces}
                     </div>
-                    <div className="rounded-full border border-white/10 bg-black/30 px-3 py-1">
+                    <div className="rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 px-3 py-1">
                         Nodes {stationHudSummary.nodes}
                     </div>
-                    <div className="rounded-full border border-white/10 bg-black/30 px-3 py-1">
+                    <div className="rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 px-3 py-1">
                         Links {stationHudSummary.edges}
                     </div>
-                    <div className="rounded-full border border-white/10 bg-black/30 px-3 py-1">
+                    <div className="rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 px-3 py-1">
                         Clusters {stationHudSummary.clusters}
                     </div>
                 </div>
             )}
 
-            <div className="absolute top-20 right-8 flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[10px] uppercase tracking-[0.3em] text-white/50">
+            <div className="absolute top-20 right-8 flex items-center gap-1 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 px-2 py-1 text-[10px] uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)]">
                 <button
                     onClick={() => setDetailLevel(0)}
-                    className={`px-2 py-1 rounded-full transition-colors ${detailLevel === 0 ? 'bg-white/20 text-white' : 'hover:text-white/80'}`}
+                    className={`px-2 py-1 rounded-[var(--primitive-radius-pill)] transition-colors ${detailLevel === 0 ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'hover:text-[var(--semantic-color-text-secondary)]'}`}
                 >
                     L0
                 </button>
                 <button
                     onClick={() => setDetailLevel(1)}
-                    className={`px-2 py-1 rounded-full transition-colors ${detailLevel === 1 ? 'bg-white/20 text-white' : 'hover:text-white/80'}`}
+                    className={`px-2 py-1 rounded-[var(--primitive-radius-pill)] transition-colors ${detailLevel === 1 ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'hover:text-[var(--semantic-color-text-secondary)]'}`}
                 >
                     L1
                 </button>
                 <button
                     onClick={() => setDetailLevel(2)}
-                    className={`px-2 py-1 rounded-full transition-colors ${detailLevel === 2 ? 'bg-white/20 text-white' : 'hover:text-white/80'}`}
+                    className={`px-2 py-1 rounded-[var(--primitive-radius-pill)] transition-colors ${detailLevel === 2 ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'hover:text-[var(--semantic-color-text-secondary)]'}`}
                 >
                     L2
                 </button>

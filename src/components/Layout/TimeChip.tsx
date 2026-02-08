@@ -16,41 +16,41 @@ const TimeChip = () => {
     const jumpToToday = useTimeStore(state => state.jumpToToday);
 
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-[var(--primitive-space-gap-default)]">
             {/* Navigation Controls */}
-            <div className="glass-panel flex items-center p-1 gap-1">
+            <div className="glass-panel flex items-center p-1 gap-1 rounded-[var(--primitive-radius-input)]">
                 <button
                     onClick={() => navigate(-1)}
-                    className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-text-secondary"
+                    className="w-[var(--component-button-height-sm)] h-[var(--component-button-height-sm)] rounded-[var(--primitive-radius-input)] hover:bg-[var(--semantic-color-text-primary)]/10 flex items-center justify-center text-[var(--semantic-color-text-secondary)]"
                 >
                     ‹
                 </button>
 
                 <button
                     onClick={jumpToToday}
-                    className="px-3 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-sm font-medium tracking-wide uppercase"
+                    className="px-3 h-[var(--component-button-height-sm)] rounded-[var(--primitive-radius-input)] hover:bg-[var(--semantic-color-text-primary)]/10 flex items-center justify-center text-[var(--primitive-type-small-size)] font-medium tracking-wide uppercase text-[var(--semantic-color-text-primary)]"
                 >
                     {display}
                 </button>
 
                 <button
                     onClick={() => navigate(1)}
-                    className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-text-secondary"
+                    className="w-[var(--component-button-height-sm)] h-[var(--component-button-height-sm)] rounded-[var(--primitive-radius-input)] hover:bg-[var(--semantic-color-text-primary)]/10 flex items-center justify-center text-[var(--semantic-color-text-secondary)]"
                 >
                     ›
                 </button>
             </div>
 
             {/* Scale Selector */}
-            <div className="glass-panel flex items-center p-1">
+            <div className="glass-panel flex items-center p-1 rounded-[var(--primitive-radius-input)]">
                 {TIME_SCALES.map((s) => (
                     <button
                         key={s}
                         onClick={() => setScale(s)}
                         className={`
-              px-2 h-8 rounded-lg text-xs uppercase tracking-wider
+              px-2 h-[var(--component-button-height-sm)] rounded-[var(--primitive-radius-input)] text-[10px] uppercase tracking-wider
               transition-colors
-              ${scale === s ? 'bg-white/20 text-text-primary' : 'text-text-meta hover:text-text-secondary'}
+              ${scale === s ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)]'}
             `}
                     >
                         {s[0]}

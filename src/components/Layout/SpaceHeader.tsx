@@ -42,15 +42,15 @@ const SpaceHeader = () => {
             type="button"
             aria-pressed={checked}
             onClick={onToggle}
-            className={`relative w-16 h-7 rounded-full border transition-colors ${checked ? 'bg-white/20 border-white/30' : 'bg-white/10 border-white/20'}`}
+            className={`relative w-16 h-7 rounded-[var(--primitive-radius-pill)] border transition-colors ${checked ? 'bg-[var(--semantic-color-text-primary)]/20 border-[var(--semantic-color-text-primary)]/30' : 'bg-[var(--semantic-color-text-primary)]/10 border-[var(--semantic-color-border-default)]'}`}
         >
-            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold transition-all ${checked ? 'text-white/80' : 'opacity-0'} z-10`}>
+            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold transition-all ${checked ? 'text-[var(--semantic-color-text-primary)]/80' : 'opacity-0'} z-10`}>
                 {labelOn}
             </span>
-            <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold transition-all ${checked ? 'opacity-0' : 'text-white/80'} z-10`}>
+            <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold transition-all ${checked ? 'opacity-0' : 'text-[var(--semantic-color-text-primary)]/80'} z-10`}>
                 {labelOff}
             </span>
-            <span className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 rounded-full shadow-sm transition-all ${checked ? 'right-0.5 bg-white' : 'left-0.5 bg-white'}`} />
+            <span className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 rounded-full shadow-sm transition-all ${checked ? 'right-0.5 bg-[var(--semantic-color-text-primary)]' : 'left-0.5 bg-[var(--semantic-color-text-primary)]'}`} />
         </button>
     );
 
@@ -154,7 +154,7 @@ const SpaceHeader = () => {
                 {/* Logo / Home Button */}
                 <button
                     onClick={() => eventBus.emit('UI_SIGNAL', { type: 'EXIT_TO_STATION', x: 0, y: 0 })}
-                    className="w-8 h-8 rounded-full bg-sf-zinc-900 border border-[var(--semantic-color-border-default)] flex items-center justify-center hover:border-white/20 transition-all shadow-sm group"
+                    className="w-8 h-8 rounded-[var(--primitive-radius-pill)] bg-[var(--semantic-color-bg-surface)] border border-[var(--semantic-color-border-default)] flex items-center justify-center hover:border-[var(--semantic-color-text-secondary)] transition-all shadow-sm group"
                     title="Return to Station"
                 >
                     <img src={coreGlyph} alt="Core" className="w-full h-full block opacity-85" />
@@ -162,7 +162,7 @@ const SpaceHeader = () => {
 
                 {/* Space Name Input */}
                 <div
-                    className="flex items-center gap-2 bg-sf-zinc-900/80 backdrop-blur border border-[var(--semantic-color-border-default)] rounded-2xl px-4 h-[var(--component-input-height-default)] shadow-sm hover:border-[var(--semantic-color-text-secondary)] transition-colors"
+                    className="flex items-center gap-2 bg-[var(--semantic-color-bg-surface)]/80 backdrop-blur border border-[var(--semantic-color-border-default)] rounded-[var(--primitive-radius-card)] px-4 h-[var(--component-input-height-default)] shadow-sm hover:border-[var(--semantic-color-text-secondary)] transition-colors"
                     onMouseEnter={() => setIsHoveringTitle(true)}
                     onMouseLeave={() => setIsHoveringTitle(false)}
                 >
@@ -192,7 +192,7 @@ const SpaceHeader = () => {
                 </div>
 
                 {/* Cloud Status (Mock) */}
-                <div className="w-2 h-2 rounded-full bg-[var(--primitive-color-utility-success)]/50 shadow-[0_0_8px_rgba(82,199,122,0.3)]" title="Saved locally" />
+                <div className="w-2 h-2 rounded-[var(--primitive-radius-pill)] bg-[var(--primitive-color-utility-success)]/50 shadow-[0_0_8px_rgba(82,199,122,0.3)]" title="Saved locally" />
 
                 {/* Space Menu */}
                 <div className="relative" ref={menuRef}>
@@ -205,7 +205,7 @@ const SpaceHeader = () => {
                             }
                             return next;
                         })}
-                        className="w-8 h-8 rounded-full bg-sf-zinc-900/70 border border-[var(--semantic-color-border-default)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:border-[var(--semantic-color-text-secondary)] transition-all"
+                        className="w-8 h-8 rounded-[var(--primitive-radius-pill)] bg-[var(--semantic-color-bg-surface)]/70 border border-[var(--semantic-color-border-default)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:border-[var(--semantic-color-text-secondary)] transition-all"
                         title="Space menu"
                     >
                         ⋯
@@ -241,7 +241,7 @@ const SpaceHeader = () => {
             <div className="flex-1 flex justify-center">
                 <OmniInputCollapsed
                     className="w-full max-w-md"
-                    inputClassName="block w-full px-4 h-[var(--component-input-height-default)] bg-sf-zinc-900/70 border border-[var(--semantic-color-border-default)] rounded-[var(--primitive-radius-pill)] text-[var(--semantic-color-text-primary)] placeholder-[var(--semantic-color-text-muted)] focus:outline-none focus:bg-sf-zinc-900/90 focus:border-[var(--semantic-color-text-secondary)] transition-all text-sm topbar-omni"
+                    inputClassName="block w-full px-4 h-[var(--component-input-height-default)] bg-[var(--semantic-color-bg-surface)]/70 border border-[var(--semantic-color-border-default)] rounded-[var(--primitive-radius-pill)] text-[var(--semantic-color-text-primary)] placeholder-[var(--semantic-color-text-muted)] focus:outline-none focus:bg-[var(--semantic-color-bg-surface)]/90 focus:border-[var(--semantic-color-text-secondary)] transition-all text-sm topbar-omni"
                 />
             </div>
         </div>

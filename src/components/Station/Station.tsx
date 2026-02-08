@@ -84,7 +84,7 @@ const Station = () => {
     }, [selectedSpaceId]);
 
     return (
-        <div className="min-h-screen h-screen w-full bg-transparent text-white/90 selection:bg-white/10 font-sans relative">
+        <div className="min-h-screen h-screen w-full bg-transparent text-[var(--semantic-color-text-primary)] selection:bg-[var(--semantic-color-text-primary)]/10 font-sans relative">
             <GraphViewShell
                 world={(
                     <GlobalGraphOverview
@@ -113,23 +113,23 @@ const Station = () => {
                                 if (!leftPinned) setDrawerOpen('left', false);
                             }}
                         >
-                            <div className="h-full bg-black/35 backdrop-blur-xl border-r border-white/10 p-[var(--panel-padding)] flex flex-col gap-10">
+                            <div className="h-full bg-[var(--semantic-color-bg-surface)]/35 backdrop-blur-xl border-r border-[var(--semantic-color-border-default)] p-[var(--panel-padding)] flex flex-col gap-10">
                                 <div className="flex items-center justify-between">
-                                    <div className="text-white/70 space-y-1">
-                                        <div className="text-sm text-white/90">
-                                            Welcome back, <span className="text-white">Builder</span>
+                                    <div className="text-[var(--semantic-color-text-secondary)] space-y-1">
+                                        <div className="text-sm">
+                                            Welcome back, <span className="text-[var(--semantic-color-text-primary)] font-medium">Builder</span>
                                         </div>
-                                        <div className="text-xs text-white/50">The field is quiet today.</div>
+                                        <div className="text-xs text-[var(--semantic-color-text-muted)]">The field is quiet today.</div>
                                     </div>
                                     <button
                                         onClick={() => setDrawerPinned('left', !leftPinned)}
-                                        className={`w-7 h-7 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 ${leftPinned ? 'bg-white/15 text-white' : ''}`}
+                                        className={`w-7 h-7 rounded-full flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10 transition-colors ${leftPinned ? 'bg-[var(--semantic-color-text-primary)]/15 text-[var(--semantic-color-text-primary)]' : ''}`}
                                         title={leftPinned ? 'Unpin drawer' : 'Pin drawer'}
                                     >
                                         📌
                                     </button>
                                 </div>
-                                <div className="space-y-12">
+                                <div className="space-y-12 text-[var(--semantic-color-text-primary)]">
                                     <RecentsRail />
                                     <TemplatesRow />
                                 </div>
