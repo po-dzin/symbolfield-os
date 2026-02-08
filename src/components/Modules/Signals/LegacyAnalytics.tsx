@@ -1,4 +1,5 @@
-import React from 'react';
+import { useAppStore } from '../../../store/useAppStore';
+import ResizeHandle from '../../Drawers/ResizeHandle';
 
 export type SpaceMetrics = {
     id: string;
@@ -100,13 +101,18 @@ const RadialDiagram = ({ metrics }: { metrics: SpaceMetrics }) => {
 };
 
 const StationAnalyticsDrawer = ({ open, metrics, onClose }: { open: boolean; metrics: SpaceMetrics | null; onClose: () => void }) => {
+    const rightWidthPx = useAppStore(state => state.drawerRightWidthPx);
+    const setDrawerWidthPx = useAppStore(state => state.setDrawerWidthPx);
+
     return (
         <div
-            className={`absolute right-0 top-0 h-full w-[var(--panel-width-lg)] z-20 transition-transform duration-300 ease-out pointer-events-auto ${open ? 'translate-x-0' : 'translate-x-full'}`}
+            className={`absolute right-0 top-0 h-full z-20 transition-transform duration-300 ease-out pointer-events-auto ${open ? 'translate-x-0' : 'translate-x-full'}`}
+            style={{ width: `${rightWidthPx}px` }}
         >
-            <div className="h-full glass-panel rounded-none rounded-l-[var(--panel-radius)] border-r-0 p-[var(--panel-padding)] flex flex-col gap-6">
+            <ResizeHandle side="right" onResize={(w) => setDrawerWidthPx('right', w)} />
+            <div className="h-full glass-panel rounded-none rounded-l-[var(--component-panel-radius)] border-r-0 p-[var(--component-panel-padding)] flex flex-col gap-6 overflow-y-auto no-scrollbar">
                 <div className="flex items-center justify-between">
-                    <div className="text-xs uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)]">Analytics</div>
+                    <div className="text-xs uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)] opacity-60">Analytics</div>
                     <button
                         onClick={onClose}
                         className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10 transition-colors"

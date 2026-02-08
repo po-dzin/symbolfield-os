@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import TopBar from './TopBar';
+
 import StartGates from './StartGates';
 import RecentsRail from './RecentsRail';
 import TemplatesRow from './TemplatesRow';
@@ -9,9 +9,10 @@ import { loadOnboardingState } from '../../core/state/onboardingState';
 import { spaceManager } from '../../core/state/SpaceManager';
 import GlobalGraphOverview from './GlobalGraphOverview';
 import { eventBus, EVENTS } from '../../core/events/EventBus';
-import StationAnalyticsDrawer, { type SpaceMetrics } from './StationAnalyticsDrawer';
+import { type SpaceMetrics } from '../Modules/Signals/LegacyAnalytics';
 import GraphViewShell from '../GraphView/GraphViewShell';
 import AccountSettingsOverlay from './AccountSettingsOverlay';
+import ResizeHandle from '../Drawers/ResizeHandle';
 
 const Station = () => {
     const [showOnboarding, setShowOnboarding] = React.useState(false);
@@ -21,10 +22,11 @@ const Station = () => {
     const setDrawerPinned = useAppStore(state => state.setDrawerPinned);
     const setDrawerRightTab = useAppStore(state => state.setDrawerRightTab);
     const rightOpen = useAppStore(state => state.drawerRightOpen);
-    const rightTab = useAppStore(state => state.drawerRightTab);
-    const [focusedMetrics, setFocusedMetrics] = React.useState<SpaceMetrics | null>(null);
     const [selectedSpaceId, setSelectedSpaceId] = React.useState<string | null>(null);
     const [showAccountSettings, setShowAccountSettings] = React.useState(false);
+    const [focusedMetrics, setFocusedMetrics] = React.useState<SpaceMetrics | null>(null);
+    const leftWidthPx = useAppStore(state => state.drawerLeftWidthPx);
+    const setDrawerWidthPx = useAppStore(state => state.setDrawerWidthPx);
 
     React.useEffect(() => {
         const unsub = eventBus.on(EVENTS.SPACE_CHANGED, () => {
@@ -33,8 +35,8 @@ const Station = () => {
             setDrawerRightTab(null);
             setDrawerOpen('right', false);
         });
-        return () => unsub();
-    }, []);
+        return unsub;
+    }, [setDrawerRightTab, setDrawerOpen]);
 
     React.useEffect(() => {
         spaceManager.ensureOnboardingSpaces();
@@ -51,7 +53,7 @@ const Station = () => {
             if (signalType !== 'OPEN_ACCOUNT_SETTINGS') return;
             setShowAccountSettings(true);
         });
-        return () => unsub();
+        return unsub;
     }, []);
 
     React.useEffect(() => {
@@ -81,7 +83,7 @@ const Station = () => {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedSpaceId]);
+    }, [selectedSpaceId, setDrawerOpen, setDrawerRightTab]);
 
     return (
         <div className="min-h-screen h-screen w-full bg-transparent text-[var(--semantic-color-text-primary)] selection:bg-[var(--semantic-color-text-primary)]/10 font-sans relative">
@@ -92,7 +94,7 @@ const Station = () => {
                         onSelectSpace={(metrics) => {
                             setFocusedMetrics(metrics);
                             if (metrics) {
-                                setDrawerRightTab('analytics');
+                                setDrawerRightTab('signals');
                             }
                             setDrawerOpen('right', Boolean(metrics));
                             setSelectedSpaceId(metrics?.id ?? null);
@@ -100,7 +102,7 @@ const Station = () => {
                         selectedSpaceId={selectedSpaceId}
                     />
                 )}
-                topbar={<TopBar />}
+                topbar={null}
                 drawers={(
                     <>
                         <div
@@ -108,18 +110,19 @@ const Station = () => {
                             onMouseEnter={() => setDrawerOpen('left', true)}
                         />
                         <div
-                            className={`absolute left-0 top-0 h-full w-[var(--panel-width-md)] z-20 pointer-events-auto transition-transform duration-300 ease-out ${leftPinned || leftOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                            className={`absolute left-0 top-0 h-full z-20 pointer-events-auto transition-transform duration-300 ease-out ${leftPinned || leftOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                            style={{ width: `${leftWidthPx}px` }}
                             onMouseLeave={() => {
                                 if (!leftPinned) setDrawerOpen('left', false);
                             }}
                         >
-                            <div className="h-full bg-[var(--semantic-color-bg-surface)]/35 backdrop-blur-xl border-r border-[var(--semantic-color-border-default)] p-[var(--panel-padding)] flex flex-col gap-10">
+                            <div className="h-full bg-[var(--semantic-color-bg-surface)]/35 backdrop-blur-xl border-r border-[var(--semantic-color-border-default)] p-[var(--component-panel-padding)] flex flex-col gap-10">
                                 <div className="flex items-center justify-between">
                                     <div className="text-[var(--semantic-color-text-secondary)] space-y-1">
+                                        <div className="text-xs uppercase tracking-[0.3em] opacity-60">Field Origin</div>
                                         <div className="text-sm">
-                                            Welcome back, <span className="text-[var(--semantic-color-text-primary)] font-medium">Builder</span>
+                                            Welcome, <span className="text-[var(--semantic-color-text-primary)] font-medium">Builder</span>
                                         </div>
-                                        <div className="text-xs text-[var(--semantic-color-text-muted)]">The field is quiet today.</div>
                                     </div>
                                     <button
                                         onClick={() => setDrawerPinned('left', !leftPinned)}
@@ -129,21 +132,13 @@ const Station = () => {
                                         📌
                                     </button>
                                 </div>
-                                <div className="space-y-12 text-[var(--semantic-color-text-primary)]">
+                                <div className="space-y-12 text-[var(--semantic-color-text-primary)] overflow-y-auto overflow-x-hidden flex-1 no-scrollbar">
                                     <RecentsRail />
                                     <TemplatesRow />
                                 </div>
                             </div>
+                            <ResizeHandle side="left" onResize={(w: number) => setDrawerWidthPx('left', w)} />
                         </div>
-                        <StationAnalyticsDrawer
-                            open={rightOpen && rightTab === 'analytics'}
-                            metrics={focusedMetrics}
-                            onClose={() => {
-                                setDrawerOpen('right', false);
-                                setDrawerRightTab(null);
-                                setSelectedSpaceId(null);
-                            }}
-                        />
                     </>
                 )}
                 overlays={(

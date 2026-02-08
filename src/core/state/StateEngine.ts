@@ -24,7 +24,8 @@ export const VIEW_CONTEXTS = {
     SPACE: 'space',
     NODE: 'node',
     // Legacy alias kept for backward compatibility with older deep links/state snapshots.
-    NOW: 'now'
+    NOW: 'now',
+    GATEWAY: 'gateway'
 } as const;
 
 export const TOOLS = {
@@ -36,7 +37,7 @@ export const TOOLS = {
 type AppMode = typeof APP_MODES[keyof typeof APP_MODES];
 type ViewContext = typeof VIEW_CONTEXTS[keyof typeof VIEW_CONTEXTS];
 type ToolId = typeof TOOLS[keyof typeof TOOLS];
-export type DrawerRightTab = 'settings' | 'analytics' | 'now' | 'cycles' | 'timeline' | 'log';
+export type DrawerRightTab = 'settings' | 'analytics' | 'now' | 'cycles' | 'chronos' | 'log' | 'props' | 'ai' | 'signals';
 
 interface SessionState {
     isActive: boolean;
@@ -69,9 +70,11 @@ interface StateSnapshot {
     drawerLeftOpen: boolean;
     drawerLeftPinned: boolean;
     drawerLeftWidth: 'sm' | 'md' | 'lg';
+    drawerLeftWidthPx: number;
     drawerRightOpen: boolean;
     drawerRightPinned: boolean;
     drawerRightWidth: 'sm' | 'md' | 'lg';
+    drawerRightWidthPx: number;
     drawerRightTab: DrawerRightTab | null;
     layoutMode: 'overlay' | 'pinned' | 'split';
     session: SessionState;
@@ -107,9 +110,11 @@ class StateEngine {
             drawerLeftOpen: false,
             drawerLeftPinned: false,
             drawerLeftWidth: 'md',
+            drawerLeftWidthPx: 320,
             drawerRightOpen: false,
             drawerRightPinned: false,
             drawerRightWidth: 'lg',
+            drawerRightWidthPx: 360,
             drawerRightTab: null,
             layoutMode: 'overlay',
 
@@ -400,9 +405,25 @@ class StateEngine {
         if (side === 'left') {
             if (this.state.drawerLeftWidth === width) return;
             this.state.drawerLeftWidth = width;
+            // Sync pixel width for consistency
+            if (width === 'sm') this.state.drawerLeftWidthPx = 280;
+            if (width === 'md') this.state.drawerLeftWidthPx = 320;
+            if (width === 'lg') this.state.drawerLeftWidthPx = 360;
         } else {
             if (this.state.drawerRightWidth === width) return;
             this.state.drawerRightWidth = width;
+            if (width === 'sm') this.state.drawerRightWidthPx = 280;
+            if (width === 'md') this.state.drawerRightWidthPx = 320;
+            if (width === 'lg') this.state.drawerRightWidthPx = 360;
+        }
+        this._emitChange();
+    }
+
+    setDrawerWidthPx(side: 'left' | 'right', width: number) {
+        if (side === 'left') {
+            this.state.drawerLeftWidthPx = width;
+        } else {
+            this.state.drawerRightWidthPx = width;
         }
         this._emitChange();
     }

@@ -15,7 +15,7 @@ const LogDrawer = () => {
     if (!drawerRightOpen || drawerRightTab !== 'log') return null;
 
     return (
-        <div className="absolute bottom-0 left-0 right-0 h-[30vh] z-[var(--z-drawer)] animate-slide-up pointer-events-auto">
+        <div className="absolute bottom-0 left-0 right-0 h-[30vh] z-[var(--component-z-drawer)] animate-slide-up pointer-events-auto">
             <div className="glass-panel w-full h-full rounded-b-none border-b-0 flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between p-2 border-b border-white/10 bg-black/20">

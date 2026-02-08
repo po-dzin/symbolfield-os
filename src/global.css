@@ -36,9 +36,16 @@ body {
 }
 
 .topbar-shell {
-    @apply fixed top-0 left-0 right-0 z-[var(--primitive-z-5-shell)] flex items-center px-4 h-[var(--component-topbar-height)] border-b border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-app)]/80 backdrop-blur-md;
+    @apply fixed top-0 left-0 right-0 z-[var(--component-z-topbar)] flex items-center px-4 h-[var(--component-topbar-height)] border-b border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-app)]/80 backdrop-blur-md;
 }
 
 .os-shell {
     @apply fixed inset-0 overflow-hidden bg-[var(--semantic-color-bg-app)] text-[var(--semantic-color-text-primary)] font-sans antialiased;
+}
+
+/* Disable transitions during active resize to prevent jitter */
+html.is-resizing *,
+html.is-resizing {
+    transition: none !important;
+    cursor: col-resize !important;
 }

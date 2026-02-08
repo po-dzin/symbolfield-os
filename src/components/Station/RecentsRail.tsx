@@ -88,7 +88,7 @@ const SpaceRow = ({
                 onClick={() => onOpen(item.id)}
                 onMouseEnter={() => eventBus.emit(EVENTS.PORTAL_HOVERED, { spaceId: item.id })}
                 onMouseLeave={() => eventBus.emit(EVENTS.PORTAL_HOVERED, {})}
-                className="group flex items-center gap-3 w-full text-left focus-visible:outline-none hover:bg-[var(--semantic-color-text-primary)]/5 rounded-[var(--primitive-radius-card)] p-2 -mx-2 transition-all"
+                className="group flex items-center gap-3 w-full text-left focus-visible:outline-none hover:bg-[var(--semantic-color-text-primary)]/5 rounded-[var(--primitive-radius-card)] p-2 transition-all"
             >
                 {/* Space Icon */}
                 <div className="

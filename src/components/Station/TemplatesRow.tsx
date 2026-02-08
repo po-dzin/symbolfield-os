@@ -16,7 +16,7 @@ const TemplatesRow = () => {
                             const id = spaceManager.createSpace(t.title);
                             spaceManager.loadSpace(id);
                         }}
-                        className="group flex items-center gap-3 w-full text-left focus-visible:outline-none hover:bg-[var(--semantic-color-text-primary)]/5 rounded-[var(--primitive-radius-card)] p-2 -mx-2 transition-all"
+                        className="group flex items-center gap-3 w-full text-left focus-visible:outline-none hover:bg-[var(--semantic-color-text-primary)]/5 rounded-[var(--primitive-radius-card)] p-2 transition-all"
                     >
                         {/* Template Icon */}
                         <div className="

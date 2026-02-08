@@ -15,7 +15,7 @@
   --primitive-color-n1-bg: #0B0D10;
   --primitive-color-n2-surface: #11151B;
   --primitive-color-n3-border: #243041;
-  
+
   --primitive-color-text-primary: #E9EEF5;
   --primitive-color-text-secondary: #A7B3C4;
   --primitive-color-text-muted: #6B7686;
@@ -45,6 +45,8 @@
   --primitive-size-panel-width-sm: 280px;
   --primitive-size-panel-width-md: 320px;
   --primitive-size-panel-width-lg: 360px;
+  --primitive-size-drawer-min: 240px;
+  --primitive-size-drawer-max: 640px;
 
   /* 1.6 Primitives: Space */
   --primitive-space-bar-pad-x: 20px;
@@ -65,19 +67,19 @@
   /* 1.8 Primitives: Type */
   --primitive-font-ui: "Inter", system-ui, sans-serif;
   --primitive-font-mono: "JetBrains Mono", monospace;
-  
+
   --primitive-type-body-size: 14px;
   --primitive-type-body-line: 20px;
-  
+
   --primitive-type-small-size: 12px;
   --primitive-type-small-line: 16px;
-  
+
   --primitive-type-label-size: 11px;
   --primitive-type-label-line: 14px;
-  
+
   --primitive-type-h6-size: 16px;
   --primitive-type-h6-line: 22px;
-  
+
   --primitive-type-h5-size: 18px;
   --primitive-type-h5-line: 24px;
 
@@ -103,20 +105,20 @@
   /* Backgrounds */
   --semantic-color-bg-app: var(--primitive-color-n1-bg);
   --semantic-color-bg-surface: var(--primitive-color-n2-surface);
-  
+
   /* Borders */
   --semantic-color-border-default: var(--primitive-color-n3-border);
-  
+
   /* Text */
   --semantic-color-text-primary: var(--primitive-color-text-primary);
   --semantic-color-text-secondary: var(--primitive-color-text-secondary);
   --semantic-color-text-muted: var(--primitive-color-text-muted);
-  
+
   /* Actions */
   --semantic-color-action-primary: var(--primitive-color-accent-cyan);
   --semantic-color-action-secondary: var(--primitive-color-accent-lilac);
   --semantic-color-action-tertiary: var(--primitive-color-accent-peach);
-  
+
   /* Status */
   --semantic-color-status-success: var(--primitive-color-utility-success);
   --semantic-color-status-warning: var(--primitive-color-utility-warning);
@@ -135,24 +137,55 @@
   --component-topbar-height: var(--primitive-size-bar-height);
   --component-topbar-pad-x: var(--primitive-space-bar-pad-x);
   --component-topbar-pad-y: var(--primitive-space-bar-pad-y);
-  
+
   /* Drawers/Panels */
   --component-drawer-width-default: var(--primitive-size-panel-width-md);
   --component-panel-radius: var(--primitive-radius-panel);
   --component-panel-padding: var(--primitive-space-panel-padding);
-  
+
   /* Buttons */
   --component-button-height-md: 36px;
   --component-button-height-sm: 32px;
   --component-button-height-lg: 40px;
-  
+
   /* Inputs */
   --component-input-height-default: 36px;
   --component-input-radius: var(--primitive-radius-input);
-  
+
   /* Hit Targets */
   --component-hit-icon-min: 36px;
   --component-hit-primary-min: 40px;
+
+  /* Z-Index (Stacking Order) */
+  --component-z-topbar: 50;
+  --component-z-rail: 15;
+  --component-z-drawer: 10;
+  --component-z-overlay: 5;
+  --component-z-omni: 100;
+  --component-z-modal: 100;
+
+  /* Drawer System */
+  --component-drawer-width-default: 360px;
+  --component-drawer-width-min: 280px;
+  --component-drawer-width-max: 480px;
+
+  /* Omni Overlay */
+  --component-omni-width: 600px;
+  --component-omni-backdrop: rgba(0, 0, 0, 0.6);
+
+  /* SideRail */
+  --component-rail-width: 48px;
+
+  /* Motion System (aligned with SFOS_FOUNDATIONS_SPEC_v0.1) */
+  --motion-duration-fast: 120ms;
+  --motion-duration-normal: 180ms;
+  --motion-duration-slow: 240ms;
+  --motion-easing-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-easing-decelerate: cubic-bezier(0.0, 0.0, 0.2, 1);
+
+  /* Legacy Support (to be migrated) */
+  --panel-padding: var(--component-panel-padding);
+  --panel-radius: var(--component-panel-radius);
 }
 
 /* Light Mode Override (v0.1 Baseline) */

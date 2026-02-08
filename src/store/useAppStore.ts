@@ -11,7 +11,7 @@ import { spaceManager } from '../core/state/SpaceManager';
 
 // Matches StateEngine constants
 type AppModeType = 'deep' | 'flow' | 'luma';
-type ViewContextType = 'home' | 'space' | 'node' | 'now';
+type ViewContextType = 'home' | 'space' | 'node' | 'now' | 'gateway';
 type ToolType = 'pointer' | 'link' | 'area';
 
 interface Session {
@@ -43,9 +43,11 @@ interface AppState {
     drawerLeftOpen: boolean;
     drawerLeftPinned: boolean;
     drawerLeftWidth: 'sm' | 'md' | 'lg';
+    drawerLeftWidthPx: number;
     drawerRightOpen: boolean;
     drawerRightPinned: boolean;
     drawerRightWidth: 'sm' | 'md' | 'lg';
+    drawerRightWidthPx: number;
     drawerRightTab: DrawerRightTab | null;
     layoutMode: 'overlay' | 'pinned' | 'split';
     session: Session;
@@ -87,8 +89,13 @@ interface AppStoreState extends AppState {
     toggleDrawerOpen: (side: 'left' | 'right') => void;
     setDrawerPinned: (side: 'left' | 'right', pinned: boolean) => void;
     setDrawerWidth: (side: 'left' | 'right', width: 'sm' | 'md' | 'lg') => void;
+    setDrawerWidthPx: (side: 'left' | 'right', width: number) => void;
     setLayoutMode: (mode: 'overlay' | 'pinned' | 'split') => void;
     setDrawerRightTab: (tab: DrawerRightTab | null) => void;
+
+    // Gateway Navigation
+    gatewayRoute: { type: 'brand'; slug: string } | { type: 'portal'; brandSlug: string; portalSlug: string } | null;
+    setGatewayRoute: (route: { type: 'brand'; slug: string } | { type: 'portal'; brandSlug: string; portalSlug: string } | null) => void;
 }
 
 export const useAppStore = create<AppStoreState>((set) => {
@@ -129,6 +136,8 @@ export const useAppStore = create<AppStoreState>((set) => {
     return {
         ...initialState,
         omniQuery: '',
+        gatewayRoute: { type: 'brand', slug: 'symbolfield' }, // Default route
+
 
         // Actions are just proxies to Engine
         setAppMode: (mode: AppModeType) => {
@@ -265,6 +274,10 @@ export const useAppStore = create<AppStoreState>((set) => {
             stateEngine.setDrawerWidth(side, width);
             sync();
         },
+        setDrawerWidthPx: (side: 'left' | 'right', width: number) => {
+            stateEngine.setDrawerWidthPx(side, width);
+            sync();
+        },
         setLayoutMode: (mode: 'overlay' | 'pinned' | 'split') => {
             stateEngine.setLayoutMode(mode);
             sync();
@@ -272,6 +285,9 @@ export const useAppStore = create<AppStoreState>((set) => {
         setDrawerRightTab: (tab: DrawerRightTab | null) => {
             stateEngine.setDrawerRightTab(tab);
             sync();
+        },
+        setGatewayRoute: (route) => {
+            set({ gatewayRoute: route });
         }
     };
 });

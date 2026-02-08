@@ -19,6 +19,15 @@ export interface SpaceMeta {
     favorite?: boolean;
     trashed?: boolean;
     deletedAt?: number | null;
+    description?: string;
+}
+
+export interface SpaceData {
+    spaceId?: string; // Optional for legacy
+    nodes: NodeBase[];
+    edges: Edge[];
+    clusters?: Record<string, any>; // Future proofing
+    version?: number;
 }
 
 const STORAGE_KEYS = {
@@ -168,6 +177,51 @@ class SpaceManager {
         );
         eventBus.emit(EVENTS.SPACE_CREATED, { spaceId: id, name: uniqueName, kind: space.kind || 'user' });
 
+        return id;
+    }
+
+    forkSpace(data: SpaceData, baseName: string): string {
+        const id = crypto.randomUUID();
+        const uniqueName = this.generateUniqueName(baseName);
+        const now = Date.now();
+        const expectedCoreId = getCoreId(id);
+
+        const space: SpaceMeta = {
+            id,
+            name: uniqueName,
+            createdAt: now,
+            updatedAt: now,
+            lastAccessedAt: now,
+            coreNodeId: expectedCoreId,
+            gridSnapEnabled: true,
+            parentSpaceId: ARCHECORE_ID,
+            kind: 'user',
+            trashed: false,
+            deletedAt: null,
+            description: `Forked from Vitrine`
+        };
+
+        this.spaces.set(id, space);
+        this.saveIndex();
+
+        // Prepare data
+        // We need to ensure the core node exists and has the correct ID for this new space
+        let nodes = data.nodes || [];
+        let edges = data.edges || [];
+
+        // If the snapshot has its own core node, we might need to adapt it
+        // For simplicity in v0.5, we just dump the data as is, but we update the spaceId in meta
+        nodes = nodes.map(n => ({
+            ...n,
+            meta: { ...n.meta, spaceId: id }
+        }));
+
+        localStorage.setItem(
+            STORAGE_KEYS.SPACE_PREFIX + id,
+            JSON.stringify({ spaceId: id, nodes, edges })
+        );
+
+        eventBus.emit(EVENTS.SPACE_CREATED, { spaceId: id, name: uniqueName, kind: 'user' });
         return id;
     }
 

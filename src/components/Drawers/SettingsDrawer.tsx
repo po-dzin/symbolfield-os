@@ -1,14 +1,12 @@
-/**
- * SettingsDrawer.jsx
- * Minimal settings panel for v0.5.
- */
-
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import ResizeHandle from './ResizeHandle';
 
 const SettingsDrawer = () => {
     const settingsOpen = useAppStore(state => state.settingsOpen);
     const closeSettings = useAppStore(state => state.closeSettings);
+    const drawerRightWidthPx = useAppStore(state => state.drawerRightWidthPx);
+    const setDrawerWidthPx = useAppStore(state => state.setDrawerWidthPx);
     const drawerRightTab = useAppStore(state => state.drawerRightTab);
     const contextMenuMode = useAppStore(state => state.contextMenuMode);
     const setContextMenuMode = useAppStore(state => state.setContextMenuMode);
@@ -32,108 +30,91 @@ const SettingsDrawer = () => {
             type="button"
             aria-pressed={checked}
             onClick={onToggle}
-            className={`relative w-16 h-7 rounded-full border transition-colors ${checked ? 'bg-white/20 border-white/30' : 'bg-white/10 border-white/20'}`}
+            className={`relative w-14 h-6 rounded-full border transition-colors ${checked ? 'bg-[var(--semantic-color-text-primary)]/20 border-[var(--semantic-color-border-default)]' : 'bg-[var(--semantic-color-text-primary)]/10 border-[var(--semantic-color-border-default)]/50'}`}
         >
-            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold transition-all ${checked ? 'text-white/80' : 'opacity-0'} z-10`}>
+            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[8px] font-bold uppercase tracking-tighter transition-all ${checked ? 'text-[var(--semantic-color-text-primary)]' : 'opacity-0'} z-10`}>
                 {labelOn}
             </span>
-            <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold transition-all ${checked ? 'opacity-0' : 'text-white/80'} z-10`}>
+            <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-bold uppercase tracking-tighter transition-all ${checked ? 'opacity-0' : 'text-[var(--semantic-color-text-muted)]'} z-10`}>
                 {labelOff}
             </span>
-            <span className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 rounded-full shadow-sm transition-all ${checked ? 'right-0.5 bg-white' : 'left-0.5 bg-white'}`} />
+            <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full shadow-sm transition-all ${checked ? 'right-0.5 bg-[var(--semantic-color-text-primary)]' : 'left-0.5 bg-[var(--semantic-color-text-secondary)]'}`} />
         </button>
     );
 
     return (
-        <div className="absolute right-4 top-[calc(var(--bar-height)+12px)] w-[var(--panel-width-md)] z-[var(--z-drawer)] animate-slide-in pointer-events-auto">
-            <div className="glass-panel p-3 flex flex-col gap-3">
+        <div
+            className="absolute right-0 top-0 h-full z-[var(--component-z-drawer)] pointer-events-auto"
+            style={{ width: `${drawerRightWidthPx}px` }}
+        >
+            <ResizeHandle side="right" onResize={(w) => setDrawerWidthPx('right', w)} />
+            <div className="h-full glass-panel rounded-none rounded-l-[var(--component-panel-radius)] border-r-0 p-[var(--component-panel-padding)] flex flex-col gap-6 overflow-y-auto no-scrollbar">
                 <div className="flex items-center justify-between">
-                    <span className="text-xs uppercase tracking-widest text-text-secondary">Settings</span>
-                    <button onClick={closeSettings} className="text-text-secondary hover:text-text-primary">✕</button>
+                    <span className="text-xs uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)] opacity-60">Settings</span>
+                    <button onClick={closeSettings} className="text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-colors">✕</button>
                 </div>
-                <div className="text-sm text-text-meta">
+                <div className="text-sm text-[var(--semantic-color-text-secondary)] leading-relaxed">
                     View + interaction settings (v0.5). Preferences/presets will expand later.
                 </div>
-                <div className="flex items-center justify-between text-sm text-white/70">
-                    <span>Context menu mode</span>
-                    <button
-                        type="button"
-                        role="switch"
-                        aria-checked={contextMenuMode === 'radial'}
-                        onClick={() => setContextMenuMode(contextMenuMode === 'bar' ? 'radial' : 'bar')}
-                        className={`relative w-16 h-7 rounded-full border transition-colors ${contextMenuMode === 'radial' ? 'bg-white/20 border-white/30' : 'bg-white/10 border-white/20'}`}
-                        title={contextMenuMode === 'radial' ? 'Radial' : 'Bar'}
-                    >
-                        <span
-                            className={`absolute left-2 top-1/2 -translate-y-1/2 text-[11px] transition-all ${contextMenuMode === 'bar' ? 'text-white' : 'text-white/40'}`}
-                        >
-                            —
-                        </span>
-                        <span
-                            className={`absolute right-2 top-1/2 -translate-y-1/2 transition-all ${contextMenuMode === 'radial' ? 'text-white' : 'text-white/40'}`}
-                        >
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="block">
-                                <path
-                                    d="M4 13.5A8 8 0 0 1 12 6a8 8 0 0 1 8 7.5"
-                                    stroke="currentColor"
-                                    strokeWidth="1.8"
-                                    strokeLinecap="round"
-                                />
-                            </svg>
-                        </span>
-                        <span
-                            className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 rounded-full shadow-sm transition-all ${contextMenuMode === 'radial' ? 'right-0.5 bg-white' : 'left-0.5 bg-white'}`}
-                        >
-                            <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-semibold ${contextMenuMode === 'radial' ? 'text-black/80' : 'text-black/70'}`}>
-                                {contextMenuMode === 'radial' ? (
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="block">
-                                        <path
-                                            d="M5 13A7 7 0 0 1 12 6a7 7 0 0 1 7 7"
-                                            stroke="currentColor"
-                                            strokeWidth="2"
-                                            strokeLinecap="round"
-                                        />
-                                    </svg>
-                                ) : (
-                                    '—'
-                                )}
-                            </span>
-                        </span>
-                    </button>
-                </div>
-                <div className="flex items-center justify-between text-sm text-white/70">
-                    <span>Show grid</span>
-                    <TogglePill checked={showGrid} onToggle={() => setShowGrid(!showGrid)} />
-                </div>
-                <div className="flex items-center justify-between text-sm text-white/70">
-                    <span>Grid snap</span>
-                    <TogglePill checked={gridSnapEnabled} onToggle={() => setGridSnapEnabled(!gridSnapEnabled)} />
-                </div>
-                <div className="flex items-center justify-between text-sm text-white/70">
-                    <span>Grid step</span>
-                    <div className="flex items-center gap-1">
-                        {[0.5, 1, 2].map(step => (
+
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
+                        <span>Context menu mode</span>
+                        <div className="flex items-center gap-1 bg-[var(--semantic-color-text-primary)]/5 p-1 rounded-[var(--primitive-radius-pill)]">
                             <button
-                                key={step}
-                                onClick={() => setGridStepMul(step)}
-                                className={`px-2 py-1 rounded-full text-[10px] uppercase tracking-wider border transition-colors ${gridStepMul === step ? 'bg-white/20 border-white/30 text-white' : 'border-white/10 text-white/50 hover:text-white hover:border-white/30'}`}
+                                onClick={() => setContextMenuMode('bar')}
+                                className={`px-2 py-0.5 rounded-[var(--primitive-radius-pill)] text-[9px] uppercase tracking-wider transition-colors ${contextMenuMode === 'bar' ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-secondary)]'}`}
                             >
-                                {step}×
+                                Bar
                             </button>
-                        ))}
+                            <button
+                                onClick={() => setContextMenuMode('radial')}
+                                className={`px-2 py-0.5 rounded-[var(--primitive-radius-pill)] text-[9px] uppercase tracking-wider transition-colors ${contextMenuMode === 'radial' ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-secondary)]'}`}
+                            >
+                                Radial
+                            </button>
+                        </div>
                     </div>
-                </div>
-                <div className="flex items-center justify-between text-sm text-white/70">
-                    <span>Show edges</span>
-                    <TogglePill checked={showEdges} onToggle={() => setShowEdges(!showEdges)} />
-                </div>
-                <div className="flex items-center justify-between text-sm text-white/70">
-                    <span>HUD chips</span>
-                    <TogglePill checked={showHud} onToggle={() => setShowHud(!showHud)} />
-                </div>
-                <div className="flex items-center justify-between text-sm text-white/70">
-                    <span>HUD counters</span>
-                    <TogglePill checked={showCounters} onToggle={() => setShowCounters(!showCounters)} />
+
+                    <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
+                        <span>Show grid</span>
+                        <TogglePill checked={showGrid} onToggle={() => setShowGrid(!showGrid)} />
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
+                        <span>Grid snap</span>
+                        <TogglePill checked={gridSnapEnabled} onToggle={() => setGridSnapEnabled(!gridSnapEnabled)} />
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
+                        <span>Grid step</span>
+                        <div className="flex items-center gap-1">
+                            {[0.5, 1, 2].map(step => (
+                                <button
+                                    key={step}
+                                    onClick={() => setGridStepMul(step)}
+                                    className={`px-2 py-1 rounded-[var(--primitive-radius-pill)] text-[10px] border transition-colors ${gridStepMul === step ? 'bg-[var(--semantic-color-text-primary)]/20 border-[var(--semantic-color-border-default)] text-[var(--semantic-color-text-primary)]' : 'border-transparent text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-secondary)]'}`}
+                                >
+                                    {step}×
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
+                        <span>Show edges</span>
+                        <TogglePill checked={showEdges} onToggle={() => setShowEdges(!showEdges)} />
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
+                        <span>HUD chips</span>
+                        <TogglePill checked={showHud} onToggle={() => setShowHud(!showHud)} />
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
+                        <span>HUD counters</span>
+                        <TogglePill checked={showCounters} onToggle={() => setShowCounters(!showCounters)} />
+                    </div>
                 </div>
             </div>
         </div>

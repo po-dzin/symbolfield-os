@@ -7,17 +7,22 @@
 import React, { useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import ToolDock from './ToolDock';
-import TimeChip from './TimeChip';
 import StateCore from '../HUD/StateCore';
 import CanvasView from '../Canvas/CanvasView';
 import ContextToolbar from '../Context/ContextToolbar';
-import NowCoreDrawer from '../Drawers/NowCoreDrawer';
+//  // Replaced by DockedDrawer
+import SideRail from './SideRail';
+import DockedDrawer from './DockedDrawer';
 import NodeOverlay from '../Node/NodeOverlay';
 import SettingsDrawer from '../Drawers/SettingsDrawer';
-import CommandPalette from '../Overlays/CommandPalette';
+import OmniOverlay from '../Overlays/OmniOverlay';
 import Station from '../Station/Station';
-import SpaceHeader from './SpaceHeader';
+import UnifiedTopBar from './UnifiedTopBar';
+import GatewayLayout from '../Gateway/GatewayLayout';
+import BrandPage from '../Gateway/BrandPage';
+import PortalPage from '../Gateway/PortalPage';
 import { emitZoomHotkeyFromKeyboard } from '../../core/hotkeys/zoomHotkeys';
+// import DemoUnifiedTopBar from './DemoUnifiedTopBar'; // Removed
 
 const Shell = () => {
     const appMode = useAppStore(state => state.appMode);
@@ -31,8 +36,11 @@ const Shell = () => {
     const setDrawerRightTab = useAppStore(state => state.setDrawerRightTab);
     const isNowCoreTab = drawerRightTab === 'now'
         || drawerRightTab === 'cycles'
-        || drawerRightTab === 'timeline'
+        || drawerRightTab === 'chronos'
         || drawerRightTab === 'log';
+    /* HOOK FIX: Must be called unconditionally */
+    const gatewayRoute = useAppStore(state => state.gatewayRoute);
+
     const shellRef = useRef<HTMLDivElement | null>(null);
     // Space settings are opened from SpaceHeader menu.
 
@@ -92,6 +100,19 @@ const Shell = () => {
         };
     }, []);
 
+    // Gateway Mode
+    if (viewContext === 'gateway') {
+        return (
+            <GatewayLayout>
+                {gatewayRoute?.type === 'portal' ? (
+                    <PortalPage brandSlug={gatewayRoute.brandSlug} portalSlug={gatewayRoute.portalSlug} />
+                ) : (
+                    <BrandPage brandSlug={gatewayRoute?.slug || 'symbolfield'} />
+                )}
+            </GatewayLayout>
+        );
+    }
+
     return (
         <div
             ref={shellRef}
@@ -99,14 +120,13 @@ const Shell = () => {
             style={{ overscrollBehavior: 'none' }}
         >
 
-            {/* Persistent Home Button (Visible when not in 'home' view) */}
-            {/* Persistent Home Button (Visible when not in 'home' view) */}
-            <SpaceHeader />
+            {/* Persistent Unified TopBar */}
+            <UnifiedTopBar />
 
             {/* Z0: The Field or Station */}
             <div className="absolute inset-0 z-[var(--z-canvas)]">
                 {viewContext === 'home' ? (
-                    <div className="relative z-[100] w-full h-full bg-sf-zinc-950 overflow-hidden">
+                    <div className="relative z-0 w-full h-full bg-sf-zinc-950 overflow-hidden">
                         <Station />
                     </div>
                 ) : (
@@ -114,7 +134,7 @@ const Shell = () => {
                 )}
             </div>
 
-            {/* Z5: Peripheral Shell - Only show if NOT home */}
+            {/* Z5: Peripheral Shell - Only show if NOT home (Wait, TopBar handles this logic now) */}
             {viewContext !== 'home' && (
                 <>
                     {/* Left: Tool Dock */}
@@ -122,34 +142,17 @@ const Shell = () => {
                         <ToolDock />
                     </div>
 
-                    {/* Top-Right: StateCore (HUD) */}
-                    <div className="absolute top-4 right-4 z-[var(--z-hud)]">
-                        <StateCore />
-                    </div>
-
-                    {/* Bottom-Right: TimeChip */}
-                    <div
-                        className="absolute bottom-4 right-4 z-[var(--z-ui)]"
-                        onClick={() => {
-                            if (drawerRightOpen && isNowCoreTab) {
-                                setDrawerOpen('right', false);
-                                return;
-                            }
-                            setDrawerRightTab('now');
-                        }}
-                    >
-                        <TimeChip />
-                    </div>
                 </>
             )}
+
+            {/* NEW: SideRail & DockedDrawer System (Z10-Z15) */}
+            <DockedDrawer />
+            <SideRail />
 
             {viewContext !== 'home' && (
                 <>
                     {/* Context UI (Z4) */}
                     <ContextToolbar />
-
-                    {/* NowCore Drawer (Z3) */}
-                    <NowCoreDrawer />
 
                     {/* Node Overlay */}
                     <NodeOverlay />
@@ -159,8 +162,8 @@ const Shell = () => {
             {/* Settings Drawer (Z3) */}
             {viewContext !== 'home' && <SettingsDrawer />}
 
-            {/* Omni Input (Z3) */}
-            <CommandPalette />
+            {/* Omni Overlay (Z100) - Replaces CommandPalette */}
+            <OmniOverlay />
 
         </div>
     );
