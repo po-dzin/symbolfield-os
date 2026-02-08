@@ -6,23 +6,23 @@ const TopBar = () => {
     return (
         <div className="topbar-shell justify-between">
             {/* Logo */}
-            <div className="flex items-center gap-3 cursor-pointer opacity-85 hover:opacity-100 transition-opacity">
-                <div className="w-8 h-8 rounded-full bg-sf-zinc-900 border border-white/5 flex items-center justify-center">
+            <div className="flex items-center gap-[var(--primitive-space-bar-gap)] cursor-pointer opacity-85 hover:opacity-100 transition-opacity">
+                <div className="w-8 h-8 rounded-full bg-[var(--primitive-color-n0-deepest)] border border-[var(--semantic-color-border-default)] flex items-center justify-center">
                     <img src={coreGlyph} alt="Core" className="w-full h-full block opacity-85" />
                 </div>
-                <span className="text-white/80 font-medium tracking-wide text-sm">SymbolField</span>
+                <span className="text-[var(--semantic-color-text-primary)]/80 font-medium tracking-wide text-sm">SymbolField</span>
             </div>
 
             {/* Omni Search */}
             <OmniInputCollapsed
                 className="flex-1 max-w-md mx-12"
-                inputClassName="block w-full px-4 py-2 bg-white/5 border border-white/10 rounded-full text-white/90 placeholder-white/40 focus:outline-none focus:bg-white/10 focus:border-white/30 transition-all text-sm"
+                inputClassName="block w-full px-4 h-[var(--component-input-height-default)] bg-[var(--semantic-color-bg-surface)]/50 border border-[var(--semantic-color-border-default)] rounded-[var(--primitive-radius-pill)] text-[var(--semantic-color-text-primary)] placeholder-[var(--semantic-color-text-muted)] focus:outline-none focus:bg-[var(--semantic-color-bg-surface)] focus:border-[var(--semantic-color-text-secondary)] transition-all text-sm"
             />
 
             {/* Account Settings */}
             <button
                 onClick={() => import('../../core/events/EventBus').then(({ eventBus }) => eventBus.emit('UI_SIGNAL', { type: 'OPEN_ACCOUNT_SETTINGS', x: 0, y: 0 }))}
-                className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/30 flex items-center justify-center text-white/60 hover:text-white transition-all"
+                className="w-[var(--component-hit-icon-min)] h-[var(--component-hit-icon-min)] rounded-full bg-[var(--semantic-color-text-primary)]/5 hover:bg-[var(--semantic-color-text-primary)]/10 border border-[var(--semantic-color-border-default)] hover:border-[var(--semantic-color-text-secondary)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-all"
                 title="Account Settings"
                 aria-label="Account Settings"
             >

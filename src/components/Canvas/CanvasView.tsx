@@ -105,11 +105,11 @@ const CanvasView = () => {
 
     const isSpacePressed = useRef(false);
     const regionPalette = useMemo(() => ([
-        { fill: 'rgba(255,255,255,0.06)', stroke: 'rgba(255,255,255,0.25)' },
-        { fill: 'rgba(56,189,248,0.08)', stroke: 'rgba(56,189,248,0.35)' },
-        { fill: 'rgba(167,139,250,0.08)', stroke: 'rgba(167,139,250,0.35)' },
-        { fill: 'rgba(251,191,36,0.08)', stroke: 'rgba(251,191,36,0.35)' },
-        { fill: 'rgba(16,185,129,0.08)', stroke: 'rgba(16,185,129,0.35)' }
+        { fill: 'var(--semantic-color-text-primary)', opacity: 0.06, stroke: 'var(--semantic-color-text-primary)' },
+        { fill: 'var(--primitive-color-intent-info)', opacity: 0.08, stroke: 'var(--primitive-color-intent-info)' },
+        { fill: 'var(--primitive-color-intent-accent)', opacity: 0.08, stroke: 'var(--primitive-color-intent-accent)' },
+        { fill: 'var(--primitive-color-intent-warning)', opacity: 0.08, stroke: 'var(--primitive-color-intent-warning)' },
+        { fill: 'var(--primitive-color-intent-success)', opacity: 0.08, stroke: 'var(--primitive-color-intent-success)' }
     ]), []);
 
     const snapToGrid = (value: number, cell: number) => Math.round(value / cell) * cell;
@@ -1735,37 +1735,37 @@ const CanvasView = () => {
                     style={{
                         opacity: Math.min(0.45, 0.2 + zoom * 0.08),
                         backgroundImage: (() => {
-                        let gridScale = zoom;
-                        const minPx = 8 * gridStepMul;
-                        const maxPx = 24 * gridStepMul;
-                        const cell = GRID_METRICS.cell * gridStepMul;
-                        while (cell * gridScale < minPx) gridScale *= 2;
-                        while (cell * gridScale > maxPx) gridScale /= 2;
-                        const dotPx = Math.max(1.1, GRID_METRICS.dotRadius * gridScale);
-                        return `radial-gradient(circle at 0% 0%, rgba(255,255,255,0.55) ${dotPx}px, transparent ${dotPx}px)`;
-                    })(),
-                    backgroundSize: (() => {
-                        let gridScale = zoom;
-                        const minPx = 8 * gridStepMul;
-                        const maxPx = 24 * gridStepMul;
-                        const cell = GRID_METRICS.cell * gridStepMul;
-                        while (cell * gridScale < minPx) gridScale *= 2;
-                        while (cell * gridScale > maxPx) gridScale /= 2;
-                        return `${cell * gridScale}px ${cell * gridScale}px`;
-                    })(),
-                    backgroundPosition: (() => {
-                        let gridScale = zoom;
-                        const minPx = 8 * gridStepMul;
-                        const maxPx = 24 * gridStepMul;
-                        const cell = GRID_METRICS.cell * gridStepMul;
-                        while (cell * gridScale < minPx) gridScale *= 2;
-                        while (cell * gridScale > maxPx) gridScale /= 2;
-                        const ratio = gridScale / zoom;
-                        return `${pan.x * ratio}px ${pan.y * ratio}px`;
-                    })()
-                }}
-            />
-        )}
+                            let gridScale = zoom;
+                            const minPx = 8 * gridStepMul;
+                            const maxPx = 24 * gridStepMul;
+                            const cell = GRID_METRICS.cell * gridStepMul;
+                            while (cell * gridScale < minPx) gridScale *= 2;
+                            while (cell * gridScale > maxPx) gridScale /= 2;
+                            const dotPx = Math.max(1.1, GRID_METRICS.dotRadius * gridScale);
+                            return `radial-gradient(circle at 0% 0%, rgba(255,255,255,0.55) ${dotPx}px, transparent ${dotPx}px)`;
+                        })(),
+                        backgroundSize: (() => {
+                            let gridScale = zoom;
+                            const minPx = 8 * gridStepMul;
+                            const maxPx = 24 * gridStepMul;
+                            const cell = GRID_METRICS.cell * gridStepMul;
+                            while (cell * gridScale < minPx) gridScale *= 2;
+                            while (cell * gridScale > maxPx) gridScale /= 2;
+                            return `${cell * gridScale}px ${cell * gridScale}px`;
+                        })(),
+                        backgroundPosition: (() => {
+                            let gridScale = zoom;
+                            const minPx = 8 * gridStepMul;
+                            const maxPx = 24 * gridStepMul;
+                            const cell = GRID_METRICS.cell * gridStepMul;
+                            while (cell * gridScale < minPx) gridScale *= 2;
+                            while (cell * gridScale > maxPx) gridScale /= 2;
+                            const ratio = gridScale / zoom;
+                            return `${pan.x * ratio}px ${pan.y * ratio}px`;
+                        })()
+                    }}
+                />
+            )}
 
             {/* Cosmogenesis Source Node moved to transform layer */}
 
@@ -1949,9 +1949,8 @@ const CanvasView = () => {
                                                             width: baseBounds.w,
                                                             height: baseBounds.h,
                                                             backgroundColor: area.color ?? 'rgba(255,255,255,0.06)',
-                                                            backgroundImage: `radial-gradient(circle at center, ${
-                                                                area.color ?? 'rgba(255,255,255,0.08)'
-                                                            } 0%, rgba(0,0,0,0) 70%)`,
+                                                            backgroundImage: `radial-gradient(circle at center, ${area.color ?? 'rgba(255,255,255,0.08)'
+                                                                } 0%, rgba(0,0,0,0) 70%)`,
                                                             opacity: (area.opacity ?? 0.5) * ghostOpacity,
                                                             borderColor: area.borderColor ?? 'rgba(255,255,255,0.25)',
                                                             borderStyle: area.border?.style ?? 'solid',
@@ -1983,9 +1982,8 @@ const CanvasView = () => {
                                         width: rect.w,
                                         height: rect.h,
                                         backgroundColor: area.color ?? 'rgba(255,255,255,0.06)',
-                                        backgroundImage: `radial-gradient(ellipse at center, ${
-                                            area.color ?? 'rgba(255,255,255,0.08)'
-                                        } 0%, rgba(0,0,0,0) 70%)`,
+                                        backgroundImage: `radial-gradient(ellipse at center, ${area.color ?? 'rgba(255,255,255,0.08)'
+                                            } 0%, rgba(0,0,0,0) 70%)`,
                                         opacity: (area.opacity ?? 0.5) * ghostOpacity,
                                         borderColor: area.borderColor ?? 'rgba(255,255,255,0.25)',
                                         borderStyle: area.border?.style ?? 'solid',
@@ -2408,8 +2406,8 @@ const CanvasView = () => {
             >
                 {showHud && activeTool === TOOLS.LINK && (
                     <div className="pointer-events-none flex items-center gap-2 pr-3 py-1.5 pl-4 opacity-70">
-                        <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
-                        <span className="text-[9px] uppercase tracking-[0.4em] text-white/40 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-[var(--primitive-radius-pill)] bg-[var(--semantic-color-text-muted)] animate-pulse" />
+                        <span className="text-[9px] uppercase tracking-[0.4em] text-[var(--semantic-color-text-muted)] font-medium">
                             Connection...
                         </span>
                     </div>
@@ -2417,13 +2415,13 @@ const CanvasView = () => {
                 {showHud && showCounters && (
                     <div className="pointer-events-none flex gap-4 items-center pr-3 py-1.5 pl-4 opacity-60 hover:opacity-100 transition-opacity">
                         <div className="flex items-baseline gap-1">
-                            <span className="text-xs font-medium text-white/80">{nodes.length}</span>
-                            <span className="text-[8px] uppercase tracking-widest text-white/40">Nodes</span>
+                            <span className="text-xs font-medium text-[var(--semantic-color-text-secondary)]">{nodes.length}</span>
+                            <span className="text-[8px] uppercase tracking-widest text-[var(--semantic-color-text-muted)]">Nodes</span>
                         </div>
-                        <div className="w-[1px] h-3 bg-white/10" />
+                        <div className="w-[1px] h-3 bg-[var(--semantic-color-border-default)]" />
                         <div className="flex items-baseline gap-1">
-                            <span className="text-xs font-medium text-white/80">{edges.length}</span>
-                            <span className="text-[8px] uppercase tracking-widest text-white/40">Edges</span>
+                            <span className="text-xs font-medium text-[var(--semantic-color-text-secondary)]">{edges.length}</span>
+                            <span className="text-[8px] uppercase tracking-widest text-[var(--semantic-color-text-muted)]">Edges</span>
                         </div>
                     </div>
                 )}
@@ -2438,47 +2436,47 @@ const CanvasView = () => {
                                 window.setTimeout(() => setZoomPulse(null), 180);
                                 fitToContent();
                             }}
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors ${zoomPulse === 'fit' ? 'bg-white/20 text-white' : ''} -ml-1`}
-                        aria-label="Fit to content"
-                    >
-                        <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                            className={`w-6 h-6 rounded-[var(--primitive-radius-pill)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10 transition-colors ${zoomPulse === 'fit' ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : ''} -ml-1`}
+                            aria-label="Fit to content"
                         >
-                            <path d="M8 4H4v4M16 4h4v4M4 16v4h4M20 16v4h-4" />
-                        </svg>
-                    </button>
-                    <button
-                        onClick={() => handleZoomClick('out')}
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors ${zoomPulse === 'out' ? 'bg-white/20 text-white' : ''}`}
-                        aria-label="Zoom out"
-                    >
-                        −
-                    </button>
-                    <button
-                        onClick={() => handleZoomClick('reset')}
-                        className={`min-w-[48px] text-[10px] uppercase tracking-[0.2em] text-white/70 hover:text-white ${zoomPulse === 'reset' ? 'text-white' : ''}`}
-                        aria-label="Reset zoom"
-                    >
-                        {Math.round(zoom * 100)}%
-                    </button>
-                    <button
-                        onClick={() => handleZoomClick('in')}
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors ${zoomPulse === 'in' ? 'bg-white/20 text-white' : ''}`}
-                        aria-label="Zoom in"
-                    >
-                        +
-                    </button>
+                            <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <path d="M8 4H4v4M16 4h4v4M4 16v4h4M20 16v4h-4" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={() => handleZoomClick('out')}
+                            className={`w-6 h-6 rounded-[var(--primitive-radius-pill)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10 transition-colors ${zoomPulse === 'out' ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : ''}`}
+                            aria-label="Zoom out"
+                        >
+                            −
+                        </button>
+                        <button
+                            onClick={() => handleZoomClick('reset')}
+                            className={`min-w-[48px] text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] ${zoomPulse === 'reset' ? 'text-[var(--semantic-color-text-primary)]' : ''}`}
+                            aria-label="Reset zoom"
+                        >
+                            {Math.round(zoom * 100)}%
+                        </button>
+                        <button
+                            onClick={() => handleZoomClick('in')}
+                            className={`w-6 h-6 rounded-[var(--primitive-radius-pill)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10 transition-colors ${zoomPulse === 'in' ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : ''}`}
+                            aria-label="Zoom in"
+                        >
+                            +
+                        </button>
                     </div>
                     {fieldScopeId && (
                         <div
-                            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10"
+                            className="flex items-center gap-1 px-2 py-0.5 rounded-[var(--primitive-radius-pill)] bg-[var(--semantic-color-text-primary)]/5 border border-[var(--semantic-color-border-default)]"
                             onPointerDown={(e) => e.stopPropagation()}
                         >
                             {[1, 2, 3].map(level => (
@@ -2486,7 +2484,7 @@ const CanvasView = () => {
                                     key={level}
                                     type="button"
                                     onClick={() => setSubspaceLod(level as 1 | 2 | 3)}
-                                    className={`w-5 h-5 rounded-full text-[10px] font-semibold transition-colors ${subspaceLod === level ? 'bg-white/20 text-white' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
+                                    className={`w-5 h-5 rounded-[var(--primitive-radius-pill)] text-[10px] font-semibold transition-colors ${subspaceLod === level ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
                                     title={`LOD ${level}`}
                                 >
                                     {level}
@@ -2502,8 +2500,8 @@ const CanvasView = () => {
                     className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-auto z-50"
                     onPointerDown={(e) => e.stopPropagation()}
                 >
-                    <div className="flex items-center gap-3 rounded-full bg-black/70 border border-white/10 px-4 py-2 backdrop-blur-md">
-                        <span className="text-[10px] uppercase tracking-[0.2em] text-white/70">
+                    <div className="flex items-center gap-3 rounded-[var(--primitive-radius-pill)] bg-[var(--semantic-color-bg-surface)]/70 border border-[var(--semantic-color-border-default)] px-4 py-2 backdrop-blur-md">
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-secondary)]">
                             Focus Mode
                         </span>
                         <button
@@ -2515,7 +2513,7 @@ const CanvasView = () => {
                                 useAreaStore.getState().clearSelectedAreas();
                                 useEdgeSelectionStore.getState().clear();
                             }}
-                            className="text-white/70 hover:text-white"
+                            className="text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-colors"
                             title="Exit focus (Esc)"
                         >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">

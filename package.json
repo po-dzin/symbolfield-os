@@ -16,7 +16,8 @@
     "test:e2e": "playwright test",
     "test:smoke": "playwright test tests/smoke.spec.js",
     "test:hotkeys": "playwright test tests/hotkeys.spec.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "node ./scripts/postinstall.js"
   },
   "dependencies": {
     "@blocksuite/blocks": "^0.0.0-canary-20250316001624",

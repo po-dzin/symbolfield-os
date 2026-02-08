@@ -24,12 +24,12 @@ const MetricBar = ({ label, value, max }: { label: string; value: number; max: n
     const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
     return (
         <div className="space-y-1">
-            <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/50">
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-muted)]">
                 <span>{label}</span>
-                <span className="text-white/80">{value}</span>
+                <span className="text-[var(--semantic-color-text-secondary)]">{value}</span>
             </div>
-            <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                <div className="h-full rounded-full bg-white/40" style={{ width: `${pct}%` }} />
+            <div className="h-1.5 rounded-[var(--primitive-radius-pill)] bg-[var(--semantic-color-text-primary)]/5 overflow-hidden">
+                <div className="h-full rounded-[var(--primitive-radius-pill)] bg-[var(--semantic-color-text-primary)]/40" style={{ width: `${pct}%` }} />
             </div>
         </div>
     );
@@ -43,10 +43,10 @@ const RadialDiagram = ({ metrics }: { metrics: SpaceMetrics }) => {
     const maxClusters = metrics.maxClusterCount ?? Math.max(1, metrics.clusterCount);
     const maxWeight = metrics.maxWeight ?? Math.max(1, metrics.weight);
     const rings = [
-        { key: 'nodes', label: 'Nodes', value: metrics.nodeCount, max: maxNodes, radius: 52, color: 'rgba(255,255,255,0.7)' },
-        { key: 'edges', label: 'Edges', value: metrics.edgeCount, max: maxEdges, radius: 42, color: 'rgba(255,255,255,0.55)' },
-        { key: 'clusters', label: 'Clusters', value: metrics.clusterCount, max: maxClusters, radius: 32, color: 'rgba(255,255,255,0.45)' },
-        { key: 'weight', label: 'Weight', value: metrics.weight, max: maxWeight, radius: 22, color: 'rgba(255,255,255,0.35)' }
+        { key: 'nodes', label: 'Nodes', value: metrics.nodeCount, max: maxNodes, radius: 52, color: 'var(--semantic-color-text-primary)' },
+        { key: 'edges', label: 'Edges', value: metrics.edgeCount, max: maxEdges, radius: 42, color: 'var(--semantic-color-text-secondary)' },
+        { key: 'clusters', label: 'Clusters', value: metrics.clusterCount, max: maxClusters, radius: 32, color: 'var(--semantic-color-text-muted)' },
+        { key: 'weight', label: 'Weight', value: metrics.weight, max: maxWeight, radius: 22, color: 'var(--semantic-color-text-muted)' }
     ];
 
     return (
@@ -69,29 +69,29 @@ const RadialDiagram = ({ metrics }: { metrics: SpaceMetrics }) => {
                                 strokeWidth={2}
                                 strokeLinecap="round"
                                 strokeDasharray={`${dash} ${gap}`}
-                                strokeOpacity={0.9}
+                                strokeOpacity={0.5}
                             />
                         );
                     })}
                 </g>
-                <circle cx={center} cy={center} r={6} fill="rgba(255,255,255,0.7)" />
-                <circle cx={center} cy={center} r={3} fill="rgba(0,0,0,0.6)" />
+                <circle cx={center} cy={center} r={6} fill="var(--semantic-color-text-primary)" opacity={0.3} />
+                <circle cx={center} cy={center} r={3} fill="var(--semantic-color-bg-app)" />
             </svg>
-            <div className="text-[10px] uppercase tracking-[0.25em] text-white/45 space-y-2">
+            <div className="text-[10px] uppercase tracking-[0.25em] text-[var(--semantic-color-text-muted)] space-y-2">
                 <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-white/70" />
+                    <span className="w-2 h-2 rounded-full bg-[var(--semantic-color-text-primary)]" style={{ opacity: 0.7 }} />
                     Nodes
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-white/50" />
+                    <span className="w-2 h-2 rounded-full bg-[var(--semantic-color-text-secondary)]" style={{ opacity: 0.5 }} />
                     Edges
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-white/40" />
+                    <span className="w-2 h-2 rounded-full bg-[var(--semantic-color-text-muted)]" style={{ opacity: 0.4 }} />
                     Clusters
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-white/30" />
+                    <span className="w-2 h-2 rounded-full bg-[var(--semantic-color-text-muted)]" style={{ opacity: 0.3 }} />
                     Weight
                 </div>
             </div>
@@ -106,10 +106,10 @@ const StationAnalyticsDrawer = ({ open, metrics, onClose }: { open: boolean; met
         >
             <div className="h-full glass-panel rounded-none rounded-l-[var(--panel-radius)] border-r-0 p-[var(--panel-padding)] flex flex-col gap-6">
                 <div className="flex items-center justify-between">
-                    <div className="text-xs uppercase tracking-[0.3em] text-white/50">Analytics</div>
+                    <div className="text-xs uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)]">Analytics</div>
                     <button
                         onClick={onClose}
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10"
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10 transition-colors"
                         aria-label="Close analytics"
                     >
                         ×
@@ -119,8 +119,8 @@ const StationAnalyticsDrawer = ({ open, metrics, onClose }: { open: boolean; met
                 {metrics ? (
                     <>
                         <div>
-                            <div className="text-lg text-white/90 font-medium">{metrics.name}</div>
-                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/40">{metrics.id}</div>
+                            <div className="text-lg text-[var(--semantic-color-text-primary)] font-medium">{metrics.name}</div>
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-muted)]">{metrics.id}</div>
                         </div>
 
                         <div className="space-y-5">
@@ -132,27 +132,27 @@ const StationAnalyticsDrawer = ({ open, metrics, onClose }: { open: boolean; met
                             </div>
                         </div>
 
-                        <div className="space-y-2 text-xs text-white/60">
+                        <div className="space-y-2 text-xs text-[var(--semantic-color-text-secondary)]">
                             <div className="flex justify-between">
                                 <span>Weight</span>
-                                <span className="text-white/80">{metrics.weight.toFixed(1)}</span>
+                                <span className="text-[var(--semantic-color-text-primary)]">{metrics.weight.toFixed(1)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span>Last opened</span>
-                                <span className="text-white/80">{formatDate(metrics.lastAccessedAt)}</span>
+                                <span className="text-[var(--semantic-color-text-primary)]">{formatDate(metrics.lastAccessedAt)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span>Updated</span>
-                                <span className="text-white/80">{formatDate(metrics.updatedAt)}</span>
+                                <span className="text-[var(--semantic-color-text-primary)]">{formatDate(metrics.updatedAt)}</span>
                             </div>
                         </div>
 
-                        <div className="pt-4 border-t border-white/10 text-[11px] text-white/40 leading-relaxed">
+                        <div className="pt-4 border-t border-[var(--semantic-color-border-default)] text-[11px] text-[var(--semantic-color-text-muted)] leading-relaxed">
                             Signals layer (v0.5): structure, activity, weight. Future r:agent will add meaning dynamics.
                         </div>
                     </>
                 ) : (
-                    <div className="text-sm text-white/50">Select a space to see analytics.</div>
+                    <div className="text-sm text-[var(--semantic-color-text-muted)]">Select a space to see analytics.</div>
                 )}
             </div>
         </div>

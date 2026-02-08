@@ -38,19 +38,19 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onDismiss }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[var(--primitive-color-n0-deepest)]/60 backdrop-blur-sm animate-fade-in">
             <div className="relative max-w-2xl mx-auto px-8">
                 {/* Main Card */}
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-12 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                <div className="bg-[var(--semantic-color-bg-surface)] border border-[var(--semantic-color-border-default)] rounded-[var(--primitive-radius-panel)] p-12 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                     {/* Header */}
                     <div className="text-center mb-10">
-                        <div className="w-16 h-16 mx-auto mb-6 rounded-full border-2 border-white/20 flex items-center justify-center">
-                            <span className="text-3xl">◉</span>
+                        <div className="w-16 h-16 mx-auto mb-6 rounded-[var(--primitive-radius-pill)] border-2 border-[var(--semantic-color-border-default)] flex items-center justify-center">
+                            <span className="text-3xl text-[var(--semantic-color-text-secondary)]">◉</span>
                         </div>
-                        <h1 className="text-2xl font-light text-white/90 mb-3 tracking-tight">
+                        <h1 className="text-2xl font-light text-[var(--semantic-color-text-primary)] mb-3 tracking-tight">
                             Welcome to SymbolField
                         </h1>
-                        <p className="text-white/50 text-sm leading-relaxed">
+                        <p className="text-[var(--semantic-color-text-muted)] text-sm leading-relaxed">
                             Your space for networked thinking.<br />
                             Field is space. Node is interior. NOW is depth.
                         </p>
@@ -61,23 +61,23 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onDismiss }) => {
                         {/* Primary: Start in Playground */}
                         <button
                             onClick={handleStartPlayground}
-                            className="group w-full px-6 py-4 rounded-xl bg-white/10 border border-white/20 hover:bg-white/15 hover:border-white/30 focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none transition-all duration-300"
+                            className="group w-full px-6 py-4 rounded-[var(--primitive-radius-card)] bg-[var(--semantic-color-text-primary)]/10 border border-[var(--semantic-color-text-primary)]/20 hover:bg-[var(--semantic-color-text-primary)]/15 hover:border-[var(--semantic-color-text-primary)]/30 focus-visible:ring-2 focus-visible:ring-[var(--semantic-color-text-primary)]/50 focus-visible:outline-none transition-all duration-300"
                         >
                             <div className="flex items-center justify-between">
                                 <div className="text-left">
-                                    <div className="text-white/90 font-medium mb-1">Start in Playground</div>
-                                    <div className="text-white/40 text-xs">Learn the basics with guided examples</div>
+                                    <div className="text-[var(--semantic-color-text-primary)] font-medium mb-1">Start in Playground</div>
+                                    <div className="text-[var(--semantic-color-text-muted)] text-xs">Learn the basics with guided examples</div>
                                 </div>
-                                <span className="text-white/60 group-hover:text-white/90 transition-colors text-xl">→</span>
+                                <span className="text-[var(--semantic-color-text-secondary)] group-hover:text-[var(--semantic-color-text-primary)] transition-colors text-xl">→</span>
                             </div>
                         </button>
 
                         {/* Secondary: Create Space */}
                         <button
                             onClick={handleCreateSpace}
-                            className="group w-full px-6 py-3 rounded-xl bg-transparent border border-white/10 hover:bg-white/5 hover:border-white/20 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:outline-none transition-all"
+                            className="group w-full px-6 py-3 rounded-[var(--primitive-radius-card)] bg-transparent border border-[var(--semantic-color-border-default)] hover:bg-[var(--semantic-color-text-primary)]/5 hover:border-[var(--semantic-color-text-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--semantic-color-text-secondary)]/30 focus-visible:outline-none transition-all"
                         >
-                            <div className="text-white/60 group-hover:text-white/80 text-sm transition-colors">
+                            <div className="text-[var(--semantic-color-text-secondary)] group-hover:text-[var(--semantic-color-text-primary)] text-sm transition-colors">
                                 Create My First Space
                             </div>
                         </button>
@@ -86,7 +86,7 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onDismiss }) => {
                     {/* Skip */}
                     <button
                         onClick={handleSkip}
-                        className="mt-8 w-full text-white/30 hover:text-white/50 text-xs uppercase tracking-[0.3em] transition-colors"
+                        className="mt-8 w-full text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-secondary)] text-xs uppercase tracking-[0.3em] transition-colors"
                     >
                         Skip for now
                     </button>
@@ -94,10 +94,10 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onDismiss }) => {
 
                 {/* Keyboard Hint */}
                 <div className="mt-6 text-center">
-                    <p className="text-white/20 text-[10px] tracking-wider">
-                        <kbd className="px-2 py-1 rounded bg-white/5 border border-white/10 font-mono">SPACE</kbd>
+                    <p className="text-[var(--semantic-color-text-muted)] text-[10px] tracking-wider opacity-60">
+                        <kbd className="px-2 py-1 rounded bg-[var(--semantic-color-text-primary)]/5 border border-[var(--semantic-color-border-default)] font-mono">SPACE</kbd>
                         {' '}to focus · {' '}
-                        <kbd className="px-2 py-1 rounded bg-white/5 border border-white/10 font-mono">ENTER</kbd>
+                        <kbd className="px-2 py-1 rounded bg-[var(--semantic-color-text-primary)]/5 border border-[var(--semantic-color-border-default)] font-mono">ENTER</kbd>
                         {' '}to enter
                     </p>
                 </div>

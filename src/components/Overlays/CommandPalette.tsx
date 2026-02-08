@@ -195,11 +195,11 @@ const OmniInputExpanded = () => {
     if (!paletteOpen) return null;
 
     return (
-        <div className="absolute inset-0 z-[var(--z-drawer)] bg-black/25 backdrop-blur-[2px] flex items-start justify-center pt-[10vh]">
-            <div className="glass-panel glass-panel-strong w-[680px] p-5 flex flex-col gap-4">
+        <div className="absolute inset-0 z-[var(--z-drawer)] bg-[var(--primitive-color-n0-deepest)]/50 backdrop-blur-[2px] flex items-start justify-center pt-[10vh]">
+            <div className="glass-panel w-[680px] p-[var(--primitive-space-panel-padding)] flex flex-col gap-[var(--primitive-space-gap-section-min)] rounded-[var(--primitive-radius-panel)] border border-[var(--semantic-color-border-default)]">
                 <div className="flex items-center justify-between">
-                    <span className="text-xs uppercase tracking-widest text-text-secondary">Omni Input — Expanded</span>
-                    <button onClick={closePalette} className="text-text-secondary hover:text-text-primary">✕</button>
+                    <span className="text-[var(--primitive-type-label-size)] uppercase tracking-[0.2em] text-[var(--semantic-color-text-secondary)]">Omni Input — Expanded</span>
+                    <button onClick={closePalette} className="text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] px-2">✕</button>
                 </div>
                 <input
                     autoFocus
@@ -230,31 +230,30 @@ const OmniInputExpanded = () => {
                             runCommand(visibleCommands[selectedIndex]);
                         }
                     }}
-                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-base text-text-primary outline-none"
+                    className="w-full bg-[var(--semantic-color-bg-app)] border border-[var(--semantic-color-border-default)] rounded-[var(--primitive-radius-input)] px-4 py-3 text-base text-[var(--semantic-color-text-primary)] outline-none placeholder:text-[var(--semantic-color-text-muted)] focus:border-[var(--semantic-color-action-primary)] transition-colors"
                 />
-                <div className="text-[11px] text-text-meta flex items-center justify-between">
+                <div className="text-[10px] text-[var(--semantic-color-text-muted)] flex items-center justify-between uppercase tracking-wider">
                     <span>Ctrl/Cmd + K — expand Omni Input.</span>
                     <span>↑↓ navigate • Enter run • Esc collapse</span>
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1">
                     {visibleCommands.length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-text-meta">No matches.</div>
+                        <div className="px-3 py-2 text-sm text-[var(--semantic-color-text-muted)]">No matches.</div>
                     ) : (
                         visibleCommands.map((action, index) => (
                             <button
                                 key={action.id}
                                 onClick={() => runCommand(action)}
-                                className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm text-left ${
-                                    index === selectedIndex
-                                        ? 'bg-white/10 text-text-primary'
-                                        : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
-                                }`}
+                                className={`flex items-center justify-between rounded-[8px] px-3 py-2 text-sm text-left transition-colors ${index === selectedIndex
+                                        ? 'bg-[var(--semantic-color-text-primary)]/10 text-[var(--semantic-color-text-primary)]'
+                                        : 'text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/5'
+                                    }`}
                             >
                                 <div className="flex items-center gap-2">
-                                    <span className="text-text-primary">{action.label}</span>
-                                    {action.hint && <span className="text-text-meta">{action.hint}</span>}
+                                    <span className={index === selectedIndex ? 'text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)]'}>{action.label}</span>
+                                    {action.hint && <span className="text-[var(--semantic-color-text-muted)] text-xs">{action.hint}</span>}
                                 </div>
-                                {action.shortcut && <span className="text-text-meta">{action.shortcut}</span>}
+                                {action.shortcut && <span className="text-[var(--semantic-color-text-muted)] font-mono text-xs opacity-70">{action.shortcut}</span>}
                             </button>
                         ))
                     )}

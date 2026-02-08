@@ -26,34 +26,34 @@ const StateCore = () => {
 
     return (
         <div
-            className="glass-panel p-1 flex flex-col items-end transition-all duration-300 ease-out"
+            className="glass-panel p-[var(--primitive-space-gap-dense)] flex flex-col items-end transition-all duration-300 ease-out rounded-[var(--primitive-radius-card)]"
             onMouseEnter={() => setExpanded(true)}
             onMouseLeave={() => setExpanded(false)}
         >
             {/* Micro Mode: Just the Icon */}
-            <div className="flex items-center gap-2 p-1 cursor-pointer">
-                <span className="text-xs uppercase text-text-secondary tracking-widest opacity-60">
+            <div className="flex items-center gap-[var(--primitive-space-gap-default)] p-[var(--primitive-space-gap-dense)] cursor-pointer">
+                <span className="text-[var(--primitive-type-label-size)] uppercase text-[var(--semantic-color-text-secondary)] tracking-widest opacity-60">
                     {isExpanded ? 'Session' : ''}
                 </span>
-                <div className="w-8 h-8 flex items-center justify-center text-lg animate-pulse-soft">
+                <div className="w-[var(--primitive-size-control-size)] h-[var(--primitive-size-control-size)] flex items-center justify-center text-lg animate-pulse-soft text-[var(--semantic-color-text-primary)]">
                     {currentMode.icon}
                 </div>
             </div>
 
             {/* Expanded Actions */}
             {isExpanded && (
-                <div className="flex flex-col gap-1 p-1 animate-slide-in">
-                    <div className="h-[1px] bg-white/10 w-full my-1" />
+                <div className="flex flex-col gap-[var(--primitive-space-gap-dense)] p-[var(--primitive-space-gap-dense)] animate-slide-in">
+                    <div className="h-[1px] bg-[var(--semantic-color-border-default)] w-full my-1" />
 
-                    <div className="flex gap-1">
+                    <div className="flex gap-[var(--primitive-space-gap-dense)]">
                         {MODES.map(mode => (
                             <button
                                 key={mode.id}
                                 onClick={() => setAppMode(mode.id)}
                                 className={`
-                  w-8 h-8 rounded-lg flex items-center justify-center text-sm
+                  w-[var(--primitive-size-control-size)] h-[var(--primitive-size-control-size)] rounded-[var(--primitive-radius-input)] flex items-center justify-center text-sm
                   transition-colors
-                  ${appMode === mode.id ? 'bg-white/20' : 'hover:bg-white/10 opacity-50 hover:opacity-100'}
+                  ${appMode === mode.id ? 'bg-[var(--semantic-color-bg-surface)] text-[var(--semantic-color-text-primary)] border border-[var(--semantic-color-border-default)]' : 'hover:bg-[var(--semantic-color-bg-surface)]/50 opacity-50 hover:opacity-100 text-[var(--semantic-color-text-secondary)]'}
                 `}
                                 title={mode.label}
                             >
@@ -63,7 +63,7 @@ const StateCore = () => {
                     </div>
 
                     {/* Mock Focus Session Button */}
-                    <button className="mt-2 w-full py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs rounded uppercase tracking-wider">
+                    <button className="mt-2 w-full py-2 bg-[var(--semantic-color-status-success)]/10 hover:bg-[var(--semantic-color-status-success)]/20 text-[var(--semantic-color-status-success)] text-[var(--primitive-type-label-size)] rounded-[var(--primitive-radius-input)] uppercase tracking-wider border border-[var(--semantic-color-status-success)]/20 transition-colors">
                         Start Focus
                     </button>
                 </div>
