@@ -1,7 +1,6 @@
 import React from 'react';
 import BrandChip from './BrandChip';
 import BreadcrumbCapsule from './BreadcrumbCapsule';
-import TimeChip from '../HUD/TimeChip';
 import NowChip from '../HUD/NowChip';
 import DrawerToggle from './DrawerToggle';
 import { useAppStore } from '../../store/useAppStore';
@@ -44,7 +43,6 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
 
             {/* Right Cluster: Now + Panel */}
             <div className="flex items-center gap-3">
-                <TimeChip />
                 <NowChip />
                 <DrawerToggle />
             </div>

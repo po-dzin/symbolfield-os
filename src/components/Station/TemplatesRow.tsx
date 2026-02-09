@@ -7,8 +7,8 @@ const TemplatesRow = () => {
 
     return (
         <div>
-            <h2 className="text-[var(--semantic-color-text-muted)] text-[9px] font-medium uppercase tracking-[0.35em] mb-4">Templates</h2>
-            <div className="space-y-3">
+
+            <div className="space-y-1 pl-1">
                 {templates.map(t => (
                     <button
                         key={t.id}
@@ -16,24 +16,19 @@ const TemplatesRow = () => {
                             const id = spaceManager.createSpace(t.title);
                             spaceManager.loadSpace(id);
                         }}
-                        className="group flex items-center gap-3 w-full text-left focus-visible:outline-none hover:bg-[var(--semantic-color-text-primary)]/5 rounded-[var(--primitive-radius-card)] p-2 transition-all"
+                        className="group flex items-center gap-3 w-full text-left focus-visible:outline-none hover:bg-[var(--semantic-color-bg-surface-hover)] rounded-[6px] px-2 py-1.5 transition-all mx-1 w-[calc(100%-8px)]"
                     >
-                        {/* Template Icon */}
+                        {/* Template Icon (Empty Placeholder Circle) */}
                         <div className="
-                            w-8 h-8 rounded-[var(--primitive-radius-pill)] flex items-center justify-center text-sm flex-shrink-0
-                            bg-[var(--semantic-color-text-primary)]/5 border border-[var(--semantic-color-border-default)]
-                            group-hover:border-[var(--semantic-color-text-secondary)] group-hover:bg-[var(--semantic-color-text-primary)]/10 group-hover:scale-110
-                            group-focus-visible:ring-1 group-focus-visible:ring-[var(--semantic-color-text-primary)]/50
-                            transition-all duration-300
-                        ">
-                            <span className="text-[var(--semantic-color-text-primary)] group-hover:text-[var(--semantic-color-text-primary)] transition-colors font-mono opacity-90">
-                                {t.icon}
-                            </span>
-                        </div>
+                            w-5 h-5 rounded-full flex-shrink-0
+                            border-[1.5px] transition-all duration-300
+                            border-[var(--semantic-color-text-muted)] opacity-40
+                            group-hover:opacity-100 group-hover:border-[var(--semantic-color-text-secondary)]
+                        " />
 
                         {/* Label */}
                         <div className="flex-1 min-w-0">
-                            <h4 className="text-[var(--semantic-color-text-secondary)] text-xs group-hover:text-[var(--semantic-color-text-primary)] transition-colors">
+                            <h4 className="text-[var(--semantic-color-text-secondary)] text-[13px] group-hover:text-[var(--semantic-color-text-primary)] transition-colors font-medium">
                                 {t.title}
                             </h4>
                         </div>

@@ -1394,8 +1394,10 @@ const GlobalGraphOverview = ({
             className={className ?? 'relative w-full h-full'}
             style={{
                 touchAction: 'none',
-                backgroundColor: 'var(--primitive-color-n0-deepest)',
-                backgroundImage: showGrid ? 'radial-gradient(circle, color-mix(in srgb, var(--semantic-color-text-primary), transparent 94%) 1px, transparent 1px)' : 'none',
+                backgroundColor: 'var(--semantic-color-bg-app)',
+                backgroundImage: showGrid
+                    ? 'radial-gradient(circle at 0% 0%, rgba(255,255,255,0.15) 1px, transparent 1px)'
+                    : 'none',
                 backgroundSize: '32px 32px'
             }}
         >

@@ -4,6 +4,7 @@ import { useAppStore } from '../../store/useAppStore';
 import StartGates from './StartGates';
 import RecentsRail from './RecentsRail';
 import TemplatesRow from './TemplatesRow';
+import CollapsibleSection from './CollapsibleSection';
 import OnboardingOverlay from './OnboardingOverlay';
 import { loadOnboardingState } from '../../core/state/onboardingState';
 import { spaceManager } from '../../core/state/SpaceManager';
@@ -116,28 +117,44 @@ const Station = () => {
                                 if (!leftPinned) setDrawerOpen('left', false);
                             }}
                         >
-                            <div className="h-full bg-[var(--semantic-color-bg-surface)]/35 backdrop-blur-xl border-r border-[var(--semantic-color-border-default)] p-[var(--component-panel-padding)] flex flex-col gap-10">
-                                <div className="flex items-center justify-between">
-                                    <div className="text-[var(--semantic-color-text-secondary)] space-y-1">
-                                        <div className="text-xs uppercase tracking-[0.3em] opacity-60">Field Origin</div>
-                                        <div className="text-sm">
-                                            Welcome, <span className="text-[var(--semantic-color-text-primary)] font-medium">Builder</span>
+                            <div className="h-full bg-[var(--semantic-color-bg-surface)]/35 backdrop-blur-xl border-r border-[var(--semantic-color-border-default)] pt-[var(--component-topbar-height)] p-[var(--component-panel-padding)] flex flex-col gap-6">
+                                <div className="flex items-start justify-between pb-6 pt-6 px-1">
+                                    <div className="text-[var(--semantic-color-text-secondary)] space-y-2">
+                                        <div className="text-sm font-medium text-[var(--semantic-color-text-primary)]">
+                                            Welcome back, Builder.
                                         </div>
+                                        <div className="text-xs opacity-60">The field is quiet today.</div>
                                     </div>
                                     <button
                                         onClick={() => setDrawerPinned('left', !leftPinned)}
-                                        className={`w-7 h-7 rounded-full flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10 transition-colors ${leftPinned ? 'bg-[var(--semantic-color-text-primary)]/15 text-[var(--semantic-color-text-primary)]' : ''}`}
+                                        className={`w-6 h-6 rounded-md flex items-center justify-center text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-bg-surface-hover)] transition-all ${leftPinned ? 'text-[var(--semantic-color-text-primary)] bg-[var(--semantic-color-bg-surface-hover)]' : ''}`}
                                         title={leftPinned ? 'Unpin drawer' : 'Pin drawer'}
                                     >
-                                        📌
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="12" y1="17" x2="12" y2="22"></line>
+                                            <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.74V6a3 3 0 0 0-6 0v4.74a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"></path>
+                                        </svg>
                                     </button>
                                 </div>
-                                <div className="space-y-12 text-[var(--semantic-color-text-primary)] overflow-y-auto overflow-x-hidden flex-1 no-scrollbar">
-                                    <RecentsRail />
-                                    <TemplatesRow />
+                                <div className="space-y-6 text-[var(--semantic-color-text-primary)] overflow-y-auto overflow-x-hidden flex-1 no-scrollbar pb-10">
+                                    <CollapsibleSection title="Favorites" count={0}>
+                                        <div className="text-xs text-[var(--semantic-color-text-muted)] italic py-2 pl-2">No favorites yet</div>
+                                    </CollapsibleSection>
+
+                                    <CollapsibleSection title="Recent" defaultOpen>
+                                        <RecentsRail selectedSpaceId={selectedSpaceId} />
+                                    </CollapsibleSection>
+
+                                    <CollapsibleSection title="Templates">
+                                        <TemplatesRow />
+                                    </CollapsibleSection>
+
+                                    <CollapsibleSection title="Trash" defaultOpen={false} count={0}>
+                                        <div className="text-xs text-[var(--semantic-color-text-muted)] italic py-2 pl-2">Trash is empty</div>
+                                    </CollapsibleSection>
                                 </div>
                             </div>
-                            <ResizeHandle side="left" onResize={(w: number) => setDrawerWidthPx('left', w)} />
+                            {/* <ResizeHandle side="left" onResize={(w: number) => setDrawerWidthPx('left', w)} /> */}
                         </div>
                     </>
                 )}

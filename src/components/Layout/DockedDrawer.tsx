@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import NowCorePanel from '../Modules/NowCore/NowCorePanel';
 import PropertiesPanel from '../Modules/Properties/PropertiesPanel';
+import SignalsPanel from '../Modules/Signals/SignalsPanel';
 import EmptyModuleState from '../Common/EmptyModuleState';
 
 // Temporary until real panels are implemented
@@ -53,7 +54,7 @@ const DockedDrawer: React.FC = () => {
     if (!drawerRightOpen) return null;
 
     // Define which tabs handle their own headers
-    const tabsWithCustomHeaders = ['now', 'cycles', 'chronos', 'props'];
+    const tabsWithCustomHeaders = ['now', 'cycles', 'chronos', 'props', 'signals'];
     const showDefaultHeader = !tabsWithCustomHeaders.includes(drawerRightTab || '');
 
     return (
@@ -62,12 +63,12 @@ const DockedDrawer: React.FC = () => {
             style={{ width: drawerRightWidthPx }}
         >
             {/* Resize Handle */}
-            <div
+            {/* <div
                 onMouseDown={startResize}
                 className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[var(--semantic-color-action-primary)] transition-colors z-50 group"
             >
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[var(--semantic-color-border-default)] group-hover:bg-[var(--semantic-color-action-primary)] rounded-full translate-x-[-2px] transition-colors" />
-            </div>
+            </div> */}
 
             {/* Default Header (if needed) */}
             {showDefaultHeader && (
@@ -96,11 +97,7 @@ const DockedDrawer: React.FC = () => {
                     />
                 )}
                 {drawerRightTab === 'signals' && (
-                    <EmptyModuleState
-                        icon="📊"
-                        label="Signals & Analytics"
-                        description="Real-time visualization of field metrics and graph activity."
-                    />
+                    <SignalsPanel />
                 )}
             </div>
         </div>

@@ -59,12 +59,15 @@ const ResizeHandle: React.FC<ResizeHandleProps> = ({
 
     return (
         <div
-            className={`absolute top-0 bottom-0 w-1.5 cursor-col-resize z-50 group hover:bg-[var(--semantic-color-action-primary)]/20 transition-colors ${side === 'left' ? 'right-0 -mr-0.75' : 'left-0 -ml-0.75'
+            className={`absolute top-0 bottom-0 w-3 cursor-col-resize z-50 group transition-colors ${side === 'left' ? 'right-0 -mr-1.5' : 'left-0 -ml-1.5'
                 }`}
             onPointerDown={handlePointerDown}
         >
             <div
-                className={`absolute top-1/2 -translate-y-1/2 w-0.5 h-8 rounded-full bg-[var(--semantic-color-border-default)] group-hover:bg-[var(--semantic-color-action-primary)] transition-colors ${side === 'left' ? 'right-0.5' : 'left-0.5'
+                className={`absolute top-0 bottom-0 w-full group-hover:bg-[var(--semantic-color-bg-surface-hover)]/30 transition-colors`}
+            />
+            <div
+                className={`absolute top-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-[var(--semantic-color-border-active)] opacity-0 group-hover:opacity-100 transition-all duration-300 ${side === 'left' ? 'right-1' : 'left-1'
                     }`}
             />
         </div>

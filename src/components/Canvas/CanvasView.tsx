@@ -1708,7 +1708,7 @@ const CanvasView = () => {
         <div
             ref={containerRef}
             id="sf-canvas"
-            className="w-full h-full bg-os-dark overflow-hidden relative touch-none select-none"
+            className="w-full h-full bg-[var(--semantic-color-bg-app)] overflow-hidden relative touch-none select-none"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
