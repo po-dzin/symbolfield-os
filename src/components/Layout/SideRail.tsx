@@ -59,7 +59,7 @@ const SideRail = () => {
     };
 
     return (
-        <div className="fixed top-[var(--component-topbar-height)] bottom-0 right-0 w-[var(--component-rail-width)] border-l border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/80 backdrop-blur-xl z-[var(--component-z-rail)] flex flex-col items-center py-4 gap-4 pointer-events-auto">
+        <div className="glass-base fixed top-[var(--component-topbar-height)] bottom-0 right-0 w-[var(--component-rail-width)] border-l border-[var(--semantic-color-border-default)] z-[var(--component-z-rail)] flex flex-col items-center py-4 gap-4 pointer-events-auto">
             {modules.map((mod) => {
                 const isActive = drawerRightOpen && drawerRightTab === mod.id;
                 return (

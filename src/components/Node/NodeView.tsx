@@ -13,7 +13,7 @@ const serializeSnapshot = (snapshot: unknown): string => {
     }
 };
 
-const NodeOverlay = () => {
+const NodeView = () => {
     const viewContext = useAppStore(state => state.viewContext);
     const activeScope = useAppStore(state => state.activeScope);
     const exitNode = useAppStore(state => state.exitNode);
@@ -64,7 +64,7 @@ const NodeOverlay = () => {
     const nodeLabel = typeof node.data?.label === 'string' ? node.data.label : 'Untitled Node';
 
     return (
-        <div className="absolute inset-0 z-[var(--component-z-overlay)] bg-[var(--semantic-color-bg-surface)]/95 backdrop-blur-xl animate-fade-scale flex flex-col" data-overlay="node">
+        <div className="glass-base fixed inset-0 z-[var(--component-z-overlay)] animate-fade-scale flex flex-col border-0 rounded-none bg-transparent" data-view="node">
             <div className="flex-1 overflow-auto p-[var(--primitive-space-panel-padding)] pt-[var(--component-topbar-height)] max-w-5xl mx-auto w-full mt-12">
                 <div className="mb-4 text-sm text-[var(--semantic-color-text-muted)]">
                     Edit node content with BlockSuite PageEditor. Changes save automatically.
@@ -81,4 +81,4 @@ const NodeOverlay = () => {
     );
 };
 
-export default NodeOverlay;
+export default NodeView;

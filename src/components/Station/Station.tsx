@@ -12,7 +12,7 @@ import GlobalGraphOverview from './GlobalGraphOverview';
 import { eventBus, EVENTS } from '../../core/events/EventBus';
 import { type SpaceMetrics } from '../Modules/Signals/LegacyAnalytics';
 import GraphViewShell from '../GraphView/GraphViewShell';
-import AccountSettingsOverlay from './AccountSettingsOverlay';
+// import AccountSettingsOverlay from './AccountSettingsOverlay'; // Moved to Shell
 import ResizeHandle from '../Drawers/ResizeHandle';
 
 const Station = () => {
@@ -24,7 +24,7 @@ const Station = () => {
     const setDrawerRightTab = useAppStore(state => state.setDrawerRightTab);
     const rightOpen = useAppStore(state => state.drawerRightOpen);
     const [selectedSpaceId, setSelectedSpaceId] = React.useState<string | null>(null);
-    const [showAccountSettings, setShowAccountSettings] = React.useState(false);
+    // const [showAccountSettings, setShowAccountSettings] = React.useState(false); // Global now
     const [focusedMetrics, setFocusedMetrics] = React.useState<SpaceMetrics | null>(null);
     const leftWidthPx = useAppStore(state => state.drawerLeftWidthPx);
     const setDrawerWidthPx = useAppStore(state => state.setDrawerWidthPx);
@@ -49,13 +49,15 @@ const Station = () => {
     }, []);
 
     React.useEffect(() => {
-        const unsub = eventBus.on('UI_SIGNAL', (event) => {
-            const signalType = event.payload?.type;
-            if (signalType !== 'OPEN_ACCOUNT_SETTINGS') return;
-            setShowAccountSettings(true);
-        });
-        return unsub;
+        spaceManager.ensureOnboardingSpaces();
+        // Check onboarding state on mount
+        const onboardingState = loadOnboardingState();
+        if (!onboardingState.isCompleted && !onboardingState.hasSeenWelcome) {
+            setShowOnboarding(true);
+        }
     }, []);
+
+    // REMOVED: Local Account Settings signal listener - now handled globally in Shell
 
     React.useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -117,7 +119,7 @@ const Station = () => {
                                 if (!leftPinned) setDrawerOpen('left', false);
                             }}
                         >
-                            <div className="h-full bg-[var(--semantic-color-bg-surface)]/35 backdrop-blur-xl border-r border-[var(--semantic-color-border-default)] pt-[var(--component-topbar-height)] p-[var(--component-panel-padding)] flex flex-col gap-6">
+                            <div className="glass-base h-full border-y-0 border-l-0 border-r border-[var(--semantic-color-border-default)] pt-[var(--component-topbar-height)] p-[var(--component-panel-padding)] flex flex-col gap-6">
                                 <div className="flex items-start justify-between pb-6 pt-6 px-1">
                                     <div className="text-[var(--semantic-color-text-secondary)] space-y-2">
                                         <div className="text-sm font-medium text-[var(--semantic-color-text-primary)]">
@@ -166,11 +168,6 @@ const Station = () => {
                         {showOnboarding && (
                             <div className="pointer-events-auto">
                                 <OnboardingOverlay onDismiss={() => setShowOnboarding(false)} />
-                            </div>
-                        )}
-                        {showAccountSettings && (
-                            <div className="pointer-events-auto">
-                                <AccountSettingsOverlay onClose={() => setShowAccountSettings(false)} />
                             </div>
                         )}
                     </>

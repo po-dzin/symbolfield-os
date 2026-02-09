@@ -151,11 +151,12 @@ const OmniOverlay: React.FC = () => {
     if (!paletteOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[var(--component-z-omni)] bg-[var(--component-omni-backdrop)] backdrop-blur-sm flex items-start justify-center pt-[15vh]">
-            <div className="w-[var(--component-omni-width)] flex flex-col gap-2 animate-scale-in origin-top">
+        <div className="fixed inset-0 z-[var(--component-z-omni)] flex items-start justify-center pt-[15vh]">
+            <div className="absolute inset-0 bg-black/50" onClick={closePalette} />
+            <div className="w-[var(--component-omni-width)] flex flex-col gap-2 animate-scale-in origin-top relative z-10">
 
                 {/* Main Input Box */}
-                <div className="bg-[var(--semantic-color-bg-surface)] rounded-[var(--primitive-radius-input)] shadow-2xl border border-[var(--semantic-color-border-default)] overflow-hidden flex flex-col">
+                <div className="glass-panel rounded-[var(--primitive-radius-input)] shadow-2xl overflow-hidden flex flex-col">
 
                     {/* Header: Scope Switcher + Input */}
                     <div className="flex items-center px-4 py-3 gap-3 border-b border-[var(--semantic-color-border-default)]/50">
@@ -199,10 +200,8 @@ const OmniOverlay: React.FC = () => {
                             filteredItems.map((item, idx) => (
                                 <button
                                     key={item.id}
-                                    className={`w-full text-left px-4 py-3 rounded-[8px] flex items-center justify-between transition-colors ${idx === selectedIndex
-                                            ? 'bg-[var(--semantic-color-bg-app)] text-[var(--semantic-color-text-primary)]'
-                                            : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-bg-app)]/50'
-                                        }`}
+                                    data-state={idx === selectedIndex ? 'active' : 'inactive'}
+                                    className="ui-selectable w-full text-left px-4 py-3 rounded-[8px] flex items-center justify-between transition-colors"
                                     onClick={() => {
                                         item.action();
                                         closePalette();

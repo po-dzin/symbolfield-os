@@ -6,6 +6,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { eventBus } from '../../core/events/EventBus';
 import ToolDock from './ToolDock';
 import StateCore from '../HUD/StateCore';
 import CanvasView from '../Canvas/CanvasView';
@@ -13,41 +14,38 @@ import ContextToolbar from '../Context/ContextToolbar';
 //  // Replaced by DockedDrawer
 import SideRail from './SideRail';
 import DockedDrawer from './DockedDrawer';
-import NodeOverlay from '../Node/NodeOverlay';
-import SettingsDrawer from '../Drawers/SettingsDrawer';
+import NodeView from '../Node/NodeView';
+import UniversalSettingsOverlay from '../Settings/UniversalSettingsOverlay';
 import OmniOverlay from '../Overlays/OmniOverlay';
 import Station from '../Station/Station';
+
 import UnifiedTopBar from './UnifiedTopBar';
 import GatewayLayout from '../Gateway/GatewayLayout';
 import BrandPage from '../Gateway/BrandPage';
 import PortalPage from '../Gateway/PortalPage';
 import { emitZoomHotkeyFromKeyboard } from '../../core/hotkeys/zoomHotkeys';
-// import DemoUnifiedTopBar from './DemoUnifiedTopBar'; // Removed
 
 const Shell = () => {
     const appMode = useAppStore(state => state.appMode);
     const viewContext = useAppStore(state => state.viewContext);
     const togglePalette = useAppStore(state => state.togglePalette);
     const toggleSettings = useAppStore(state => state.toggleSettings);
+    const openSettings = useAppStore(state => state.openSettings);
     const closeSettings = useAppStore(state => state.closeSettings);
-    const drawerRightOpen = useAppStore(state => state.drawerRightOpen);
+    const settingsOpen = useAppStore(state => state.settingsOpen);
+
+    // Legacy drawer tab logic (still used for content drawers like 'now')
     const drawerRightTab = useAppStore(state => state.drawerRightTab);
-    const setDrawerOpen = useAppStore(state => state.setDrawerOpen);
-    const setDrawerRightTab = useAppStore(state => state.setDrawerRightTab);
-    const isNowCoreTab = drawerRightTab === 'now'
-        || drawerRightTab === 'cycles'
-        || drawerRightTab === 'chronos'
-        || drawerRightTab === 'log';
+
     /* HOOK FIX: Must be called unconditionally */
     const gatewayRoute = useAppStore(state => state.gatewayRoute);
 
     const shellRef = useRef<HTMLDivElement | null>(null);
-    // Space settings are opened from SpaceHeader menu.
 
+    // Close settings when context changes, unless we want them to persist?
+    // Actually, distinct contexts might want distinct settings states, but for now closing on switch is safer.
     useEffect(() => {
-        if (viewContext === 'home') {
-            closeSettings();
-        }
+        closeSettings();
     }, [viewContext, closeSettings]);
 
     useEffect(() => {
@@ -61,9 +59,7 @@ const Shell = () => {
             if (isMod && (key === ',' || code === 'Comma')) {
                 event.preventDefault();
                 if (!isEditable) {
-                    if (viewContext !== 'home') {
-                        toggleSettings();
-                    }
+                    toggleSettings();
                 }
                 return;
             }
@@ -100,6 +96,42 @@ const Shell = () => {
         };
     }, []);
 
+    // Theme Effects Application
+    const themeGlass = useAppStore(state => state.themeGlass);
+    const themeNoise = useAppStore(state => state.themeNoise);
+    const themeAccent = useAppStore(state => state.themeAccent);
+    const themeGlowStrength = useAppStore(state => state.themeGlowStrength);
+
+    useEffect(() => {
+        const root = document.documentElement;
+
+        // 1. Apply Accent
+        const accents: Record<string, string> = {
+            gold: '#D4AF37',
+            rose: '#E09F9F',
+            sage: '#9CAD98',
+            lavender: '#CDBEFF',
+            cyan: '#6FE4FF',
+            peach: '#FFB89C',
+            taupe: '#B8B2A6'
+        };
+        const hex = accents[themeAccent] || accents.gold || '#D4AF37';
+        root.style.setProperty('--primitive-color-accent-gold', hex);
+        root.style.setProperty('--semantic-color-action-primary', hex);
+        root.style.setProperty('--theme-border-active', hex);
+
+        // 2. Apply Glass Opacity & Blur
+        root.style.setProperty('--theme-glass-opacity', themeGlass ? '0.6' : '0.98');
+        root.style.setProperty('--theme-blur-radius', themeGlass ? '20px' : '0px');
+
+        // 3. Apply Glow Strength
+        root.style.setProperty('--theme-glow-strength', themeGlowStrength.toString());
+
+        // 4. Apply Noise Opacity
+        root.style.setProperty('--theme-noise-opacity', themeNoise ? '0.07' : '0');
+
+    }, [themeGlass, themeAccent, themeGlowStrength, themeNoise]);
+
     // Gateway Mode
     if (viewContext === 'gateway') {
         return (
@@ -134,7 +166,7 @@ const Shell = () => {
                 )}
             </div>
 
-            {/* Z5: Peripheral Shell - Only show if NOT home (Wait, TopBar handles this logic now) */}
+            {/* Z5: Peripheral Shell */}
             {viewContext !== 'home' && (
                 <>
                     {/* Left: Tool Dock */}
@@ -154,17 +186,18 @@ const Shell = () => {
                     {/* Context UI (Z4) */}
                     <ContextToolbar />
 
-                    {/* Node Overlay */}
-                    <NodeOverlay />
+                    {/* Node View */}
+                    <NodeView />
                 </>
             )}
-
-            {/* Settings Drawer (Z3) */}
-            {viewContext !== 'home' && <SettingsDrawer />}
 
             {/* Omni Overlay (Z100) - Replaces CommandPalette */}
             <OmniOverlay />
 
+            {/* Universal Settings Overlay (Global Modal) */}
+            {settingsOpen && (
+                <UniversalSettingsOverlay onClose={closeSettings} />
+            )}
         </div>
     );
 };

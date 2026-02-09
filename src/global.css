@@ -29,18 +29,104 @@ body {
 #root {
     width: 100%;
     height: 100%;
+    /* Define Noise URL globally to avoid repetition */
+    --noise-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Base class for common glass styles */
+.glass-base {
+    /* position: relative; Removed to allow fixed/absolute overrides to work. Components using this must be positioned (fixed, absolute, relative) for noise to work. */
+    /* Use color-mix to apply opacity variable to the surface color */
+    background-color: color-mix(in srgb, var(--semantic-color-bg-surface), transparent calc(100% - var(--theme-glass-opacity, 0.8) * 100%));
+    backdrop-filter: blur(var(--theme-blur-radius, 12px));
+    border: 1px solid var(--semantic-color-border-default);
+}
+
+/* Noise overlay for glass panels */
+.glass-base::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    /* Behind content but on top of background? No, background is on parent.
+                  If z-index is -1, it goes behind parent background if parent has no stacking context?
+                  Actually, best to rely on pointer-events-none and positive z-index, or mix-blend. */
+    z-index: 0;
+    /* Content in panel usually has z-index or natural stacking. 
+                   We want this over the background color but under content. */
+    background-image: var(--noise-url);
+    opacity: var(--theme-noise-opacity, 0.04);
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    border-radius: inherit;
 }
 
 .glass-panel {
-    @apply backdrop-blur-md border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/80 rounded-[var(--primitive-radius-panel)];
+    @apply rounded-[var(--primitive-radius-panel)];
+    /* Compose with glass-base logic manually since @apply can't easily mix with complex CSS vars yet */
+    position: relative;
+    background-color: color-mix(in srgb, var(--semantic-color-bg-surface), transparent calc(100% - var(--theme-glass-opacity, 0.8) * 100%));
+    backdrop-filter: blur(var(--theme-blur-radius, 12px));
+    border: 1px solid var(--semantic-color-border-default);
 }
+
+.glass-panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--noise-url);
+    opacity: var(--theme-noise-opacity, 0.04);
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 1;
+    /* Overlay on top of background color */
+}
+
+/* Ensure content inside clicks through or is above. 
+   Usually children are z-auto. This ::after at z-1 might catch clicks if not pointer-events: none. 
+   (It is pointer-events-none).
+*/
 
 .topbar-shell {
-    @apply fixed top-0 left-0 right-0 z-[var(--component-z-topbar)] flex items-center px-4 h-[var(--component-topbar-height)] border-b border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-app)]/80 backdrop-blur-md;
+    @apply fixed top-0 left-0 right-0 z-[var(--component-z-topbar)] flex items-center px-4 h-[var(--component-topbar-height)];
+    background-color: color-mix(in srgb, var(--semantic-color-bg-app), transparent calc(100% - var(--theme-glass-opacity, 0.8) * 100%));
+    backdrop-filter: blur(var(--theme-blur-radius, 12px));
+    border-bottom: 1px solid var(--semantic-color-border-default);
 }
 
-.os-shell {
-    @apply fixed inset-0 overflow-hidden bg-[var(--semantic-color-bg-app)] text-[var(--semantic-color-text-primary)] font-sans antialiased;
+.topbar-shell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--noise-url);
+    opacity: var(--theme-noise-opacity, 0.04);
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Universal Interactive State (The "Lighter Background" Logic) */
+.ui-selectable {
+    @apply transition-all duration-200 border border-transparent cursor-pointer;
+    color: var(--semantic-color-text-secondary);
+    background-color: transparent;
+}
+
+.ui-selectable:hover {
+    color: var(--semantic-color-text-primary);
+    background-color: color-mix(in srgb, var(--semantic-color-text-primary), transparent 95%);
+    /* 5% opacity */
+}
+
+.ui-selectable[aria-pressed="true"],
+.ui-selectable[data-state="active"],
+.ui-selectable.is-active {
+    color: var(--semantic-color-text-primary);
+    background-color: color-mix(in srgb, var(--semantic-color-text-primary), transparent 85%);
+    /* 15% opacity */
+    border-color: color-mix(in srgb, var(--semantic-color-text-primary), transparent 70%);
+    /* 30% opacity */
 }
 
 /* Disable transitions during active resize to prevent jitter */

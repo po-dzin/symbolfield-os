@@ -51,13 +51,8 @@ export const SessionView: React.FC = () => {
                             <button
                                 key={mode}
                                 onClick={() => setAppMode(mode)}
-                                className={`
-                                    flex-1 h-12 rounded-[var(--primitive-radius-input)] flex flex-col items-center justify-center gap-1
-                                    transition-all border
-                                    ${appMode === mode
-                                        ? 'bg-[var(--semantic-color-text-primary)]/15 text-[var(--semantic-color-text-primary)] border-[var(--semantic-color-text-primary)]/30'
-                                        : 'bg-black/20 border-transparent text-[var(--semantic-color-text-secondary)] opacity-60 hover:opacity-100 hover:bg-white/5'}
-                                `}
+                                data-state={appMode === mode ? 'active' : 'inactive'}
+                                className="ui-selectable flex-1 h-12 rounded-[var(--primitive-radius-input)] flex flex-col items-center justify-center gap-1"
                             >
                                 <span className="text-lg">{mode === 'deep' ? '🕳' : mode === 'flow' ? '🌀' : '🔆'}</span>
                                 <span className="text-[9px] uppercase tracking-widest font-bold">{mode}</span>

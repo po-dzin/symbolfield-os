@@ -1454,7 +1454,7 @@ const ContextToolbar = () => {
                                         enterNode(primaryId);
                                     }
                                 }}
-                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 rounded-xl text-lg leading-none transition-colors"
+                                className="ui-selectable w-10 h-10 flex items-center justify-center rounded-xl text-lg leading-none transition-colors"
                                 title={primaryNode?.type === 'cluster' ? (fieldScopeId === primaryId ? 'Exit Cluster' : 'Enter Cluster') : `Enter ${primaryNode?.type === 'portal' ? 'Portal' : 'Node'}`}
                             >
                                 ↵
@@ -1466,10 +1466,11 @@ const ContextToolbar = () => {
                                         gestureRouter.startLinkPreview(asNodeId(primaryId));
                                     }
                                 }}
-                                className={`w-10 h-10 flex items-center justify-center rounded-xl text-lg leading-none transition-colors ${activeTool === 'link' ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                data-state={activeTool === 'link' ? 'active' : 'inactive'}
+                                className="ui-selectable w-10 h-10 flex items-center justify-center rounded-xl text-lg leading-none transition-colors"
                                 title="Create Link"
                             >
-                                <GlyphIcon id="link-action" size={20} className={activeTool === 'link' ? 'text-color-os-dark' : 'text-[var(--semantic-color-text-secondary)]'} />
+                                <GlyphIcon id="link-action" size={20} className="text-current" />
                             </button>
                             <button
                                 onClick={() => {
@@ -1478,12 +1479,13 @@ const ContextToolbar = () => {
                                     closeAllMenus();
                                     setShowGlyphPicker(next);
                                 }}
-                                className={`w-10 h-10 flex items-center justify-center rounded-xl text-lg leading-none transition-colors relative border border-transparent focus:outline-none ${showGlyphPicker ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                data-state={showGlyphPicker ? 'active' : 'inactive'}
+                                className="ui-selectable w-10 h-10 flex items-center justify-center rounded-xl text-lg leading-none transition-colors relative focus:outline-none"
                                 title="Pick Glyph"
                                 data-context-menu
                             >
                                 {nodeGlyphResolved ? (
-                                    <GlyphIcon id={nodeGlyphResolved.id} size={20} className={showGlyphPicker ? 'text-color-os-dark' : 'text-[var(--semantic-color-text-primary)]/90'} style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }} />
+                                    <GlyphIcon id={nodeGlyphResolved.id} size={20} className="text-current opacity-90" style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }} />
                                 ) : (
                                     <span className="text-[18px] leading-none" style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }}>
                                         {'○'}
@@ -1505,7 +1507,8 @@ const ContextToolbar = () => {
                                         closeAllMenus();
                                         setShowColorPicker(next);
                                     }}
-                                    className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors border border-transparent focus:outline-none ${showColorPicker ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                    data-state={showColorPicker ? 'active' : 'inactive'}
+                                    className="ui-selectable w-10 h-10 flex items-center justify-center rounded-xl transition-colors focus:outline-none"
                                     title="Colors"
                                     data-context-menu
                                 >
@@ -1850,240 +1853,242 @@ const ContextToolbar = () => {
                 {/* Close */}
             </div>
 
-            {showActionMenu && actionMenuPos && (
-                <div
-                    className="absolute z-[var(--z-ui)] glass-panel px-2 py-2 min-w-[190px] border-0 flex flex-col gap-1"
-                    style={{
-                        left: actionMenuPos.x,
-                        top: actionMenuPos.y,
-                        transform: actionMenuAlign === 'left' ? 'translate(-100%, -50%)' : 'translateY(-50%)'
-                    }}
-                    data-context-menu
-                >
-                    {isCluster && count === 1 && hasNodes && !hasAreas && !hasEdges && (
-                        <>
-                            <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)] px-2 pt-1">
-                                Cluster
-                            </div>
-                            <button
-                                onClick={() => {
-                                    exitLinkMode();
-                                    handleFoldToggle();
-                                }}
-                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
-                            >
-                                {isFolded ? 'Unfold Cluster' : 'Fold Cluster'}
-                            </button>
-                            <button
-                                onClick={() => {
-                                    exitLinkMode();
-                                    handleUngroup();
-                                }}
-                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
-                            >
-                                Collapse Cluster
-                            </button>
-                            <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
-                        </>
-                    )}
-                    {canDetachAreasFromNode && (
-                        <>
-                            <button
-                                onClick={() => {
-                                    exitLinkMode();
-                                    handleDetachAreasFromNode();
-                                }}
-                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
-                            >
-                                Detach areas
-                            </button>
-                            <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
-                        </>
-                    )}
-                    {primaryArea && hasAreas && !hasNodes && !hasEdges && (
-                        <>
-                            <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)] px-2 pt-1">
-                                Area
-                            </div>
-                            {primaryArea.shape === 'rect' && (
-                                <button
-                                    onClick={() => {
-                                        exitLinkMode();
-                                        handleAlignAreaToGrid();
-                                    }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
-                                >
-                                    Align to grid
-                                </button>
-                            )}
-                            {canAnchorToNode && (
-                                <button
-                                    onClick={() => {
-                                        exitLinkMode();
-                                        handleAnchorToNode();
-                                    }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
-                                >
-                                    {primaryArea.anchor.type === 'node' ? 'Detach from node' : 'Anchor to node'}
-                                </button>
-                            )}
-                            <button
-                                onClick={() => {
-                                    exitLinkMode();
-                                    updateArea(primaryArea.id, { locked: !primaryArea.locked });
-                                }}
-                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
-                            >
-                                {primaryArea.locked ? 'Unlock area' : 'Lock area'}
-                            </button>
-                            {primaryCircleArea && (
-                                <>
-                                    <button
-                                        onClick={() => {
-                                            exitLinkMode();
-                                            handleAddRing();
-                                        }}
-                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
-                                    >
-                                        Add ring
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            exitLinkMode();
-                                            handleRemoveRing();
-                                        }}
-                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
-                                    >
-                                        Remove ring
-                                    </button>
-                                </>
-                            )}
-                            <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
-                        </>
-                    )}
-                    {connectedEdges.length > 0 && (
-                        <>
-                            <button
-                                onClick={() => {
-                                    exitLinkMode();
-                                    setShowLinks(prev => !prev);
-                                }}
-                                className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm ${showLinks ? 'bg-[var(--semantic-color-text-primary)]/10 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5'}`}
-                            >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                                    <circle cx="6.5" cy="7" r="1.6" fill="currentColor" stroke="none" />
-                                    <circle cx="6.5" cy="12" r="1.6" fill="currentColor" stroke="none" />
-                                    <circle cx="6.5" cy="17" r="1.6" fill="currentColor" stroke="none" />
-                                    <path d="M10 7h8M10 12h8M10 17h8" />
-                                </svg>
-                                Links
-                            </button>
-                            <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
-                        </>
-                    )}
-                    {primaryArea && hasAreas && !hasNodes && !hasEdges && (
-                        <>
-                            <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)] px-2 pt-1">
-                                Layer
-                            </div>
-                            <button
-                                onClick={() => {
-                                    exitLinkMode();
-                                    handleBringAreaToFront();
-                                }}
-                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M6 6h12" />
-                                    <path d="M6 16l6-6l6 6" />
-                                </svg>
-                                Bring to front
-                            </button>
-                            <button
-                                onClick={() => {
-                                    exitLinkMode();
-                                    handleBringAreaForward();
-                                }}
-                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M6 16l6-6l6 6" />
-                                </svg>
-                                Bring forward
-                            </button>
-                            <button
-                                onClick={() => {
-                                    exitLinkMode();
-                                    handleSendAreaBackward();
-                                }}
-                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M6 8l6 6l6-6" />
-                                </svg>
-                                Send backward
-                            </button>
-                            <button
-                                onClick={() => {
-                                    exitLinkMode();
-                                    handleSendAreaToBack();
-                                }}
-                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M6 18h12" />
-                                    <path d="M6 10l6 6l6-6" />
-                                </svg>
-                                Send to back
-                            </button>
-                            <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
-                        </>
-                    )}
-                    <button
-                        onClick={() => {
-                            exitLinkMode();
-                            handleDelete();
+            {
+                showActionMenu && actionMenuPos && (
+                    <div
+                        className="absolute z-[var(--z-ui)] glass-panel px-2 py-2 min-w-[190px] border-0 flex flex-col gap-1"
+                        style={{
+                            left: actionMenuPos.x,
+                            top: actionMenuPos.y,
+                            transform: actionMenuAlign === 'left' ? 'translate(-100%, -50%)' : 'translateY(-50%)'
                         }}
-                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-red-300 hover:bg-red-500/15"
+                        data-context-menu
                     >
-                        <GlyphIcon id="delete" size={18} className="text-red-300" />
-                        Delete
-                    </button>
-                    {showLinks && connectedEdges.length > 0 && (
-                        <div className="absolute top-1/2 left-full ml-3 -translate-y-1/2 glass-panel px-2 py-2 min-w-[210px] border-0 flex flex-col gap-1" data-context-menu>
-                            <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)] px-2 pb-1">
-                                Links
+                        {isCluster && count === 1 && hasNodes && !hasAreas && !hasEdges && (
+                            <>
+                                <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)] px-2 pt-1">
+                                    Cluster
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleFoldToggle();
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                >
+                                    {isFolded ? 'Unfold Cluster' : 'Fold Cluster'}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleUngroup();
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                >
+                                    Collapse Cluster
+                                </button>
+                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                            </>
+                        )}
+                        {canDetachAreasFromNode && (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleDetachAreasFromNode();
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                >
+                                    Detach areas
+                                </button>
+                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                            </>
+                        )}
+                        {primaryArea && hasAreas && !hasNodes && !hasEdges && (
+                            <>
+                                <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)] px-2 pt-1">
+                                    Area
+                                </div>
+                                {primaryArea.shape === 'rect' && (
+                                    <button
+                                        onClick={() => {
+                                            exitLinkMode();
+                                            handleAlignAreaToGrid();
+                                        }}
+                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    >
+                                        Align to grid
+                                    </button>
+                                )}
+                                {canAnchorToNode && (
+                                    <button
+                                        onClick={() => {
+                                            exitLinkMode();
+                                            handleAnchorToNode();
+                                        }}
+                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    >
+                                        {primaryArea.anchor.type === 'node' ? 'Detach from node' : 'Anchor to node'}
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        updateArea(primaryArea.id, { locked: !primaryArea.locked });
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                >
+                                    {primaryArea.locked ? 'Unlock area' : 'Lock area'}
+                                </button>
+                                {primaryCircleArea && (
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                exitLinkMode();
+                                                handleAddRing();
+                                            }}
+                                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                        >
+                                            Add ring
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                exitLinkMode();
+                                                handleRemoveRing();
+                                            }}
+                                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                        >
+                                            Remove ring
+                                        </button>
+                                    </>
+                                )}
+                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                            </>
+                        )}
+                        {connectedEdges.length > 0 && (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        setShowLinks(prev => !prev);
+                                    }}
+                                    className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm ${showLinks ? 'bg-[var(--semantic-color-text-primary)]/10 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5'}`}
+                                >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                                        <circle cx="6.5" cy="7" r="1.6" fill="currentColor" stroke="none" />
+                                        <circle cx="6.5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+                                        <circle cx="6.5" cy="17" r="1.6" fill="currentColor" stroke="none" />
+                                        <path d="M10 7h8M10 12h8M10 17h8" />
+                                    </svg>
+                                    Links
+                                </button>
+                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                            </>
+                        )}
+                        {primaryArea && hasAreas && !hasNodes && !hasEdges && (
+                            <>
+                                <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)] px-2 pt-1">
+                                    Layer
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleBringAreaToFront();
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M6 6h12" />
+                                        <path d="M6 16l6-6l6 6" />
+                                    </svg>
+                                    Bring to front
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleBringAreaForward();
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M6 16l6-6l6 6" />
+                                    </svg>
+                                    Bring forward
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleSendAreaBackward();
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M6 8l6 6l6-6" />
+                                    </svg>
+                                    Send backward
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleSendAreaToBack();
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M6 18h12" />
+                                        <path d="M6 10l6 6l6-6" />
+                                    </svg>
+                                    Send to back
+                                </button>
+                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                            </>
+                        )}
+                        <button
+                            onClick={() => {
+                                exitLinkMode();
+                                handleDelete();
+                            }}
+                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-red-300 hover:bg-red-500/15"
+                        >
+                            <GlyphIcon id="delete" size={18} className="text-red-300" />
+                            Delete
+                        </button>
+                        {showLinks && connectedEdges.length > 0 && (
+                            <div className="absolute top-1/2 left-full ml-3 -translate-y-1/2 glass-panel px-2 py-2 min-w-[210px] border-0 flex flex-col gap-1" data-context-menu>
+                                <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)] px-2 pb-1">
+                                    Links
+                                </div>
+                                <div className="flex flex-col gap-1 max-h-52 overflow-auto px-1">
+                                    {connectedEdges.map(edge => {
+                                        const otherId = edge.source === primaryId ? edge.target : edge.source;
+                                        const otherNode = nodes.find(n => n.id === otherId);
+                                        const label = typeof otherNode?.data?.label === 'string' ? otherNode.data.label : otherId;
+                                        return (
+                                            <div key={edge.id} className="flex items-center justify-between gap-2 px-1 py-1 rounded hover:bg-[var(--semantic-color-text-primary)]/5">
+                                                <span className="text-xs text-[var(--semantic-color-text-secondary)] truncate">
+                                                    {label}
+                                                </span>
+                                                <button
+                                                    onClick={() => {
+                                                        exitLinkMode();
+                                                        removeEdge(edge.id);
+                                                    }}
+                                                    className="text-xs text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-secondary)]"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-1 max-h-52 overflow-auto px-1">
-                                {connectedEdges.map(edge => {
-                                    const otherId = edge.source === primaryId ? edge.target : edge.source;
-                                    const otherNode = nodes.find(n => n.id === otherId);
-                                    const label = typeof otherNode?.data?.label === 'string' ? otherNode.data.label : otherId;
-                                    return (
-                                        <div key={edge.id} className="flex items-center justify-between gap-2 px-1 py-1 rounded hover:bg-[var(--semantic-color-text-primary)]/5">
-                                            <span className="text-xs text-[var(--semantic-color-text-secondary)] truncate">
-                                                {label}
-                                            </span>
-                                            <button
-                                                onClick={() => {
-                                                    exitLinkMode();
-                                                    removeEdge(edge.id);
-                                                }}
-                                                className="text-xs text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-secondary)]"
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
+                        )}
+                    </div>
+                )
+            }
 
             {showLinks && connectedEdges.length > 0 && null}
-        </div>
+        </div >
     );
 };
 

@@ -26,14 +26,8 @@ const ToolDock = () => {
                 <button
                     key={tool.id}
                     onClick={() => setTool(tool.id)}
-                    className={`
-            w-[var(--component-button-height-lg)] h-[var(--component-button-height-lg)] rounded-[var(--primitive-radius-input)] flex items-center justify-center
-            transition-all duration-200
-            ${activeTool === tool.id
-                            ? 'bg-[var(--semantic-color-text-primary)] text-[var(--semantic-color-bg-app)] shadow-md'
-                            : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10 hover:text-[var(--semantic-color-text-primary)]'
-                        }
-          `}
+                    data-state={activeTool === tool.id ? 'active' : 'inactive'}
+                    className="ui-selectable w-[var(--component-button-height-lg)] h-[var(--component-button-height-lg)] rounded-[var(--primitive-radius-input)] flex items-center justify-center"
                     title={tool.hotkey ? `${tool.label} (${tool.hotkey})` : tool.label}
                 >
                     <GlyphIcon id={tool.glyphId} size={24} className="text-current" />

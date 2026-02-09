@@ -41,7 +41,7 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onDismiss }) => {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[var(--primitive-color-n0-deepest)]/60 backdrop-blur-sm animate-fade-in">
             <div className="relative max-w-2xl mx-auto px-8">
                 {/* Main Card */}
-                <div className="bg-[var(--semantic-color-bg-surface)] border border-[var(--semantic-color-border-default)] rounded-[var(--primitive-radius-panel)] p-12 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                <div className="glass-panel p-12 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                     {/* Header */}
                     <div className="text-center mb-10">
                         <div className="w-16 h-16 mx-auto mb-6 rounded-[var(--primitive-radius-pill)] border-2 border-[var(--semantic-color-border-default)] flex items-center justify-center">

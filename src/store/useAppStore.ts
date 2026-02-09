@@ -51,6 +51,16 @@ interface AppState {
     drawerRightTab: DrawerRightTab | null;
     layoutMode: 'overlay' | 'pinned' | 'split';
     session: Session;
+
+    // Theme State
+    themeGlass: boolean;
+    themeNoise: boolean;
+    themeAccent: string;
+    themeGlowStrength: number;
+
+    // Global UI State
+    accountSettingsOpen: boolean;
+    setAccountSettingsOpen: (open: boolean) => void;
 }
 
 interface AppStoreState extends AppState {
@@ -96,6 +106,9 @@ interface AppStoreState extends AppState {
     // Gateway Navigation
     gatewayRoute: { type: 'brand'; slug: string } | { type: 'portal'; brandSlug: string; portalSlug: string } | null;
     setGatewayRoute: (route: { type: 'brand'; slug: string } | { type: 'portal'; brandSlug: string; portalSlug: string } | null) => void;
+
+    // Theme Actions
+    setThemeOption: (key: 'themeGlass' | 'themeNoise' | 'themeAccent' | 'themeGlowStrength', value: any) => void;
 }
 
 export const useAppStore = create<AppStoreState>((set) => {
@@ -137,6 +150,21 @@ export const useAppStore = create<AppStoreState>((set) => {
         ...initialState,
         omniQuery: '',
         gatewayRoute: { type: 'brand', slug: 'symbolfield' }, // Default route
+
+        // Theme Defaults
+        themeGlass: true,
+        themeNoise: true,
+        themeAccent: 'taupe', // "White-grey" default
+        themeGlowStrength: 0.5,
+
+        accountSettingsOpen: false,
+        setAccountSettingsOpen: (open) => set({ accountSettingsOpen: open }),
+
+        setThemeOption: (key, value) => {
+            set((prev) => ({ ...prev, [key]: value }));
+            // Side effect: update document CSS variables if needed, 
+            // but we will handle this in Shell for reactivity
+        },
 
 
         // Actions are just proxies to Engine

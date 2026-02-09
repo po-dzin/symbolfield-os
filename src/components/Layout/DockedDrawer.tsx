@@ -59,7 +59,7 @@ const DockedDrawer: React.FC = () => {
 
     return (
         <div
-            className="fixed top-[var(--component-topbar-height)] bottom-0 right-[var(--component-rail-width)] bg-[var(--semantic-color-bg-surface)] border-l border-[var(--semantic-color-border-default)] z-[var(--component-z-drawer)] shadow-2xl flex flex-col"
+            className="glass-base fixed top-[var(--component-topbar-height)] bottom-0 right-[var(--component-rail-width)] border-l border-[var(--semantic-color-border-default)] z-[var(--component-z-drawer)] shadow-2xl flex flex-col"
             style={{ width: drawerRightWidthPx }}
         >
             {/* Resize Handle */}

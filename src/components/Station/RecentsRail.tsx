@@ -98,10 +98,8 @@ const SpaceRow = ({
                 onClick={() => onOpen(item.id)}
                 onMouseEnter={() => eventBus.emit(EVENTS.PORTAL_HOVERED, { spaceId: item.id })}
                 onMouseLeave={() => eventBus.emit(EVENTS.PORTAL_HOVERED, {})}
-                className={`group flex items-center gap-3 w-full text-left focus-visible:outline-none rounded-[6px] px-2 py-1.5 transition-all mx-1 w-[calc(100%-8px)] ${isSelected
-                        ? 'bg-[var(--semantic-color-bg-surface-hover)] text-[var(--semantic-color-text-primary)]'
-                        : 'hover:bg-[var(--semantic-color-bg-surface-hover)] text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)]'
-                    }`}
+                data-state={isSelected ? 'active' : 'inactive'}
+                className="ui-selectable group flex items-center gap-3 w-full text-left focus-visible:outline-none rounded-[6px] px-2 py-1.5 transition-all mx-1 w-[calc(100%-8px)]"
             >
                 {/* Space Icon (Empty Placeholder Circle) */}
                 <div className={`
