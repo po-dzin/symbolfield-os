@@ -6,8 +6,10 @@ import { stationStorage, type StationLayout } from '../../core/storage/StationSt
 import { useAppStore } from '../../store/useAppStore';
 import { NODE_SIZES } from '../../utils/layoutMetrics';
 import { GLOBAL_ZOOM_HOTKEY_EVENT, type ZoomHotkeyDetail } from '../../core/hotkeys/zoomHotkeys';
+import CapsuleTabs, { type CapsuleTabItem } from '../Common/CapsuleTabs';
 
 type DetailLevel = 0 | 1 | 2;
+type DomEventListener = (event: Event) => void;
 
 type SpaceCluster = {
     id: string;
@@ -48,6 +50,11 @@ const ARCHECORE_PADDING = 60;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const TWO_PI = Math.PI * 2;
 const AREA_STORAGE_PREFIX = 'sf_areas_';
+const LOD_ITEMS: CapsuleTabItem[] = [
+    { id: 'l0', label: 'L0' },
+    { id: 'l1', label: 'L1' },
+    { id: 'l2', label: 'L2' }
+];
 
 const clampStationZoom = (zoom: number) => Math.min(MAX_STATION_ZOOM, Math.max(MIN_STATION_ZOOM, zoom));
 
@@ -508,9 +515,8 @@ const GlobalGraphOverview = ({
 }) => {
     const showGrid = useAppStore(state => state.showGrid);
     const showEdges = useAppStore(state => state.showEdges);
-    const showHud = useAppStore(state => state.showHud);
     const drawerRightOpen = useAppStore(state => state.drawerRightOpen);
-    const drawerRightWidth = useAppStore(state => state.drawerRightWidth);
+    const drawerRightWidthPx = useAppStore(state => state.drawerRightWidthPx);
     const showStationLabels = useAppStore(state => state.showStationLabels);
     const showPlaygroundOnStation = useAppStore(state => state.showPlaygroundOnStation);
     const [detailLevel, setDetailLevel] = React.useState<DetailLevel>(1);
@@ -582,30 +588,19 @@ const GlobalGraphOverview = ({
         if (showPlaygroundOnStation || !playgroundId) return clustersWithOffsets;
         return clustersWithOffsets.filter(cluster => cluster.id !== playgroundId);
     }, [clustersWithOffsets, showPlaygroundOnStation, playgroundId]);
-    const stationHudSummary = React.useMemo(() => {
-        let nodeCount = 0;
-        let edgeCount = 0;
-        let clusterCount = 0;
-        visibleClusters.forEach(cluster => {
-            nodeCount += cluster.nodes.length;
-            edgeCount += cluster.links.length;
-            clusterCount += cluster.clusters.length;
-        });
-        return {
-            spaces: visibleClusters.length,
-            nodes: nodeCount,
-            edges: edgeCount,
-            clusters: clusterCount
-        };
-    }, [visibleClusters]);
-    const rightDrawerWidthToken = drawerRightWidth === 'sm'
-        ? 'var(--panel-width-sm)'
-        : drawerRightWidth === 'md'
-            ? 'var(--panel-width-md)'
-            : 'var(--panel-width-lg)';
-    const stationHudRightInset = drawerRightOpen
-        ? `calc(${rightDrawerWidthToken} + 24px)`
-        : '24px';
+    const lodRightInset = drawerRightOpen
+        ? `${drawerRightWidthPx + 16}px`
+        : '16px';
+    const activeLodId = detailLevel === 0 ? 'l0' : detailLevel === 1 ? 'l1' : 'l2';
+    const cycleLod = (direction: 1 | -1) => {
+        const levels: DetailLevel[] = [0, 1, 2];
+        const currentIndex = levels.indexOf(detailLevel);
+        const nextIndex = (currentIndex + direction + levels.length) % levels.length;
+        const nextLevel = levels[nextIndex];
+        if (typeof nextLevel === 'number') {
+            setDetailLevel(nextLevel);
+        }
+    };
     const [highlightSpaceId, setHighlightSpaceId] = React.useState<string | null>(null);
     const svgRef = React.useRef<SVGSVGElement | null>(null);
     const viewBoxRef = React.useRef({ ...DEFAULT_VIEWBOX });
@@ -1060,12 +1055,10 @@ const GlobalGraphOverview = ({
         if (!el) return;
         const GESTURE_WHEEL_GUARD_MS = 120;
         let gestureActive = false;
-        let lastGestureEventTs = 0;
         let lastGestureChangeTs = 0;
         let gestureFallbackTimer: number | null = null;
         const markGestureWindow = () => {
             gestureActive = true;
-            lastGestureEventTs = Date.now();
             if (gestureFallbackTimer) {
                 window.clearTimeout(gestureFallbackTimer);
             }
@@ -1264,7 +1257,6 @@ const GlobalGraphOverview = ({
             if (!gestureActive) return;
             e.preventDefault();
             gestureActive = false;
-            lastGestureEventTs = Date.now();
             lastGestureScale = 1;
             if (debugPinch()) {
                 // eslint-disable-next-line no-console
@@ -1279,23 +1271,23 @@ const GlobalGraphOverview = ({
         el.addEventListener('wheel', preventWheelZoom, { passive: false });
         el.addEventListener('wheel', handleWheel, { passive: false });
         window.addEventListener('wheel', handleGlobalWheelCapture, { passive: false, capture: true });
-        window.addEventListener('gesturestart', handleGestureStart as EventListener, { passive: false });
-        window.addEventListener('gesturechange', handleGestureChange as EventListener, { passive: false });
-        window.addEventListener('gestureend', handleGestureEnd as EventListener, { passive: false });
-        document.addEventListener('gesturestart', handleGestureStart as EventListener, { passive: false });
-        document.addEventListener('gesturechange', handleGestureChange as EventListener, { passive: false });
-        document.addEventListener('gestureend', handleGestureEnd as EventListener, { passive: false });
+        window.addEventListener('gesturestart', handleGestureStart as DomEventListener, { passive: false });
+        window.addEventListener('gesturechange', handleGestureChange as DomEventListener, { passive: false });
+        window.addEventListener('gestureend', handleGestureEnd as DomEventListener, { passive: false });
+        document.addEventListener('gesturestart', handleGestureStart as DomEventListener, { passive: false });
+        document.addEventListener('gesturechange', handleGestureChange as DomEventListener, { passive: false });
+        document.addEventListener('gestureend', handleGestureEnd as DomEventListener, { passive: false });
 
         return () => {
             el.removeEventListener('wheel', preventWheelZoom);
             el.removeEventListener('wheel', handleWheel);
             window.removeEventListener('wheel', handleGlobalWheelCapture, true);
-            window.removeEventListener('gesturestart', handleGestureStart as EventListener);
-            window.removeEventListener('gesturechange', handleGestureChange as EventListener);
-            window.removeEventListener('gestureend', handleGestureEnd as EventListener);
-            document.removeEventListener('gesturestart', handleGestureStart as EventListener);
-            document.removeEventListener('gesturechange', handleGestureChange as EventListener);
-            document.removeEventListener('gestureend', handleGestureEnd as EventListener);
+            window.removeEventListener('gesturestart', handleGestureStart as DomEventListener);
+            window.removeEventListener('gesturechange', handleGestureChange as DomEventListener);
+            window.removeEventListener('gestureend', handleGestureEnd as DomEventListener);
+            document.removeEventListener('gesturestart', handleGestureStart as DomEventListener);
+            document.removeEventListener('gesturechange', handleGestureChange as DomEventListener);
+            document.removeEventListener('gestureend', handleGestureEnd as DomEventListener);
             if (gestureFallbackTimer) {
                 window.clearTimeout(gestureFallbackTimer);
             }
@@ -1435,10 +1427,24 @@ const GlobalGraphOverview = ({
                     );
                 })}
 
-                <circle cx="0" cy="0" r="90" fill="url(#gg-core)" stroke="rgba(255,255,255,0.08)" />
-                <circle cx="0" cy="0" r="45" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth={3} />
-                <circle cx="0" cy="0" r="40" fill="none" stroke="rgba(255,255,255,0.78)" strokeWidth={3} />
-                <circle cx="0" cy="0" r="28" fill="rgba(255,255,255,0.9)" />
+                {/* ArcheCore Interactive Zone */}
+                <g
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        // Archecore Double Click -> Essence Branch Switch (Mode Cycle)
+                        const currentMode = useAppStore.getState().appMode;
+                        const modes = ['deep', 'flow', 'luma'];
+                        const next = modes[(modes.indexOf(currentMode) + 1) % modes.length];
+                        useAppStore.getState().setAppMode(next as any);
+                    }}
+                >
+                    <title>ArcheCore (Double Click to Switch Essence)</title>
+                    <circle cx="0" cy="0" r="90" fill="url(#gg-core)" stroke="rgba(255,255,255,0.08)" />
+                    <circle cx="0" cy="0" r="45" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth={3} />
+                    <circle cx="0" cy="0" r="40" fill="none" stroke="rgba(255,255,255,0.78)" strokeWidth={3} />
+                    <circle cx="0" cy="0" r="28" fill="rgba(255,255,255,0.9)" />
+                </g>
                 {showStationLabels && (
                     <text
                         x="0"
@@ -1659,45 +1665,34 @@ const GlobalGraphOverview = ({
                 })}
             </svg>
 
-            {showHud && (
-                <div
-                    className="absolute flex flex-wrap items-center justify-end gap-2 text-[10px] uppercase tracking-[0.25em] text-[var(--semantic-color-text-muted)] pointer-events-none transition-all duration-200"
-                    style={{ right: stationHudRightInset, bottom: '104px' }}
-                >
-                    <div className="rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 px-3 py-1">
-                        Spaces {stationHudSummary.spaces}
-                    </div>
-                    <div className="rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 px-3 py-1">
-                        Nodes {stationHudSummary.nodes}
-                    </div>
-                    <div className="rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 px-3 py-1">
-                        Links {stationHudSummary.edges}
-                    </div>
-                    <div className="rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 px-3 py-1">
-                        Clusters {stationHudSummary.clusters}
-                    </div>
-                </div>
-            )}
-
-            <div className="absolute top-20 right-8 flex items-center gap-1 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/30 px-2 py-1 text-[10px] uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)]">
-                <button
-                    onClick={() => setDetailLevel(0)}
-                    className={`px-2 py-1 rounded-[var(--primitive-radius-pill)] transition-colors ${detailLevel === 0 ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'hover:text-[var(--semantic-color-text-secondary)]'}`}
-                >
-                    L0
-                </button>
-                <button
-                    onClick={() => setDetailLevel(1)}
-                    className={`px-2 py-1 rounded-[var(--primitive-radius-pill)] transition-colors ${detailLevel === 1 ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'hover:text-[var(--semantic-color-text-secondary)]'}`}
-                >
-                    L1
-                </button>
-                <button
-                    onClick={() => setDetailLevel(2)}
-                    className={`px-2 py-1 rounded-[var(--primitive-radius-pill)] transition-colors ${detailLevel === 2 ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'hover:text-[var(--semantic-color-text-secondary)]'}`}
-                >
-                    L2
-                </button>
+            <div
+                className="absolute shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-all duration-[var(--primitive-motion-duration-normal)]"
+                style={{
+                    top: 'calc(var(--component-topbar-height) + 14px)',
+                    right: lodRightInset
+                }}
+            >
+                <CapsuleTabs
+                    items={LOD_ITEMS}
+                    activeId={activeLodId}
+                    onSelect={(id) => {
+                        if (id === 'l0') {
+                            setDetailLevel(0);
+                            return;
+                        }
+                        if (id === 'l1') {
+                            setDetailLevel(1);
+                            return;
+                        }
+                        setDetailLevel(2);
+                    }}
+                    onCycle={cycleLod}
+                    title="LOD level (click or Tab to switch)"
+                    size="sm"
+                    equalWidth={true}
+                    showSeparators={false}
+                    className="w-[220px] justify-center bg-[var(--semantic-color-bg-surface)]/45 backdrop-blur-xl"
+                />
             </div>
         </div >
     );

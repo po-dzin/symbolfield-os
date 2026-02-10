@@ -4,7 +4,7 @@
  * Anchor: Near the primary selected node (or bottom-center default for v0.5).
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSelectionStore } from '../../store/useSelectionStore';
 import { useAppStore } from '../../store/useAppStore';
 import { useGraphStore } from '../../store/useGraphStore';
@@ -55,7 +55,6 @@ const ContextToolbar = () => {
     const [viewport, setViewport] = useState({ width: 0, height: 0 });
     const [isEditingLabel, setIsEditingLabel] = useState(false);
     const [labelDraft, setLabelDraft] = useState('');
-    const [pendingLabel, setPendingLabel] = useState<string | null>(null);
     const pan = useCameraStore(state => state.pan);
     const zoom = useCameraStore(state => state.zoom);
     const setPan = useCameraStore(state => state.setPan);
@@ -122,7 +121,6 @@ const ContextToolbar = () => {
             closeAllMenus();
             setIsEditingLabel(false);
             setLabelDraft('');
-            setPendingLabel(null);
         });
         return () => unsub();
     }, []);
@@ -140,12 +138,6 @@ const ContextToolbar = () => {
     const displayPrimaryLabel = primaryLabel.length > 12 ? primaryLabel.slice(0, 12) : primaryLabel;
     const displayPrimaryAreaLabel = primaryAreaLabel.length > 12 ? primaryAreaLabel.slice(0, 12) : primaryAreaLabel;
 
-    useEffect(() => {
-        if (!pendingLabel) return;
-        if (pendingLabel === primaryLabel) {
-            setPendingLabel(null);
-        }
-    }, [pendingLabel, primaryLabel]);
     const primaryCircleArea = primaryArea?.shape === 'circle' ? primaryArea : undefined;
     const anchoredAreasForNode = primaryId
         ? areas.filter(area => area.anchor.type === 'node' && area.anchor.nodeId === primaryId)
@@ -183,10 +175,13 @@ const ContextToolbar = () => {
     const areaBorderWidths = [1, 1.5, 2, 2.5, 3];
 
     useEffect(() => {
-        closeAllMenus();
-        setIsEditingLabel(false);
-        setLabelDraft(primaryLabel);
-    }, [primaryId, selectedIds.length, primaryLabel]);
+        const timeoutId = window.setTimeout(() => {
+            closeAllMenus();
+            setIsEditingLabel(false);
+            setLabelDraft(primaryLabel);
+        }, 0);
+        return () => window.clearTimeout(timeoutId);
+    }, [primaryId, primaryAreaId, selectedIds.length, selectedAreaIds.length, selectedEdgeIds.length, primaryLabel]);
 
     useEffect(() => {
         const handleOutside = (event: MouseEvent) => {
@@ -317,7 +312,7 @@ const ContextToolbar = () => {
         const clusterY = (Math.min(...ys) + Math.max(...ys)) / 2;
 
         const cluster = graphEngine.addNode({
-            id: asNodeId(`cluster-${Date.now()}`),
+            id: asNodeId(`cluster-${crypto.randomUUID()}`),
             type: 'cluster',
             position: { x: clusterX, y: clusterY },
             data: { label: 'Cluster' },
@@ -483,7 +478,7 @@ const ContextToolbar = () => {
             }
         });
     };
-    const handleCycleAreaColor = () => {
+    const _handleCycleAreaColor = () => {
         if (!primaryArea) return;
         const currentIndex = areaPalette.findIndex(
             palette => palette.fill === primaryArea.color && palette.stroke === primaryArea.borderColor
@@ -619,13 +614,13 @@ const ContextToolbar = () => {
         useEdgeSelectionStore.getState().clear();
     };
 
-    const toolbarPosition = React.useMemo(() => {
+    const toolbarPosition: React.CSSProperties = (() => {
         if (viewport.width === 0 || viewport.height === 0) {
             return {
                 left: '50%',
                 bottom: '64px',
                 transform: 'translateX(-50%)'
-            } as React.CSSProperties;
+            };
         }
         const offset = GRID_METRICS.cell * 0.6;
         let worldX = 0;
@@ -682,7 +677,7 @@ const ContextToolbar = () => {
                     left: '50%',
                     bottom: '64px',
                     transform: 'translateX(-50%)'
-                } as React.CSSProperties;
+                };
             }
             worldX = (minX + maxX) / 2;
             worldY = minY - offset;
@@ -724,27 +719,29 @@ const ContextToolbar = () => {
             left: `${clampedX}px`,
             top: `${clampedY}px`,
             transform: 'translate(-50%, -100%)'
-        } as React.CSSProperties;
-    }, [count, viewport, hasNodes, hasAreas, hasEdges, primaryNode, primaryArea, selectedEdgeIds, selectedAreaIds, selectedIds, edges, nodes, zoom, pan]);
+        };
+    })();
+
+    const toolbarPositionSignature = `${String(toolbarPosition.left ?? '')}|${String(toolbarPosition.top ?? '')}|${String(toolbarPosition.bottom ?? '')}|${String(toolbarPosition.transform ?? '')}`;
 
     useEffect(() => {
         if (!showActionMenu) return;
-        updateActionMenuPos();
-        const handleResize = () => updateActionMenuPos();
-        window.addEventListener('resize', handleResize);
-        window.addEventListener('scroll', handleResize, true);
+        const frame = window.requestAnimationFrame(updateActionMenuPos);
+        window.addEventListener('resize', updateActionMenuPos);
+        window.addEventListener('scroll', updateActionMenuPos, true);
         return () => {
-            window.removeEventListener('resize', handleResize);
-            window.removeEventListener('scroll', handleResize, true);
+            window.cancelAnimationFrame(frame);
+            window.removeEventListener('resize', updateActionMenuPos);
+            window.removeEventListener('scroll', updateActionMenuPos, true);
         };
-    }, [showActionMenu, toolbarPosition]);
+    }, [showActionMenu, toolbarPositionSignature]);
 
     const isRadial = contextMenuMode === 'radial';
     const useRadial = isRadial && count === 1;
     const showRadial = useRadial;
     const radialInteractive = true;
 
-    const radialPosition = useMemo(() => {
+    const radialPosition: React.CSSProperties = (() => {
         let worldX = 0;
         let worldY = 0;
         if (count > 1) {
@@ -810,14 +807,14 @@ const ContextToolbar = () => {
             left: `${clampedX}px`,
             top: `${clampedY}px`,
             transform: 'translate(-50%, -50%)'
-        } as React.CSSProperties;
-    }, [count, viewport, hasNodes, hasAreas, hasEdges, primaryNode, primaryArea, selectedEdgeIds, selectedAreaIds, selectedIds, edges, nodes, zoom, pan]);
+        };
+    })();
 
-    const radialTitle = useMemo(() => {
+    const radialTitle = (() => {
         if (!showRadial) return '';
         if (count === 1) {
             if (primaryNode) {
-                const nextLabel = pendingLabel ?? primaryLabel;
+                const nextLabel = primaryLabel;
                 return nextLabel.length > 12 ? nextLabel.slice(0, 12) : nextLabel;
             }
             if (primaryArea) return displayPrimaryAreaLabel;
@@ -825,7 +822,7 @@ const ContextToolbar = () => {
             return 'Selected';
         }
         return `${count} selected`;
-    }, [count, hasEdges, primaryNode, primaryArea, displayPrimaryAreaLabel, pendingLabel, primaryLabel, useRadial]);
+    })();
 
     if (totalSelected === 0 || nodes.length === 0) return null;
 
@@ -1017,9 +1014,6 @@ const ContextToolbar = () => {
                     exitLinkMode();
                     const next = !showActionMenu;
                     closeAllMenus();
-                    if (next) {
-                        updateActionMenuPos();
-                    }
                     setShowActionMenu(next);
                 },
                 isMenu: true,
@@ -1153,7 +1147,6 @@ const ContextToolbar = () => {
                                             const next = labelDraft.trim() || 'Empty';
                                             if (primaryNode && next !== primaryLabel) {
                                                 updateNode(primaryNode.id, { data: { ...primaryNode.data, label: next } });
-                                                setPendingLabel(next);
                                             }
                                             setIsEditingLabel(false);
                                         }}
@@ -1164,7 +1157,6 @@ const ContextToolbar = () => {
                                                 const next = labelDraft.trim() || 'Empty';
                                                 if (primaryNode && next !== primaryLabel) {
                                                     updateNode(primaryNode.id, { data: { ...primaryNode.data, label: next } });
-                                                    setPendingLabel(next);
                                                 }
                                                 setIsEditingLabel(false);
                                             }
@@ -1454,7 +1446,7 @@ const ContextToolbar = () => {
                                         enterNode(primaryId);
                                     }
                                 }}
-                                className="ui-selectable w-10 h-10 flex items-center justify-center rounded-xl text-lg leading-none transition-colors"
+                                className="ui-selectable w-10 h-10 flex items-center justify-center rounded-full text-lg leading-none transition-colors"
                                 title={primaryNode?.type === 'cluster' ? (fieldScopeId === primaryId ? 'Exit Cluster' : 'Enter Cluster') : `Enter ${primaryNode?.type === 'portal' ? 'Portal' : 'Node'}`}
                             >
                                 ↵
@@ -1467,7 +1459,7 @@ const ContextToolbar = () => {
                                     }
                                 }}
                                 data-state={activeTool === 'link' ? 'active' : 'inactive'}
-                                className="ui-selectable w-10 h-10 flex items-center justify-center rounded-xl text-lg leading-none transition-colors"
+                                className="ui-selectable w-10 h-10 flex items-center justify-center rounded-full text-lg leading-none transition-colors"
                                 title="Create Link"
                             >
                                 <GlyphIcon id="link-action" size={20} className="text-current" />
@@ -1480,7 +1472,7 @@ const ContextToolbar = () => {
                                     setShowGlyphPicker(next);
                                 }}
                                 data-state={showGlyphPicker ? 'active' : 'inactive'}
-                                className="ui-selectable w-10 h-10 flex items-center justify-center rounded-xl text-lg leading-none transition-colors relative focus:outline-none"
+                                className="ui-selectable w-10 h-10 flex items-center justify-center rounded-full text-lg leading-none transition-colors relative focus:outline-none"
                                 title="Pick Glyph"
                                 data-context-menu
                             >
@@ -1508,7 +1500,7 @@ const ContextToolbar = () => {
                                         setShowColorPicker(next);
                                     }}
                                     data-state={showColorPicker ? 'active' : 'inactive'}
-                                    className="ui-selectable w-10 h-10 flex items-center justify-center rounded-xl transition-colors focus:outline-none"
+                                    className="ui-selectable w-10 h-10 flex items-center justify-center rounded-full transition-colors focus:outline-none"
                                     title="Colors"
                                     data-context-menu
                                 >
@@ -1533,7 +1525,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleDetachAreasFromNode();
                                     }}
-                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 rounded-xl text-lg leading-none transition-colors text-[var(--semantic-color-text-secondary)]"
+                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 rounded-full text-lg leading-none transition-colors text-[var(--semantic-color-text-secondary)]"
                                     title="Detach areas from node"
                                 >
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -1548,7 +1540,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleFoldToggle();
                                     }}
-                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-xl text-base leading-none transition-all text-[var(--semantic-color-text-secondary)]"
+                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full text-base leading-none transition-all text-[var(--semantic-color-text-secondary)]"
                                     title={isFolded ? 'Unfold Cluster' : 'Fold Cluster'}
                                 >
                                     <svg width="20" height="20" viewBox="0 0 28 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -1576,7 +1568,7 @@ const ContextToolbar = () => {
                                     exitLinkMode();
                                     handleFocusArea();
                                 }}
-                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-xl transition-all text-[var(--semantic-color-text-secondary)]"
+                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
                                 title={focusedAreaId === primaryArea?.id ? 'Exit focus' : 'Focus area'}
                             >
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -1591,7 +1583,7 @@ const ContextToolbar = () => {
                                     closeAllMenus();
                                     setShowAreaStyle(next);
                                 }}
-                                className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors relative border border-transparent focus:outline-none ${showAreaStyle ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors relative border border-transparent focus:outline-none ${showAreaStyle ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
                                 title="Style"
                                 data-context-menu
                             >
@@ -1704,7 +1696,7 @@ const ContextToolbar = () => {
                                             exitLinkMode();
                                             handleAlignAreaToGrid();
                                         }}
-                                        className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-xl transition-all text-[var(--semantic-color-text-secondary)]"
+                                        className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
                                         title="Align to grid"
                                     >
                                         <svg width="20" height="20" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
@@ -1719,7 +1711,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleAnchorToNode();
                                     }}
-                                    className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${primaryArea?.anchor.type === 'node' ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                    className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${primaryArea?.anchor.type === 'node' ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
                                     title={primaryArea?.anchor.type === 'node' ? 'Detach area from node' : 'Anchor area to node'}
                                 >
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -1733,7 +1725,7 @@ const ContextToolbar = () => {
                                     exitLinkMode();
                                     updateArea(primaryArea.id, { locked: !primaryArea.locked });
                                 }}
-                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-xl transition-all text-[var(--semantic-color-text-secondary)]"
+                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
                                 title={primaryArea.locked ? 'Unlock area' : 'Lock area'}
                             >
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -1757,7 +1749,7 @@ const ContextToolbar = () => {
                                             exitLinkMode();
                                             handleAddRing();
                                         }}
-                                        className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-xl transition-all text-[var(--semantic-color-text-secondary)]"
+                                        className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
                                         title="Add ring"
                                     >
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -1770,7 +1762,7 @@ const ContextToolbar = () => {
                                             exitLinkMode();
                                             handleRemoveRing();
                                         }}
-                                        className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-xl transition-all text-[var(--semantic-color-text-secondary)]"
+                                        className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
                                         title="Remove ring"
                                     >
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -1789,7 +1781,7 @@ const ContextToolbar = () => {
                                     exitLinkMode();
                                     handleAreaFromSelection();
                                 }}
-                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-xl text-lg leading-none transition-all text-[var(--semantic-color-text-secondary)]"
+                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full text-lg leading-none transition-all text-[var(--semantic-color-text-secondary)]"
                                 title="Area from selection"
                             >
                                 <GlyphIcon id="area" size={20} className="text-[var(--semantic-color-text-secondary)]" />
@@ -1800,7 +1792,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleAnchorToNode();
                                     }}
-                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-xl text-lg leading-none transition-all text-[var(--semantic-color-text-secondary)]"
+                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full text-lg leading-none transition-all text-[var(--semantic-color-text-secondary)]"
                                     title={primaryArea?.anchor.type === 'node' ? 'Detach area from node' : 'Anchor area to node'}
                                 >
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -1815,7 +1807,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleGroup();
                                     }}
-                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-xl text-lg leading-none transition-all text-[var(--semantic-color-text-secondary)]"
+                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full text-lg leading-none transition-all text-[var(--semantic-color-text-secondary)]"
                                     title="Group Selection"
                                 >
                                     <GlyphIcon id="cluster" size={20} className="text-[var(--semantic-color-text-secondary)]" />
@@ -1836,7 +1828,7 @@ const ContextToolbar = () => {
                                     }
                                     setShowActionMenu(next);
                                 }}
-                                className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors border border-transparent focus:outline-none ${showActionMenu ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors border border-transparent focus:outline-none ${showActionMenu ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
                                 title="Actions"
                                 data-context-menu
                             >

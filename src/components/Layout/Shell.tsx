@@ -6,13 +6,10 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { eventBus } from '../../core/events/EventBus';
 import ToolDock from './ToolDock';
-import StateCore from '../HUD/StateCore';
 import CanvasView from '../Canvas/CanvasView';
 import ContextToolbar from '../Context/ContextToolbar';
 //  // Replaced by DockedDrawer
-import SideRail from './SideRail';
 import DockedDrawer from './DockedDrawer';
 import NodeView from '../Node/NodeView';
 import UniversalSettingsOverlay from '../Settings/UniversalSettingsOverlay';
@@ -24,18 +21,15 @@ import GatewayLayout from '../Gateway/GatewayLayout';
 import BrandPage from '../Gateway/BrandPage';
 import PortalPage from '../Gateway/PortalPage';
 import { emitZoomHotkeyFromKeyboard } from '../../core/hotkeys/zoomHotkeys';
+import { applyHarmonyProfileToRoot, buildHarmonyProfile } from '../../core/harmony/HarmonyEngine';
 
 const Shell = () => {
     const appMode = useAppStore(state => state.appMode);
     const viewContext = useAppStore(state => state.viewContext);
     const togglePalette = useAppStore(state => state.togglePalette);
     const toggleSettings = useAppStore(state => state.toggleSettings);
-    const openSettings = useAppStore(state => state.openSettings);
     const closeSettings = useAppStore(state => state.closeSettings);
     const settingsOpen = useAppStore(state => state.settingsOpen);
-
-    // Legacy drawer tab logic (still used for content drawers like 'now')
-    const drawerRightTab = useAppStore(state => state.drawerRightTab);
 
     /* HOOK FIX: Must be called unconditionally */
     const gatewayRoute = useAppStore(state => state.gatewayRoute);
@@ -92,45 +86,35 @@ const Shell = () => {
         window.addEventListener('wheel', handleBrowserZoomWheel, { passive: false, capture: true });
 
         return () => {
-            window.removeEventListener('wheel', handleBrowserZoomWheel, { capture: true } as AddEventListenerOptions);
+            window.removeEventListener('wheel', handleBrowserZoomWheel, true);
         };
     }, []);
 
-    // Theme Effects Application
-    const themeGlass = useAppStore(state => state.themeGlass);
-    const themeNoise = useAppStore(state => state.themeNoise);
+    // Harmony theme matrix (guardrailed customization).
+    const themePreset = useAppStore(state => state.themePreset);
     const themeAccent = useAppStore(state => state.themeAccent);
-    const themeGlowStrength = useAppStore(state => state.themeGlowStrength);
+    const themeDensity = useAppStore(state => state.themeDensity);
+    const themeMotion = useAppStore(state => state.themeMotion);
+    const themeSpeed = useAppStore(state => state.themeSpeed);
+    const themeTexture = useAppStore(state => state.themeTexture);
+    const themeIntensity = useAppStore(state => state.themeIntensity);
+    const themeModeSource = useAppStore(state => state.themeModeSource);
+    const themeModeOverride = useAppStore(state => state.themeModeOverride);
 
     useEffect(() => {
-        const root = document.documentElement;
-
-        // 1. Apply Accent
-        const accents: Record<string, string> = {
-            gold: '#D4AF37',
-            rose: '#E09F9F',
-            sage: '#9CAD98',
-            lavender: '#CDBEFF',
-            cyan: '#6FE4FF',
-            peach: '#FFB89C',
-            taupe: '#B8B2A6'
-        };
-        const hex = accents[themeAccent] || accents.gold || '#D4AF37';
-        root.style.setProperty('--primitive-color-accent-gold', hex);
-        root.style.setProperty('--semantic-color-action-primary', hex);
-        root.style.setProperty('--theme-border-active', hex);
-
-        // 2. Apply Glass Opacity & Blur
-        root.style.setProperty('--theme-glass-opacity', themeGlass ? '0.6' : '0.98');
-        root.style.setProperty('--theme-blur-radius', themeGlass ? '20px' : '0px');
-
-        // 3. Apply Glow Strength
-        root.style.setProperty('--theme-glow-strength', themeGlowStrength.toString());
-
-        // 4. Apply Noise Opacity
-        root.style.setProperty('--theme-noise-opacity', themeNoise ? '0.07' : '0');
-
-    }, [themeGlass, themeAccent, themeGlowStrength, themeNoise]);
+        const harmonyMode = themeModeSource === 'auto' ? appMode : themeModeOverride;
+        const profile = buildHarmonyProfile({
+            mode: harmonyMode,
+            preset: themePreset,
+            accent: themeAccent,
+            density: themeDensity,
+            motion: themeMotion,
+            speed: themeSpeed,
+            texture: themeTexture,
+            intensity: themeIntensity
+        });
+        applyHarmonyProfileToRoot(profile);
+    }, [appMode, themePreset, themeAccent, themeDensity, themeMotion, themeSpeed, themeTexture, themeIntensity, themeModeSource, themeModeOverride]);
 
     // Gateway Mode
     if (viewContext === 'gateway') {
@@ -155,40 +139,34 @@ const Shell = () => {
             {/* Persistent Unified TopBar */}
             <UnifiedTopBar />
 
-            {/* Z0: The Field or Station */}
+            {/* Main Content Area (Z0) - Mutually Exclusive Views */}
             <div className="absolute inset-0 z-[var(--z-canvas)]">
-                {viewContext === 'home' ? (
+                {viewContext === 'home' && (
                     <div className="relative z-0 w-full h-full bg-sf-zinc-950 overflow-hidden">
                         <Station />
                     </div>
-                ) : (
+                )}
+                {viewContext === 'space' && (
                     <CanvasView />
+                )}
+                {viewContext === 'node' && (
+                    <NodeView />
                 )}
             </div>
 
-            {/* Z5: Peripheral Shell */}
-            {viewContext !== 'home' && (
+            {/* Z5: Space-only shell tools. NodeBuilder has its own local tools. */}
+            {viewContext === 'space' && (
                 <>
-                    {/* Left: Tool Dock */}
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 z-[var(--z-ui)]">
                         <ToolDock />
                     </div>
-
+                    <ContextToolbar />
                 </>
             )}
 
-            {/* NEW: SideRail & DockedDrawer System (Z10-Z15) */}
-            <DockedDrawer />
-            <SideRail />
-
-            {viewContext !== 'home' && (
-                <>
-                    {/* Context UI (Z4) */}
-                    <ContextToolbar />
-
-                    {/* Node View */}
-                    <NodeView />
-                </>
+            {/* Global right drawer for Station + Space. Node has isolated tools. */}
+            {viewContext !== 'node' && (
+                <DockedDrawer />
             )}
 
             {/* Omni Overlay (Z100) - Replaces CommandPalette */}

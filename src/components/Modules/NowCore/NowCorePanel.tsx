@@ -1,38 +1,48 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { SessionView } from './SessionView';
 import { CyclesView } from './CyclesView';
 import { ChronosView } from './ChronosView';
+import { useAppStore } from '../../../store/useAppStore';
+import CapsuleTabs, { type CapsuleTabItem } from '../../Common/CapsuleTabs';
 
 type Tab = 'now' | 'cycles' | 'chronos';
 
-const TAB_LABELS: Record<Tab, string> = {
-    now: 'Now',
-    cycles: 'Cycles',
-    chronos: 'Chronos'
-};
+const TAB_ITEMS: CapsuleTabItem[] = [
+    { id: 'now', label: 'Now' },
+    { id: 'cycles', label: 'Cycles' },
+    { id: 'chronos', label: 'Chronos' }
+];
 
 const NowCorePanel: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<Tab>('now');
+    const drawerRightTab = useAppStore(state => state.drawerRightTab);
+    const setDrawerRightTab = useAppStore(state => state.setDrawerRightTab);
+    const activeTab: Tab = drawerRightTab === 'cycles' || drawerRightTab === 'chronos' ? drawerRightTab : 'now';
+
+    const cycleNowTabs = (direction: 1 | -1) => {
+        const ids: Tab[] = ['now', 'cycles', 'chronos'];
+        const currentIndex = Math.max(0, ids.indexOf(activeTab));
+        const nextIndex = (currentIndex + direction + ids.length) % ids.length;
+        const next = ids[nextIndex];
+        if (next) {
+            setDrawerRightTab(next);
+        }
+    };
 
     return (
         <div className="h-full flex flex-col gap-6 p-[var(--component-panel-padding)] w-full relative">
             {/* Header / Tabs */}
-            <div className="flex items-center justify-end">
-                {/* Internal Tabs */}
-                <div className="flex items-center gap-[var(--primitive-space-gap-dense)]">
-                    {(Object.keys(TAB_LABELS) as Tab[]).map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-3 h-7 rounded-[var(--primitive-radius-input)] text-[10px] uppercase tracking-[0.2em] transition-colors ${activeTab === tab
-                                ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]'
-                                : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10 hover:text-[var(--semantic-color-text-primary)]'
-                                }`}
-                        >
-                            {TAB_LABELS[tab]}
-                        </button>
-                    ))}
-                </div>
+            <div className="flex items-center w-full">
+                <CapsuleTabs
+                    items={TAB_ITEMS}
+                    activeId={activeTab}
+                    onSelect={(id) => setDrawerRightTab(id as Tab)}
+                    onCycle={cycleNowTabs}
+                    title="Now/Cycles/Chronos (Tab to switch)"
+                    size="sm"
+                    className="w-full"
+                    equalWidth={true}
+                    showSeparators={false}
+                />
             </div>
 
             {/* Content */}

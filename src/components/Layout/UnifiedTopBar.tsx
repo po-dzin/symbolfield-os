@@ -1,8 +1,9 @@
 import React from 'react';
 import BrandChip from './BrandChip';
-import BreadcrumbCapsule from './BreadcrumbCapsule';
+import ScopeTabs from "./ScopeTabs";
+// import BreadcrumbCapsule from './BreadcrumbCapsule';
 import NowChip from '../HUD/NowChip';
-import DrawerToggle from './DrawerToggle';
+import RightDrawerCapsule from './RightDrawerCapsule';
 import { useAppStore } from '../../store/useAppStore';
 
 interface UnifiedTopBarProps {
@@ -23,13 +24,14 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     className
 }) => {
     const viewContext = useAppStore(state => state.viewContext);
+    const showGlobalRightCluster = viewContext !== 'node';
 
     return (
         <div className={`topbar-shell justify-between ${className || ''}`}>
-            {/* Left Cluster: Identity + Where */}
-            <div className="flex items-center gap-[var(--primitive-space-bar-gap)]">
+            <div className="relative z-[2] flex items-center min-w-0 flex-1">
+                {/* Left Cluster: Identity + Where */}
                 <BrandChip />
-                <BreadcrumbCapsule />
+                <ScopeTabs />
 
                 {titleComponent && (
                     <div className="ml-2">
@@ -41,11 +43,12 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                 {syncIndicatorComponent}
             </div>
 
-            {/* Right Cluster: Now + Panel */}
-            <div className="flex items-center gap-3">
-                <NowChip />
-                <DrawerToggle />
-            </div>
+            {showGlobalRightCluster && (
+                <div className="relative z-[2] flex items-center gap-3 shrink-0 ml-4">
+                    <NowChip />
+                    <RightDrawerCapsule />
+                </div>
+            )}
         </div>
     );
 };

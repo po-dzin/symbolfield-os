@@ -23,9 +23,6 @@ const ResizeHandle: React.FC<ResizeHandleProps> = ({
         document.body.style.cursor = 'col-resize';
         document.documentElement.classList.add('is-resizing');
 
-        const startX = e.clientX;
-        const initialWidth = side === 'left' ? e.clientX : window.innerWidth - e.clientX;
-
         let rafId: number | null = null;
         const handlePointerMove = (moveEvent: PointerEvent) => {
             if (!isResizing.current) return;

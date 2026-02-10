@@ -37,7 +37,7 @@ export const TOOLS = {
 type AppMode = typeof APP_MODES[keyof typeof APP_MODES];
 type ViewContext = typeof VIEW_CONTEXTS[keyof typeof VIEW_CONTEXTS];
 type ToolId = typeof TOOLS[keyof typeof TOOLS];
-export type DrawerRightTab = 'settings' | 'analytics' | 'now' | 'cycles' | 'chronos' | 'log' | 'props' | 'ai' | 'signals';
+export type DrawerRightTab = 'analytics' | 'now' | 'cycles' | 'chronos' | 'log' | 'props' | 'ai' | 'signals';
 
 interface SessionState {
     isActive: boolean;
@@ -190,10 +190,8 @@ class StateEngine {
     setViewContext(context: ViewContext) {
         if (!Object.values(VIEW_CONTEXTS).includes(context)) return;
         this.state.viewContext = context;
-        // Clear currentSpaceId when returning to home to allow re-navigation to the same space
-        if (context === VIEW_CONTEXTS.HOME) {
-            this.state.currentSpaceId = null;
-        }
+        // Previously cleared currentSpaceId here, but for "Flattened Navigation" (Tabs),
+        // we want to persist the "Active Space" even when viewing Station.
         this._emitChange();
     }
 
@@ -212,6 +210,8 @@ class StateEngine {
     enterNode(nodeId: NodeId) {
         this.state.viewContext = VIEW_CONTEXTS.NODE;
         this.state.activeScope = nodeId;
+        this.state.drawerRightOpen = false;
+        this.state.drawerRightTab = null;
         eventBus.emit(EVENTS.NODE_ENTERED, { nodeId });
         this._emitChange();
     }
@@ -269,28 +269,21 @@ class StateEngine {
     }
 
     toggleSettings() {
-        const shouldOpen = !(this.state.drawerRightOpen && this.state.drawerRightTab === 'settings');
-        this.state.drawerRightTab = shouldOpen ? 'settings' : null;
-        this.state.drawerRightOpen = shouldOpen;
-        this._syncSettingsOpen();
+        this.state.settingsOpen = !this.state.settingsOpen;
         eventBus.emit(EVENTS.SETTINGS_TOGGLED, { open: this.state.settingsOpen });
         this._emitChange();
     }
 
     openSettings() {
-        if (this.state.drawerRightOpen && this.state.drawerRightTab === 'settings') return;
-        this.state.drawerRightTab = 'settings';
-        this.state.drawerRightOpen = true;
-        this._syncSettingsOpen();
+        if (this.state.settingsOpen) return;
+        this.state.settingsOpen = true;
         eventBus.emit(EVENTS.SETTINGS_TOGGLED, { open: true });
         this._emitChange();
     }
 
     closeSettings() {
         if (!this.state.settingsOpen) return;
-        this.state.drawerRightOpen = false;
-        this.state.drawerRightTab = null;
-        this._syncSettingsOpen();
+        this.state.settingsOpen = false;
         eventBus.emit(EVENTS.SETTINGS_TOGGLED, { open: false });
         this._emitChange();
     }
@@ -379,7 +372,6 @@ class StateEngine {
             if (!open) {
                 this.state.drawerRightTab = null;
             }
-            this._syncSettingsOpen();
         }
         eventBus.emit(open ? EVENTS.DRAWER_OPENED : EVENTS.DRAWER_CLOSED, { side });
         this._emitChange();
@@ -440,7 +432,6 @@ class StateEngine {
         if (tab) {
             this.state.drawerRightOpen = true;
         }
-        this._syncSettingsOpen();
         this._emitChange();
     }
 
@@ -458,11 +449,6 @@ class StateEngine {
         // However, for React syncing, we might need a signal.
         // For v0.5, we will let the Zustand store handle the reactivity by
         // polling or manually triggering updates when calling these methods.
-    }
-
-    private _syncSettingsOpen() {
-        const next = this.state.drawerRightOpen && this.state.drawerRightTab === 'settings';
-        this.state.settingsOpen = next;
     }
 
     private _loadPersistedSettings() {

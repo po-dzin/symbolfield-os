@@ -8,7 +8,7 @@ type Props = {
     icon?: string;
 };
 
-const CollapsibleSection: React.FC<Props> = ({ title, children, defaultOpen = true, count, icon }) => {
+const CollapsibleSection: React.FC<Props> = ({ title, children, defaultOpen = true, count: _count, icon: _icon }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
     return (

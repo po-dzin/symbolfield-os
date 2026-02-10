@@ -8,6 +8,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { eventBus } from '../../core/events/EventBus';
+import { CapsuleTabs } from '../Common';
 
 type OmniScope = 'station' | 'space' | 'note';
 
@@ -29,21 +30,30 @@ const OmniOverlay: React.FC = () => {
     const setTool = useAppStore(state => state.setTool);
     const activeTool = useAppStore(state => state.activeTool);
     const toggleSettings = useAppStore(state => state.toggleSettings);
-    const exitNode = useAppStore(state => state.exitNode);
     const omniQuery = useAppStore(state => state.omniQuery);
     const setOmniQuery = useAppStore(state => state.setOmniQuery);
 
     // Local State
-    const [scope, setScope] = useState<OmniScope>('space');
+    const [scope, setScope] = useState<OmniScope>(
+        viewContext === 'home' ? 'station' : viewContext === 'node' ? 'note' : 'space'
+    );
     const [selectedIndex, setSelectedIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Determine current effective scope based on view context
-    useEffect(() => {
-        if (viewContext === 'home') setScope('station');
-        else if (viewContext === 'node') setScope('note');
-        else setScope('space');
-    }, [viewContext]);
+    const cycleScope = (direction: 1 | -1 = 1) => {
+        setScope(prev => {
+            const ids: OmniScope[] = ['station', 'space', 'note'];
+            const index = Math.max(0, ids.indexOf(prev));
+            const next = (index + direction + ids.length) % ids.length;
+            return ids[next] ?? 'station';
+        });
+    };
+
+    const scopeItems = useMemo(() => ([
+        { id: 'station', label: 'Station' },
+        { id: 'space', label: 'Space' },
+        { id: 'note', label: 'Node' }
+    ]), []);
 
     // Focus input on open
     useEffect(() => {
@@ -79,8 +89,12 @@ const OmniOverlay: React.FC = () => {
         },
         {
             id: 'toggle-settings',
-            label: 'Settings',
-            hint: 'Open preferences',
+            label: viewContext === 'home' ? 'Station Settings' : viewContext === 'node' ? 'Node Settings' : 'Space Settings',
+            hint: viewContext === 'home'
+                ? 'Open station preferences'
+                : viewContext === 'node'
+                    ? 'Open node context preferences'
+                    : 'Open space preferences',
             shortcut: 'Cmd+,',
             keywords: ['settings', 'config'],
             scope: 'any',
@@ -95,7 +109,7 @@ const OmniOverlay: React.FC = () => {
             scope: 'space',
             action: () => setTool(activeTool === 'link' ? 'pointer' : 'link')
         }
-    ], [activeTool, toggleSettings, setTool]);
+    ], [activeTool, toggleSettings, setTool, viewContext]);
 
     // Filter Logic
     const filteredItems = useMemo(() => {
@@ -126,12 +140,7 @@ const OmniOverlay: React.FC = () => {
             closePalette();
         } else if (e.key === 'Tab') {
             e.preventDefault();
-            // Cycle scope: station -> space -> note
-            setScope(prev => {
-                if (prev === 'station') return 'space';
-                if (prev === 'space') return 'note';
-                return 'station';
-            });
+            cycleScope(e.shiftKey ? -1 : 1);
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
             setSelectedIndex(i => (i + 1) % filteredItems.length);
@@ -161,17 +170,13 @@ const OmniOverlay: React.FC = () => {
                     {/* Header: Scope Switcher + Input */}
                     <div className="flex items-center px-4 py-3 gap-3 border-b border-[var(--semantic-color-border-default)]/50">
                         {/* Scope Chip */}
-                        <div
-                            className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--semantic-color-bg-app)] text-[11px] font-mono uppercase tracking-wider text-[var(--semantic-color-text-secondary)] border border-[var(--semantic-color-border-default)] cursor-pointer hover:border-[var(--semantic-color-text-primary)] transition-colors"
-                            onClick={() => { /* Cycle scope logic could go here */ }}
-                            title="Current Scope (Tab to switch)"
-                        >
-                            <span className={scope === 'station' ? 'text-[var(--semantic-color-text-primary)]' : ''}>Station</span>
-                            <span className="opacity-30">/</span>
-                            <span className={scope === 'space' ? 'text-[var(--semantic-color-text-primary)]' : ''}>Space</span>
-                            <span className="opacity-30">/</span>
-                            <span className={scope === 'note' ? 'text-[var(--semantic-color-text-primary)]' : ''}>Note</span>
-                        </div>
+                        <CapsuleTabs
+                            items={scopeItems}
+                            activeId={scope}
+                            onSelect={(id) => setScope(id as OmniScope)}
+                            onCycle={cycleScope}
+                            title="Current scope (Tab to switch)"
+                        />
 
                         <input
                             ref={inputRef}

@@ -4,15 +4,17 @@ type UiStateConfig = {
     enabled: boolean;
     baseUrl: string;
     token: string;
+    scope: string;
 };
 
 const readUiStateConfig = (): UiStateConfig => {
     const mode = (import.meta.env.VITE_UI_STATE_BACKEND ?? 'local').toLowerCase();
     const baseUrl = (import.meta.env.VITE_UI_STATE_API_BASE_URL ?? '').trim();
     const token = (import.meta.env.VITE_UI_STATE_API_TOKEN ?? '').trim();
+    const scope = (import.meta.env.VITE_UI_STATE_SCOPE ?? '').trim();
 
     if (mode !== 'remote' || !baseUrl) {
-        return { enabled: false, baseUrl: '', token: '' };
+        return { enabled: false, baseUrl: '', token: '', scope: '' };
     }
 
     try {
@@ -20,10 +22,11 @@ const readUiStateConfig = (): UiStateConfig => {
         return {
             enabled: true,
             baseUrl: parsed.toString().replace(/\/$/, ''),
-            token
+            token,
+            scope
         };
     } catch {
-        return { enabled: false, baseUrl: '', token: '' };
+        return { enabled: false, baseUrl: '', token: '', scope: '' };
     }
 };
 
@@ -40,7 +43,14 @@ const buildHeaders = (): Record<string, string> => {
     return headers;
 };
 
-const getScopePath = (scope: UiScope): string => `/ui-state/${scope}`;
+const withScopeQuery = (path: string): string => {
+    if (!config.scope) return path;
+    const separator = path.includes('?') ? '&' : '?';
+    return `${path}${separator}scope=${encodeURIComponent(config.scope)}`;
+};
+
+const getScopePath = (scope: UiScope): string => withScopeQuery(`/ui-state/${scope}`);
+const getKeyPath = (key: string): string => withScopeQuery(`/ui-state/${encodeURIComponent(key)}`);
 
 const unwrapPayload = (input: unknown): unknown => {
     if (!input || typeof input !== 'object') return input;
@@ -58,7 +68,7 @@ const request = async <T>(
 ): Promise<T | undefined> => {
     if (!config.enabled || typeof window === 'undefined') return undefined;
     try {
-        const init: RequestInit = {
+        const init: globalThis.RequestInit = {
             method,
             headers: buildHeaders(),
             credentials: 'include',
@@ -91,4 +101,20 @@ export const writeRemoteUiState = async (scope: UiScope, payload: unknown): Prom
 
 export const clearRemoteUiState = async (scope: UiScope): Promise<void> => {
     await request<unknown>('DELETE', getScopePath(scope));
+};
+
+export const readRemoteUiStateKey = async (key: string): Promise<unknown | undefined> => {
+    if (!key.trim()) return undefined;
+    const payload = await request<unknown>('GET', getKeyPath(key));
+    return unwrapPayload(payload);
+};
+
+export const writeRemoteUiStateKey = async (key: string, payload: unknown): Promise<void> => {
+    if (!key.trim()) return;
+    await request<unknown>('PUT', getKeyPath(key), { payload });
+};
+
+export const clearRemoteUiStateKey = async (key: string): Promise<void> => {
+    if (!key.trim()) return;
+    await request<unknown>('DELETE', getKeyPath(key));
 };

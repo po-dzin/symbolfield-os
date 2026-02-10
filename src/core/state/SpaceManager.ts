@@ -5,6 +5,12 @@ import { PLAYGROUND_EDGES, PLAYGROUND_NODES, PLAYGROUND_SPACE_ID } from '../defa
 import { asNodeId, type Edge, type NodeBase } from '../types';
 import { useCameraStore } from '../../store/useCameraStore';
 import { ARCHECORE_ID, getCoreId, getCoreLabel } from '../defaults/coreIds';
+import {
+    clearRemoteUiStateKey,
+    isUiStateRemoteEnabled,
+    readRemoteUiStateKey,
+    writeRemoteUiStateKey
+} from '../data/uiStateRemote';
 
 export interface SpaceMeta {
     id: string;
@@ -36,18 +42,78 @@ const STORAGE_KEYS = {
     SPACE_PREFIX: 'sf_space_'
 };
 
+const REMOTE_KEYS = {
+    SPACES_INDEX: 'spaces-index',
+    ACTIVE_SPACE: 'active-space',
+    SPACE_DATA_PREFIX: 'space-data:'
+} as const;
+
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+const getRemoteSpaceDataKey = (spaceId: string): string => `${REMOTE_KEYS.SPACE_DATA_PREFIX}${spaceId}`;
+
+const toFiniteNumber = (value: unknown, fallback: number): number => (
+    typeof value === 'number' && Number.isFinite(value) ? value : fallback
+);
+
+const normalizeSpaceMetaList = (input: unknown): SpaceMeta[] => {
+    if (!Array.isArray(input)) return [];
+    const now = Date.now();
+    const next: SpaceMeta[] = [];
+    input.forEach((item) => {
+        if (!item || typeof item !== 'object') return;
+        const raw = item as Record<string, unknown>;
+        const id = typeof raw.id === 'string' ? raw.id.trim() : '';
+        if (!id) return;
+        const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : 'Untitled Space';
+        const meta: SpaceMeta = {
+            id,
+            name,
+            createdAt: toFiniteNumber(raw.createdAt, now),
+            updatedAt: toFiniteNumber(raw.updatedAt, now),
+            lastAccessedAt: toFiniteNumber(raw.lastAccessedAt, now)
+        };
+        if (typeof raw.coreNodeId === 'string' && raw.coreNodeId.trim()) meta.coreNodeId = raw.coreNodeId;
+        if (typeof raw.gridSnapEnabled === 'boolean') meta.gridSnapEnabled = raw.gridSnapEnabled;
+        if (typeof raw.parentSpaceId === 'string' && raw.parentSpaceId.trim()) meta.parentSpaceId = raw.parentSpaceId;
+        if (raw.kind === 'user' || raw.kind === 'playground') meta.kind = raw.kind;
+        if (typeof raw.favorite === 'boolean') meta.favorite = raw.favorite;
+        if (typeof raw.trashed === 'boolean') meta.trashed = raw.trashed;
+        const deletedAt = raw.deletedAt;
+        if (deletedAt === null || (typeof deletedAt === 'number' && Number.isFinite(deletedAt))) {
+            meta.deletedAt = deletedAt;
+        }
+        if (typeof raw.description === 'string') meta.description = raw.description;
+        next.push(meta);
+    });
+    return next;
+};
+
+const normalizeSpaceDataPayload = (
+    input: unknown,
+    fallbackId: string
+): { spaceId: string; nodes: NodeBase[]; edges: Edge[] } | null => {
+    if (!input || typeof input !== 'object') return null;
+    const raw = input as Record<string, unknown>;
+    const nodes = Array.isArray(raw.nodes) ? (raw.nodes as NodeBase[]) : [];
+    const edges = Array.isArray(raw.edges) ? (raw.edges as Edge[]) : [];
+    const spaceId = typeof raw.spaceId === 'string' && raw.spaceId.trim() ? raw.spaceId : fallbackId;
+    return { spaceId, nodes, edges };
+};
 
 class SpaceManager {
     private spaces: Map<string, SpaceMeta>;
     private saveTimer: number | null;
     private interactionDepth: number;
+    private remoteWriteTimers: Map<string, number>;
 
     constructor() {
         this.spaces = new Map();
         this.saveTimer = null;
         this.interactionDepth = 0;
+        this.remoteWriteTimers = new Map();
         this.loadIndex(); // Load metadata
+        this.hydrateIndexFromRemote();
         this.purgeTrashedSpaces();
 
         // Subscribe to changes for auto-persistence
@@ -86,10 +152,53 @@ class SpaceManager {
         }
     }
 
+    private hydrateIndexFromRemote() {
+        if (!isUiStateRemoteEnabled()) return;
+        if (this.spaces.size > 0) return;
+        void (async () => {
+            const payload = await readRemoteUiStateKey(REMOTE_KEYS.SPACES_INDEX);
+            const list = normalizeSpaceMetaList(payload);
+            if (!list.length) return;
+            list.forEach((space) => {
+                this.spaces.set(space.id, space);
+            });
+            this.saveIndex();
+
+            const activePayload = await readRemoteUiStateKey(REMOTE_KEYS.ACTIVE_SPACE);
+            const activeSpaceId = typeof activePayload === 'string' ? activePayload.trim() : '';
+            if (activeSpaceId && this.spaces.has(activeSpaceId)) {
+                localStorage.setItem(STORAGE_KEYS.ACTIVE_SPACE, activeSpaceId);
+            }
+        })();
+    }
+
+    private scheduleRemoteWrite(key: string, payload: unknown, delayMs = 320) {
+        if (!isUiStateRemoteEnabled()) return;
+        const existingTimer = this.remoteWriteTimers.get(key);
+        if (existingTimer) window.clearTimeout(existingTimer);
+        const timer = window.setTimeout(() => {
+            this.remoteWriteTimers.delete(key);
+            void writeRemoteUiStateKey(key, payload);
+        }, delayMs);
+        this.remoteWriteTimers.set(key, timer);
+    }
+
+    private scheduleRemoteClear(key: string, delayMs = 80) {
+        if (!isUiStateRemoteEnabled()) return;
+        const existingTimer = this.remoteWriteTimers.get(key);
+        if (existingTimer) window.clearTimeout(existingTimer);
+        const timer = window.setTimeout(() => {
+            this.remoteWriteTimers.delete(key);
+            void clearRemoteUiStateKey(key);
+        }, delayMs);
+        this.remoteWriteTimers.set(key, timer);
+    }
+
     private saveIndex() {
         try {
             const list = Array.from(this.spaces.values());
             localStorage.setItem(STORAGE_KEYS.SPACES_INDEX, JSON.stringify(list));
+            this.scheduleRemoteWrite(REMOTE_KEYS.SPACES_INDEX, list, 120);
         } catch (e) {
             console.error('Failed to save space index', e);
         }
@@ -175,6 +284,7 @@ class SpaceManager {
             STORAGE_KEYS.SPACE_PREFIX + id,
             JSON.stringify({ spaceId: id, nodes: [], edges: [] })
         );
+        this.scheduleRemoteWrite(getRemoteSpaceDataKey(id), { spaceId: id, nodes: [], edges: [] }, 120);
         eventBus.emit(EVENTS.SPACE_CREATED, { spaceId: id, name: uniqueName, kind: space.kind || 'user' });
 
         return id;
@@ -220,6 +330,7 @@ class SpaceManager {
             STORAGE_KEYS.SPACE_PREFIX + id,
             JSON.stringify({ spaceId: id, nodes, edges })
         );
+        this.scheduleRemoteWrite(getRemoteSpaceDataKey(id), { spaceId: id, nodes, edges }, 120);
 
         eventBus.emit(EVENTS.SPACE_CREATED, { spaceId: id, name: uniqueName, kind: 'user' });
         return id;
@@ -300,6 +411,7 @@ class SpaceManager {
             this.spaces.delete(id);
             this.saveIndex();
             localStorage.removeItem(STORAGE_KEYS.SPACE_PREFIX + id);
+            this.scheduleRemoteClear(getRemoteSpaceDataKey(id));
         }
     }
 
@@ -327,9 +439,19 @@ class SpaceManager {
 
         stateEngine.setSpace(id);
         localStorage.setItem(STORAGE_KEYS.ACTIVE_SPACE, id);
+        this.scheduleRemoteWrite(REMOTE_KEYS.ACTIVE_SPACE, id, 80);
 
         let data: { spaceId?: string; nodes: NodeBase[]; edges: Edge[] } = { spaceId: id, nodes: [], edges: [] };
-        const raw = localStorage.getItem(STORAGE_KEYS.SPACE_PREFIX + id);
+        let raw = localStorage.getItem(STORAGE_KEYS.SPACE_PREFIX + id);
+        if (!raw && isUiStateRemoteEnabled()) {
+            const remote = await readRemoteUiStateKey(getRemoteSpaceDataKey(id));
+            const normalizedRemote = normalizeSpaceDataPayload(remote, id);
+            if (normalizedRemote) {
+                data = normalizedRemote;
+                localStorage.setItem(STORAGE_KEYS.SPACE_PREFIX + id, JSON.stringify(normalizedRemote));
+                raw = JSON.stringify(normalizedRemote);
+            }
+        }
         if (raw) {
             try {
                 data = JSON.parse(raw);
@@ -403,6 +525,7 @@ class SpaceManager {
         if (storageChanged) {
             data = { ...data, nodes, edges };
             localStorage.setItem(STORAGE_KEYS.SPACE_PREFIX + id, JSON.stringify(data));
+            this.scheduleRemoteWrite(getRemoteSpaceDataKey(id), data, 120);
         }
 
         if (indexChanged) {
@@ -441,7 +564,9 @@ class SpaceManager {
 
     private saveSpaceInternal(id: string) {
         const data = graphEngine.exportData();
-        localStorage.setItem(STORAGE_KEYS.SPACE_PREFIX + id, JSON.stringify({ spaceId: id, ...data }));
+        const payload = { spaceId: id, ...data };
+        localStorage.setItem(STORAGE_KEYS.SPACE_PREFIX + id, JSON.stringify(payload));
+        this.scheduleRemoteWrite(getRemoteSpaceDataKey(id), payload);
 
         const meta = this.spaces.get(id);
         if (meta) {
@@ -520,6 +645,11 @@ class SpaceManager {
         localStorage.setItem(
             STORAGE_KEYS.SPACE_PREFIX + PLAYGROUND_SPACE_ID,
             JSON.stringify({ spaceId: PLAYGROUND_SPACE_ID, nodes, edges })
+        );
+        this.scheduleRemoteWrite(
+            getRemoteSpaceDataKey(PLAYGROUND_SPACE_ID),
+            { spaceId: PLAYGROUND_SPACE_ID, nodes, edges },
+            120
         );
     }
 

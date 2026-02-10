@@ -3,6 +3,8 @@ import { eventBus, EVENTS } from '../../core/events/EventBus';
 import { spaceManager, type SpaceMeta } from '../../core/state/SpaceManager';
 import { useAppStore } from '../../store/useAppStore';
 
+const INITIAL_RECENTS_TIMESTAMP = Date.now();
+
 const RecentsRail = ({ selectedSpaceId }: { selectedSpaceId?: string | null }) => {
     // Local state for spaces list
     const [spaces, setSpaces] = useState<SpaceMeta[]>([]);
@@ -32,7 +34,7 @@ const RecentsRail = ({ selectedSpaceId }: { selectedSpaceId?: string | null }) =
 
     const playground = spaceManager.getPlaygroundSpace();
     const SevenDays = 7 * 24 * 60 * 60 * 1000;
-    const now = Date.now();
+    const now = INITIAL_RECENTS_TIMESTAMP;
 
     const recents = spaces
         .filter(space => space.id !== playground?.id)

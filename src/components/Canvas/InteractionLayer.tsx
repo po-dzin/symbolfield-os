@@ -16,9 +16,6 @@ const InteractionLayer = () => {
     const [linkDraft, setLinkDraft] = useState<{ x1: number; y1: number; x2: number; y2: number; associative?: boolean } | null>(null);
     const [signals, setSignals] = useState<Array<{ id: number; from: { x: number; y: number }; to: { x: number; y: number }; t: number }>>([]);
 
-    const edges = useGraphStore(state => state.edges) as Edge[];
-    const nodes = useGraphStore(state => state.nodes) as NodeBase[];
-
     useEffect(() => {
         let lastTime = Date.now();
         let frameId: number;

@@ -22,7 +22,7 @@ const DockedDrawer: React.FC = () => {
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
             if (!isResizing) return;
-            const newWidth = window.innerWidth - e.clientX - 48; // 48 is rail width
+            const newWidth = window.innerWidth - e.clientX;
             // Constrain width
             if (newWidth >= 320 && newWidth <= 800) {
                 setDrawerWidthPx('right', newWidth);
@@ -46,21 +46,15 @@ const DockedDrawer: React.FC = () => {
         };
     }, [isResizing, setDrawerWidthPx]);
 
-    const startResize = (e: React.MouseEvent) => {
-        e.preventDefault();
-        setIsResizing(true);
-    };
-
-    if (!drawerRightOpen) return null;
-
     // Define which tabs handle their own headers
     const tabsWithCustomHeaders = ['now', 'cycles', 'chronos', 'props', 'signals'];
     const showDefaultHeader = !tabsWithCustomHeaders.includes(drawerRightTab || '');
 
     return (
         <div
-            className="glass-base fixed top-[var(--component-topbar-height)] bottom-0 right-[var(--component-rail-width)] border-l border-[var(--semantic-color-border-default)] z-[var(--component-z-drawer)] shadow-2xl flex flex-col"
+            className={`glass-base fixed top-[var(--component-topbar-height)] bottom-0 right-0 border-l border-[var(--semantic-color-border-default)] z-[var(--component-z-drawer)] shadow-2xl flex flex-col transition-transform duration-[var(--primitive-motion-duration-slow)] ease-[var(--primitive-motion-ease-standard)] ${drawerRightOpen ? 'translate-x-0 pointer-events-auto' : 'translate-x-full pointer-events-none'}`}
             style={{ width: drawerRightWidthPx }}
+            aria-hidden={!drawerRightOpen}
         >
             {/* Resize Handle */}
             {/* <div

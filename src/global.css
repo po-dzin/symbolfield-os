@@ -129,6 +129,33 @@ body {
     /* 30% opacity */
 }
 
+/* Shape + capsule sizing system
+   - Pill: navigation/segmented/chip controls
+   - Soft: action/content controls inside panels */
+.ui-shape-pill {
+    border-radius: var(--component-shape-pill);
+}
+
+.ui-shape-soft {
+    border-radius: var(--component-shape-soft);
+}
+
+.ui-capsule-compact {
+    height: var(--component-capsule-height-compact);
+}
+
+.ui-capsule-compact-item {
+    min-height: var(--component-capsule-item-height-compact);
+}
+
+.ui-capsule-default {
+    min-height: var(--component-capsule-height-default);
+}
+
+.ui-capsule-default-item {
+    min-height: var(--component-capsule-item-height-default);
+}
+
 /* Disable transitions during active resize to prevent jitter */
 html.is-resizing *,
 html.is-resizing {

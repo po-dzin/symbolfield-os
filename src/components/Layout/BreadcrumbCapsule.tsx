@@ -7,7 +7,6 @@ import { spaceManager } from '../../core/state/SpaceManager';
 const BreadcrumbCapsule: React.FC = () => {
     const viewContext = useAppStore(state => state.viewContext);
     const activeScope = useAppStore(state => state.activeScope);
-    const setViewContext = useAppStore(state => state.setViewContext);
     const exitNode = useAppStore(state => state.exitNode);
     const nodes = useGraphStore(state => state.nodes);
 

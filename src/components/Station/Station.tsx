@@ -13,7 +13,6 @@ import { eventBus, EVENTS } from '../../core/events/EventBus';
 import { type SpaceMetrics } from '../Modules/Signals/LegacyAnalytics';
 import GraphViewShell from '../GraphView/GraphViewShell';
 // import AccountSettingsOverlay from './AccountSettingsOverlay'; // Moved to Shell
-import ResizeHandle from '../Drawers/ResizeHandle';
 
 const Station = () => {
     const [showOnboarding, setShowOnboarding] = React.useState(false);
@@ -22,22 +21,22 @@ const Station = () => {
     const setDrawerOpen = useAppStore(state => state.setDrawerOpen);
     const setDrawerPinned = useAppStore(state => state.setDrawerPinned);
     const setDrawerRightTab = useAppStore(state => state.setDrawerRightTab);
-    const rightOpen = useAppStore(state => state.drawerRightOpen);
+    const setStationInspectorSpaceId = useAppStore(state => state.setStationInspectorSpaceId);
     const [selectedSpaceId, setSelectedSpaceId] = React.useState<string | null>(null);
     // const [showAccountSettings, setShowAccountSettings] = React.useState(false); // Global now
-    const [focusedMetrics, setFocusedMetrics] = React.useState<SpaceMetrics | null>(null);
+    const [, setFocusedMetrics] = React.useState<SpaceMetrics | null>(null);
     const leftWidthPx = useAppStore(state => state.drawerLeftWidthPx);
-    const setDrawerWidthPx = useAppStore(state => state.setDrawerWidthPx);
 
     React.useEffect(() => {
         const unsub = eventBus.on(EVENTS.SPACE_CHANGED, () => {
             setFocusedMetrics(null);
             setSelectedSpaceId(null);
+            setStationInspectorSpaceId(null);
             setDrawerRightTab(null);
             setDrawerOpen('right', false);
         });
         return unsub;
-    }, [setDrawerRightTab, setDrawerOpen]);
+    }, [setDrawerRightTab, setDrawerOpen, setStationInspectorSpaceId]);
 
     React.useEffect(() => {
         spaceManager.ensureOnboardingSpaces();
@@ -80,13 +79,14 @@ const Station = () => {
                 spaceManager.softDeleteSpace(selectedSpaceId);
                 setSelectedSpaceId(null);
                 setFocusedMetrics(null);
+                setStationInspectorSpaceId(null);
                 setDrawerRightTab(null);
                 setDrawerOpen('right', false);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedSpaceId, setDrawerOpen, setDrawerRightTab]);
+    }, [selectedSpaceId, setDrawerOpen, setDrawerRightTab, setStationInspectorSpaceId]);
 
     return (
         <div className="min-h-screen h-screen w-full bg-transparent text-[var(--semantic-color-text-primary)] selection:bg-[var(--semantic-color-text-primary)]/10 font-sans relative">
@@ -96,8 +96,9 @@ const Station = () => {
                         className="absolute inset-0"
                         onSelectSpace={(metrics) => {
                             setFocusedMetrics(metrics);
+                            setStationInspectorSpaceId(metrics?.id ?? null);
                             if (metrics) {
-                                setDrawerRightTab('signals');
+                                setDrawerRightTab('props');
                             }
                             setDrawerOpen('right', Boolean(metrics));
                             setSelectedSpaceId(metrics?.id ?? null);
@@ -113,7 +114,7 @@ const Station = () => {
                             onMouseEnter={() => setDrawerOpen('left', true)}
                         />
                         <div
-                            className={`absolute left-0 top-0 h-full z-20 pointer-events-auto transition-transform duration-300 ease-out ${leftPinned || leftOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                            className={`absolute left-0 top-0 h-full z-20 pointer-events-auto transition-transform duration-[var(--primitive-motion-duration-slow)] ease-out ${leftPinned || leftOpen ? 'translate-x-0' : '-translate-x-full'}`}
                             style={{ width: `${leftWidthPx}px` }}
                             onMouseLeave={() => {
                                 if (!leftPinned) setDrawerOpen('left', false);

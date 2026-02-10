@@ -27,6 +27,7 @@ const OmniInputExpanded = () => {
     const exitNode = useAppStore(state => state.exitNode);
     const toggleSettings = useAppStore(state => state.toggleSettings);
     const isHome = viewContext === 'home';
+    const isNode = viewContext === 'node';
 
     const [selectedIndex, setSelectedIndex] = React.useState(0);
     const inputRef = React.useRef<HTMLInputElement | null>(null);
@@ -77,17 +78,13 @@ const OmniInputExpanded = () => {
             },
             {
                 id: 'settings',
-                label: isHome ? 'Station Settings' : 'Space Settings',
-                hint: isHome ? 'Open station preferences' : 'Open space preferences',
+                label: isHome ? 'Station Settings' : isNode ? 'Node Settings' : 'Space Settings',
+                hint: isHome ? 'Open station preferences' : isNode ? 'Open node preferences' : 'Open space preferences',
                 shortcut: 'Ctrl/Cmd + ,',
-                keywords: ['settings', isHome ? 'station' : 'space'],
+                keywords: ['settings', isHome ? 'station' : isNode ? 'node' : 'space'],
                 scope: 'any',
                 action: () => {
-                    if (isHome) {
-                        eventBus.emit('UI_SIGNAL', { type: 'OPEN_ACCOUNT_SETTINGS', x: 0, y: 0 });
-                    } else {
-                        toggleSettings();
-                    }
+                    toggleSettings();
                 }
             },
             {
@@ -147,7 +144,8 @@ const OmniInputExpanded = () => {
         toggleSettings,
         toggleGridSnap,
         viewContext,
-        isHome
+        isHome,
+        isNode
     ]);
 
     const visibleCommands = React.useMemo(() => {

@@ -1,26 +1,29 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { useAppStore } from '../../../store/useAppStore';
 import { spaceManager } from '../../../core/state/SpaceManager';
 
 const SpaceProperties = () => {
+    const viewContext = useAppStore(state => state.viewContext);
     const currentSpaceId = useAppStore(state => state.currentSpaceId);
+    const stationInspectorSpaceId = useAppStore(state => state.stationInspectorSpaceId);
+    const inspectedSpaceId = viewContext === 'home' ? stationInspectorSpaceId : currentSpaceId;
 
-    // Get space metadata
-    const meta = spaceManager.getSpaceMeta(currentSpaceId);
-
-    const [name, setName] = useState(meta?.name || '');
-    const [description, setDescription] = useState(meta?.description || '');
-
-    // Handle updates (mock for now, or direct to spaceManager if method exists)
-    const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setName(e.target.value);
-        // TODO: debounce save to spaceManager
-    };
+    const meta = useMemo(
+        () => (inspectedSpaceId ? spaceManager.getSpaceMeta(inspectedSpaceId) : undefined),
+        [inspectedSpaceId]
+    );
+    const spaceData = useMemo(
+        () => (inspectedSpaceId ? spaceManager.getSpaceData(inspectedSpaceId) : null),
+        [inspectedSpaceId]
+    );
+    const nodeCount = spaceData?.nodes.length ?? 0;
+    const edgeCount = spaceData?.edges.length ?? 0;
+    const clusterCount = spaceData?.nodes?.filter(node => node.type === 'cluster').length ?? 0;
 
     if (!meta) {
         return (
             <div className="p-4 text-[var(--semantic-color-text-muted)] text-sm">
-                No space selected.
+                {viewContext === 'home' ? 'Select a space on station map to inspect.' : 'No space selected.'}
             </div>
         );
     }
@@ -33,9 +36,9 @@ const SpaceProperties = () => {
                     Space Name
                 </label>
                 <input
+                    key={`space-name-${inspectedSpaceId ?? 'none'}`}
                     type="text"
-                    value={name}
-                    onChange={handleNameChange}
+                    defaultValue={meta.name ?? ''}
                     className="w-full bg-transparent border-b border-[var(--semantic-color-border-default)] text-[var(--semantic-color-text-primary)] font-medium text-lg focus:outline-none focus:border-[var(--semantic-color-action-primary)] transition-colors py-1"
                 />
             </div>
@@ -46,8 +49,8 @@ const SpaceProperties = () => {
                     Description
                 </label>
                 <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    key={`space-description-${inspectedSpaceId ?? 'none'}`}
+                    defaultValue={meta.description ?? ''}
                     rows={4}
                     className="w-full bg-[var(--semantic-color-bg-surface-hover)] rounded-[var(--primitive-radius-sm)] border border-transparent focus:border-[var(--semantic-color-action-primary)] p-3 text-sm text-[var(--semantic-color-text-secondary)] resize-none focus:outline-none transition-all"
                     placeholder="Add a description..."
@@ -58,21 +61,38 @@ const SpaceProperties = () => {
             <div className="p-4 rounded-[var(--primitive-radius-md)] bg-[var(--semantic-color-bg-surface-hover)] flex flex-col gap-3">
                 <div className="flex justify-between text-xs">
                     <span className="text-[var(--semantic-color-text-muted)]">ID</span>
-                    <span className="font-mono text-[var(--semantic-color-text-secondary)] opacity-70 truncate max-w-[120px]" title={currentSpaceId}>
-                        {currentSpaceId}
+                    <span className="font-mono text-[var(--semantic-color-text-secondary)] opacity-70 truncate max-w-[120px]" title={inspectedSpaceId ?? ''}>
+                        {inspectedSpaceId}
                     </span>
                 </div>
                 <div className="flex justify-between text-xs">
                     <span className="text-[var(--semantic-color-text-muted)]">Created</span>
                     <span className="text-[var(--semantic-color-text-secondary)]">
-                        {new Date().toLocaleDateString()} {/* Mock */}
+                        {meta.createdAt ? new Date(meta.createdAt).toLocaleDateString() : '—'}
+                    </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                    <span className="text-[var(--semantic-color-text-muted)]">Updated</span>
+                    <span className="text-[var(--semantic-color-text-secondary)]">
+                        {meta.updatedAt ? new Date(meta.updatedAt).toLocaleDateString() : '—'}
                     </span>
                 </div>
                 <div className="flex justify-between text-xs">
                     <span className="text-[var(--semantic-color-text-muted)]">Nodes</span>
                     <span className="text-[var(--semantic-color-text-secondary)]">
-                        {/* Mock count or fetch from graph */}
-                        24
+                        {nodeCount}
+                    </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                    <span className="text-[var(--semantic-color-text-muted)]">Edges</span>
+                    <span className="text-[var(--semantic-color-text-secondary)]">
+                        {edgeCount}
+                    </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                    <span className="text-[var(--semantic-color-text-muted)]">Clusters</span>
+                    <span className="text-[var(--semantic-color-text-secondary)]">
+                        {clusterCount}
                     </span>
                 </div>
             </div>

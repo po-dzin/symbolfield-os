@@ -26,6 +26,14 @@ import { asNodeId, type Edge, type NodeId } from '../../core/types';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { getCoreId, getCoreLabel } from '../../core/defaults/coreIds';
 import { GLOBAL_ZOOM_HOTKEY_EVENT, type ZoomHotkeyDetail } from '../../core/hotkeys/zoomHotkeys';
+import { getSystemMotionMetrics } from '../../core/ui/SystemMotion';
+
+type DomEventListener = (event: Event) => void;
+
+const setDocumentBodyCursor = (value: string) => {
+    if (typeof document === 'undefined') return;
+    document.body.style.cursor = value;
+};
 
 const CanvasView = () => {
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -33,7 +41,6 @@ const CanvasView = () => {
     const edges = useGraphStore(state => state.edges);
     const updateNode = useGraphStore(state => state.updateNode);
     const areas = useAreaStore(state => state.areas);
-    const selectedAreaId = useAreaStore(state => state.selectedAreaId);
     const selectedAreaIds = useAreaStore(state => state.selectedAreaIds);
     const focusedAreaId = useAreaStore(state => state.focusedAreaId);
     const setFocusedAreaId = useAreaStore(state => state.setFocusedAreaId);
@@ -41,7 +48,7 @@ const CanvasView = () => {
     const setSelectedAreaId = useAreaStore(state => state.setSelectedAreaId);
     const toggleSelectedArea = useAreaStore(state => state.toggleSelectedArea);
     const updateArea = useAreaStore(state => state.updateArea);
-    const removeArea = useAreaStore(state => state.removeArea);
+    const _removeArea = useAreaStore(state => state.removeArea);
     const activeTool = useAppStore(state => state.activeTool);
     const showGrid = useAppStore(state => state.showGrid);
     const showEdges = useAppStore(state => state.showEdges);
@@ -50,6 +57,8 @@ const CanvasView = () => {
     const gridStepMul = useAppStore(state => state.gridStepMul);
     const subspaceLod = useAppStore(state => state.subspaceLod);
     const setSubspaceLod = useAppStore(state => state.setSubspaceLod);
+    const themeMotion = useAppStore(state => state.themeMotion);
+    const themeSpeed = useAppStore(state => state.themeSpeed);
     const currentSpaceId = useAppStore(state => state.currentSpaceId);
     const fieldScopeId = useAppStore(state => state.fieldScopeId);
     const viewContext = useAppStore(state => state.viewContext);
@@ -87,6 +96,7 @@ const CanvasView = () => {
     const [regionNameDraft, setRegionNameDraft] = React.useState('');
     const sortedAreas = useMemo(() => [...areas].sort((a, b) => a.zIndex - b.zIndex), [areas]);
     const undoSmoothTimerRef = useRef<number | null>(null);
+    const motionMetricsRef = useRef(getSystemMotionMetrics(themeMotion, themeSpeed));
     const [areaInteraction, setAreaInteraction] = React.useState<null | {
         type: 'move' | 'resize' | 'resize-ring';
         areaId: string;
@@ -113,6 +123,10 @@ const CanvasView = () => {
     ]), []);
 
     const snapToGrid = (value: number, cell: number) => Math.round(value / cell) * cell;
+
+    useEffect(() => {
+        motionMetricsRef.current = getSystemMotionMetrics(themeMotion, themeSpeed);
+    }, [themeMotion, themeSpeed]);
 
     const getAreaCenter = (area: (typeof areas)[number]) => {
         if (area.shape !== 'circle') return null;
@@ -147,7 +161,7 @@ const CanvasView = () => {
         return Math.max(area.circle.r, ringMax);
     };
 
-    const addRing = (areaId: string) => {
+    const _addRing = (areaId: string) => {
         const area = areas.find(item => item.id === areaId);
         if (!area || area.shape !== 'circle' || !area.circle) return;
         const rings = area.rings ? [...area.rings] : [];
@@ -156,13 +170,13 @@ const CanvasView = () => {
         updateArea(areaId, { rings });
     };
 
-    const removeRing = (areaId: string) => {
+    const _removeRing = (areaId: string) => {
         const area = areas.find(item => item.id === areaId);
         if (!area || !area.rings || area.rings.length === 0) return;
         updateArea(areaId, { rings: area.rings.slice(0, -1) });
     };
 
-    const toggleAnchorToNode = (areaId: string) => {
+    const _toggleAnchorToNode = (areaId: string) => {
         const area = areas.find(item => item.id === areaId);
         if (!area) return;
         const selectedNodes = selectionState.getSelection();
@@ -274,7 +288,7 @@ const CanvasView = () => {
         }
     }, [areas]);
 
-    const alignRegionToGrid = (areaId: string) => {
+    const _alignRegionToGrid = (areaId: string) => {
         const area = areas.find(r => r.id === areaId);
         if (!area || area.shape !== 'rect') return;
         const rect = getAreaRectBounds(area);
@@ -289,17 +303,17 @@ const CanvasView = () => {
         updateArea(areaId, { rect: bounds });
     };
 
-    const bringAreaToFront = (areaId: string) => {
+    const _bringAreaToFront = (areaId: string) => {
         const maxZ = Math.max(0, ...areas.map(a => a.zIndex ?? 0));
         updateArea(areaId, { zIndex: maxZ + 1 });
     };
 
-    const sendAreaToBack = (areaId: string) => {
+    const _sendAreaToBack = (areaId: string) => {
         const minZ = Math.min(0, ...areas.map(a => a.zIndex ?? 0));
         updateArea(areaId, { zIndex: minZ - 1 });
     };
 
-    const fitAreaToSelection = (areaId: string) => {
+    const _fitAreaToSelection = (areaId: string) => {
         const area = areas.find(a => a.id === areaId);
         if (!area || area.shape !== 'rect') return;
         const selection = selectionState.getSelection();
@@ -336,7 +350,7 @@ const CanvasView = () => {
         });
     };
 
-    const cycleRegionColor = (areaId: string) => {
+    const _cycleRegionColor = (areaId: string) => {
         const area = areas.find(r => r.id === areaId);
         if (!area) return;
         const currentIndex = regionPalette.findIndex(
@@ -348,12 +362,12 @@ const CanvasView = () => {
         updateArea(areaId, { color: next.fill, borderColor: next.stroke });
     };
 
-    const beginRenameRegion = (areaId: string, currentName: string) => {
+    const _beginRenameRegion = (areaId: string, currentName: string) => {
         setEditingRegionId(areaId);
         setRegionNameDraft(currentName);
     };
 
-    const focusArea = (areaId: string) => {
+    const _focusArea = (areaId: string) => {
         const area = areas.find(a => a.id === areaId);
         if (!area || !containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
@@ -624,7 +638,6 @@ const CanvasView = () => {
 
         // Basic normalized gesture object
         const target = e.target as Element | null;
-        const areaEl = target?.closest('[data-area-id]');
         const edgeEl = target?.closest('[data-edge-id]');
         const nodeEl = target?.closest('[data-node-id]');
         const labelEl = target?.closest('[data-part="label"]');
@@ -716,7 +729,7 @@ const CanvasView = () => {
 
         gestureRouter.handlePointerDown(gesture);
         if (isSpacePressed.current) {
-            document.body.style.cursor = 'grabbing';
+            setDocumentBodyCursor('grabbing');
         }
     };
 
@@ -763,16 +776,16 @@ const CanvasView = () => {
                 setHoverAreaId(nextHoverId);
             }
             if (nextHoverId) {
-                document.body.style.cursor = 'pointer';
+                setDocumentBodyCursor('pointer');
             } else if (!isSpacePressed.current) {
                 if (!interactionCursorRef.current) {
-                    document.body.style.cursor = '';
+                    setDocumentBodyCursor('');
                 }
             }
         } else {
-            document.body.style.cursor = areaInteraction.type === 'move'
+            setDocumentBodyCursor(areaInteraction.type === 'move'
                 ? 'grabbing'
-                : getResizeCursor(areaInteraction.handle);
+                : getResizeCursor(areaInteraction.handle));
         }
         const proj = getProjection(e);
         if (areaInteraction) {
@@ -930,9 +943,9 @@ const CanvasView = () => {
             return;
         }
         if (isSpacePressed.current) {
-            document.body.style.cursor = 'grab';
+            setDocumentBodyCursor('grab');
         } else if (!interactionCursorRef.current) {
-            document.body.style.cursor = '';
+            setDocumentBodyCursor('');
         }
 
         // Manual Hit Test
@@ -971,7 +984,7 @@ const CanvasView = () => {
             if (!type) return;
             if (['DRAG_NODES', 'PAN', 'LINK_DRAG', 'BOX_SELECT', 'REGION_DRAW'].includes(type)) {
                 interactionCursorRef.current = 'grabbing';
-                document.body.style.cursor = 'grabbing';
+                setDocumentBodyCursor('grabbing');
             }
         };
         const onInteractionEnd = (e: BusEvent<'UI_INTERACTION_END'>) => {
@@ -979,7 +992,7 @@ const CanvasView = () => {
             if (!type) return;
             if (['DRAG_NODES', 'PAN', 'LINK_DRAG', 'BOX_SELECT', 'REGION_DRAW'].includes(type)) {
                 interactionCursorRef.current = null;
-                document.body.style.cursor = isSpacePressed.current ? 'grab' : '';
+                setDocumentBodyCursor(isSpacePressed.current ? 'grab' : '');
             }
         };
         const unsubStart = eventBus.on('UI_INTERACTION_START', onInteractionStart);
@@ -1203,12 +1216,10 @@ const CanvasView = () => {
         if (!el) return;
         const GESTURE_WHEEL_GUARD_MS = 120;
         let gestureActive = false;
-        let lastGestureEventTs = 0;
         let lastGestureChangeTs = 0;
         let gestureFallbackTimer: number | null = null;
         const markGestureWindow = () => {
             gestureActive = true;
-            lastGestureEventTs = Date.now();
             if (gestureFallbackTimer) {
                 window.clearTimeout(gestureFallbackTimer);
             }
@@ -1385,7 +1396,6 @@ const CanvasView = () => {
             if (!gestureActive) return;
             e.preventDefault();
             gestureActive = false;
-            lastGestureEventTs = Date.now();
             lastGestureScale = 1;
             if (debugPinch()) {
                 // eslint-disable-next-line no-console
@@ -1397,12 +1407,12 @@ const CanvasView = () => {
             }
         };
 
-        window.addEventListener('gesturestart', handleGestureStart as EventListener, { passive: false });
-        window.addEventListener('gesturechange', handleGestureChange as EventListener, { passive: false });
-        window.addEventListener('gestureend', handleGestureEnd as EventListener, { passive: false });
-        document.addEventListener('gesturestart', handleGestureStart as EventListener, { passive: false });
-        document.addEventListener('gesturechange', handleGestureChange as EventListener, { passive: false });
-        document.addEventListener('gestureend', handleGestureEnd as EventListener, { passive: false });
+        window.addEventListener('gesturestart', handleGestureStart as DomEventListener, { passive: false });
+        window.addEventListener('gesturechange', handleGestureChange as DomEventListener, { passive: false });
+        window.addEventListener('gestureend', handleGestureEnd as DomEventListener, { passive: false });
+        document.addEventListener('gesturestart', handleGestureStart as DomEventListener, { passive: false });
+        document.addEventListener('gesturechange', handleGestureChange as DomEventListener, { passive: false });
+        document.addEventListener('gestureend', handleGestureEnd as DomEventListener, { passive: false });
 
         // Global hotkey listener for Router & local state
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -1455,7 +1465,7 @@ const CanvasView = () => {
                     break;
             }
         };
-        window.addEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as EventListener);
+        window.addEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as DomEventListener);
 
         // Ego-focus listener
         const onFocus = (e: BusEvent<'UI_FOCUS_NODE'>) => {
@@ -1470,7 +1480,7 @@ const CanvasView = () => {
                 centerOn(node.position.x, node.position.y, rect.width, rect.height);
 
                 // Disable after animation finishes
-                setTimeout(() => setIsSmooth(false), 700);
+                window.setTimeout(() => setIsSmooth(false), motionMetricsRef.current.cameraFocusSettleMs);
             }
         };
         const unsubFocus = eventBus.on('UI_FOCUS_NODE', onFocus);
@@ -1479,7 +1489,7 @@ const CanvasView = () => {
             if (undoSmoothTimerRef.current) {
                 window.clearTimeout(undoSmoothTimerRef.current);
             }
-            undoSmoothTimerRef.current = window.setTimeout(() => setUndoSmooth(false), 300);
+            undoSmoothTimerRef.current = window.setTimeout(() => setUndoSmooth(false), motionMetricsRef.current.cameraUndoSettleMs);
         };
         const unsubUndo = eventBus.on('GRAPH_UNDO', triggerUndoSmooth);
         const unsubRedo = eventBus.on('GRAPH_REDO', triggerUndoSmooth);
@@ -1488,18 +1498,18 @@ const CanvasView = () => {
             el.removeEventListener('wheel', preventWheelZoom);
             el.removeEventListener('wheel', handleWheel);
             window.removeEventListener('wheel', handleGlobalWheelCapture, true);
-            window.removeEventListener('gesturestart', handleGestureStart as EventListener);
-            window.removeEventListener('gesturechange', handleGestureChange as EventListener);
-            window.removeEventListener('gestureend', handleGestureEnd as EventListener);
-            document.removeEventListener('gesturestart', handleGestureStart as EventListener);
-            document.removeEventListener('gesturechange', handleGestureChange as EventListener);
-            document.removeEventListener('gestureend', handleGestureEnd as EventListener);
+            window.removeEventListener('gesturestart', handleGestureStart as DomEventListener);
+            window.removeEventListener('gesturechange', handleGestureChange as DomEventListener);
+            window.removeEventListener('gestureend', handleGestureEnd as DomEventListener);
+            document.removeEventListener('gesturestart', handleGestureStart as DomEventListener);
+            document.removeEventListener('gesturechange', handleGestureChange as DomEventListener);
+            document.removeEventListener('gestureend', handleGestureEnd as DomEventListener);
             if (gestureFallbackTimer) {
                 window.clearTimeout(gestureFallbackTimer);
             }
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
-            window.removeEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as EventListener);
+            window.removeEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as DomEventListener);
             unsubFocus();
             unsubUndo();
             unsubRedo();
@@ -1541,7 +1551,7 @@ const CanvasView = () => {
                 fitToContent({ clampToOne: true });
                 lastCenteredSpaceId.current = currentSpaceId;
                 fitTimerRef.current = null;
-            }, 120);
+            }, motionMetricsRef.current.cameraFitDelayMs);
             return () => {
                 if (fitTimerRef.current) {
                     window.clearTimeout(fitTimerRef.current);
@@ -1677,31 +1687,29 @@ const CanvasView = () => {
             const scopeNode = nodeMap.get(currentScope as NodeId);
             if (scopeNode && containerRef.current) {
                 const rect = containerRef.current.getBoundingClientRect();
-                setIsSmooth(true);
                 centerOn(scopeNode.position.x, scopeNode.position.y, rect.width, rect.height);
-                setTimeout(() => setIsSmooth(false), 420);
             }
         }
     }, [fieldScopeId, focusedAreaId, areas, nodes, edges, updateNode, viewContext, centerOn, subspaceLod]);
 
     useEffect(() => {
         if (areaInteraction?.type === 'move') {
-            document.body.style.cursor = 'grabbing';
+            setDocumentBodyCursor('grabbing');
             return () => {
-                document.body.style.cursor = '';
+                setDocumentBodyCursor('');
             };
         }
-        document.body.style.cursor = '';
+        setDocumentBodyCursor('');
         return undefined;
     }, [areaInteraction]);
 
     useEffect(() => {
         if (areaInteraction) return;
         if (spacePanArmed) {
-            document.body.style.cursor = 'grab';
+            setDocumentBodyCursor('grab');
             return;
         }
-        document.body.style.cursor = '';
+        setDocumentBodyCursor('');
     }, [spacePanArmed, areaInteraction]);
 
     return (
@@ -1721,7 +1729,7 @@ const CanvasView = () => {
                     pinchRef.current = null;
                 }
                 if (!isSpacePressed.current) {
-                    document.body.style.cursor = '';
+                    setDocumentBodyCursor('');
                 }
             }}
             onDoubleClick={handleDoubleClick}
@@ -2097,14 +2105,11 @@ const CanvasView = () => {
                     <div className="absolute inset-0">
                         {sortedAreas.map(area => {
                             const isSelected = selectedAreaIds.includes(area.id);
-                            const isPrimarySelected = selectedAreaId === area.id;
                             const isEditing = editingRegionId === area.id;
                             const rect = area.shape === 'rect' ? getAreaRectBounds(area) : undefined;
                             const circle = area.shape === 'circle' ? area.circle : undefined;
                             const center = area.shape === 'circle' ? getAreaCenter(area) : null;
                             const radius = area.shape === 'circle' && circle ? getCircleBoundsRadius(area) : 0;
-                            const areaTitle = area.title ?? 'Area';
-                            const displayAreaTitle = areaTitle.length > 12 ? areaTitle.slice(0, 12) : areaTitle;
                             if (!rect && !circle) return null;
                             const left = rect ? rect.x : (center?.cx ?? 0) - radius;
                             const top = rect ? rect.y : (center?.cy ?? 0) - radius;

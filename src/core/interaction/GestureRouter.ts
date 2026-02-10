@@ -811,7 +811,7 @@ class GestureRouter {
                 break;
             }
 
-            case 'PREPARE_DRAG':
+            case 'PREPARE_DRAG': {
                 if (intent.clearAreas) {
                     useAreaStore.getState().clearSelectedAreas();
                     useEdgeSelectionStore.getState().clear();
@@ -839,6 +839,7 @@ class GestureRouter {
                     startPositions
                 };
                 break;
+            }
 
             case 'PAN_CAMERA_START':
                 this.activeInteraction = {

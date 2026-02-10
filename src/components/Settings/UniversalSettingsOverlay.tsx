@@ -1,14 +1,37 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { useGraphStore } from '../../store/useGraphStore';
 import { resetAccount, resetSettings } from '../../core/state/onboardingState';
 import AppearanceSettingsPanel from './AppearanceSettingsPanel';
-import { TogglePill } from '../Common';
+import { CapsuleTabs, TogglePill } from '../Common';
 
 interface UniversalSettingsOverlayProps {
     onClose: () => void;
 }
 
-type SectionId = 'general' | 'appearance' | 'account' | 'space' | 'data';
+type ScopeSectionId = 'station' | 'space' | 'node';
+type SectionId = ScopeSectionId | 'experimental' | 'account' | 'data';
+
+const SCOPE_SECTIONS: Array<{ id: ScopeSectionId; label: string }> = [
+    { id: 'station', label: 'Station' },
+    { id: 'space', label: 'Space' },
+    { id: 'node', label: 'Node' }
+];
+
+const NAV_ITEMS: Array<{ id: Exclude<SectionId, ScopeSectionId>; label: string; context?: string[] }> = [
+    { id: 'experimental', label: 'Experimental UI Sandbox' },
+    { id: 'account', label: 'Account' },
+    { id: 'data', label: 'Data', context: ['home'] }
+];
+
+const isScopeSection = (value: SectionId): value is ScopeSectionId =>
+    value === 'station' || value === 'space' || value === 'node';
+
+const getDefaultSection = (viewContext: string): ScopeSectionId => {
+    if (viewContext === 'home') return 'station';
+    if (viewContext === 'node') return 'node';
+    return 'space';
+};
 
 const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) => {
     const viewContext = useAppStore(state => state.viewContext);
@@ -18,8 +41,10 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
     const setShowStationLabels = useAppStore(state => state.setShowStationLabels);
     const showPlaygroundOnStation = useAppStore(state => state.showPlaygroundOnStation);
     const setShowPlaygroundOnStation = useAppStore(state => state.setShowPlaygroundOnStation);
+    const pathDisplayMode = useAppStore(state => state.pathDisplayMode);
+    const setPathDisplayMode = useAppStore(state => state.setPathDisplayMode);
 
-    // Space Settings
+    // Space/View Settings
     const showGrid = useAppStore(state => state.showGrid);
     const setShowGrid = useAppStore(state => state.setShowGrid);
     const showEdges = useAppStore(state => state.showEdges);
@@ -35,25 +60,55 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
     const contextMenuMode = useAppStore(state => state.contextMenuMode);
     const setContextMenuMode = useAppStore(state => state.setContextMenuMode);
 
+    // Node Context
+    const activeScope = useAppStore(state => state.activeScope);
+    const exitNode = useAppStore(state => state.exitNode);
+    const nodes = useGraphStore(state => state.nodes);
+    const updateNode = useGraphStore(state => state.updateNode);
 
-    const [section, setSection] = useState<SectionId>(viewContext === 'home' ? 'general' : 'space');
+    const defaultScopeSection = getDefaultSection(viewContext);
+    const [section, setSection] = useState<SectionId>(defaultScopeSection);
 
-    const NAV_ITEMS: Array<{ id: SectionId; label: string; context?: string[] }> = [
-        { id: 'general', label: 'General', context: ['home'] },
-        { id: 'space', label: 'Space & View', context: ['space', 'node'] },
-        { id: 'appearance', label: 'Appearance' }, // Always available
-        { id: 'account', label: 'Account' },       // Always available
-        { id: 'data', label: 'Data', context: ['home'] }
-    ];
+    const availableNavItems = useMemo(
+        () => NAV_ITEMS.filter(item => !item.context || item.context.includes(viewContext)),
+        [viewContext]
+    );
 
-    const availableNavItems = NAV_ITEMS.filter(item => !item.context || item.context.includes(viewContext));
+    const effectiveSection: SectionId = isScopeSection(section) || availableNavItems.find(item => item.id === section)
+        ? section
+        : defaultScopeSection;
 
-    // Ensure current section is valid for context, else fallback
-    useEffect(() => {
-        if (!availableNavItems.find(i => i.id === section)) {
-            setSection(availableNavItems[0]?.id || 'appearance');
-        }
-    }, [viewContext]);
+    const activeScopeSection: ScopeSectionId = isScopeSection(effectiveSection)
+        ? effectiveSection
+        : defaultScopeSection;
+
+    const cycleScopeSection = (direction: 1 | -1) => {
+        setSection(prev => {
+            const ids = SCOPE_SECTIONS.map(item => item.id);
+            const current = isScopeSection(prev) ? prev : defaultScopeSection;
+            const currentIndex = Math.max(0, ids.indexOf(current));
+            const nextIndex = (currentIndex + direction + ids.length) % ids.length;
+            return ids[nextIndex] ?? defaultScopeSection;
+        });
+    };
+
+    const activeNode = useMemo(() => {
+        if (viewContext !== 'node' || !activeScope) return null;
+        return nodes.find(node => node.id === activeScope) ?? null;
+    }, [viewContext, activeScope, nodes]);
+
+    const saveNodeLabel = (nextValue: string) => {
+        if (!activeNode) return;
+        const current = typeof activeNode.data?.label === 'string' ? activeNode.data.label : '';
+        const next = nextValue.trim() || 'Untitled Node';
+        if (next === current) return;
+        updateNode(activeNode.id, {
+            data: {
+                ...activeNode.data,
+                label: next
+            }
+        });
+    };
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -65,6 +120,12 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [onClose]);
 
+    const scopeLabel = viewContext === 'home'
+        ? 'Station Scope'
+        : viewContext === 'node'
+            ? 'Node Scope'
+            : 'Space Scope';
+
     return (
         <div className="fixed inset-0 z-[var(--component-z-modal)] bg-black/20 backdrop-blur-md animate-fade-in flex items-center justify-center p-8" onClick={onClose}>
             <div
@@ -75,25 +136,40 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                     <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-muted)] px-2">
                         Settings
                     </div>
-                    {/* Profile Card (Visual only for now) */}
                     <div className="flex items-center gap-3 px-3 py-3 rounded-[var(--primitive-radius-card)] bg-[var(--semantic-color-bg-app)]/50 border border-[var(--semantic-color-border-default)]">
                         <div className="w-10 h-10 rounded-full bg-[var(--semantic-color-bg-surface)] border border-[var(--semantic-color-border-default)] flex items-center justify-center text-lg">
                             ◉
                         </div>
                         <div>
                             <div className="text-[var(--semantic-color-text-primary)] text-sm font-medium">Local Builder</div>
-                            <div className="text-[var(--semantic-color-text-secondary)] text-xs">
-                                {viewContext === 'home' ? 'Station' : viewContext === 'node' ? 'Node Scope' : 'Space Scope'}
-                            </div>
+                            <div className="text-[var(--semantic-color-text-secondary)] text-xs">{scopeLabel}</div>
                         </div>
                     </div>
 
                     <div className="mt-2 space-y-1">
+                        <div className="px-2 py-2">
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-muted)] mb-2">
+                                Scope Layer
+                            </div>
+                            <CapsuleTabs
+                                items={SCOPE_SECTIONS}
+                                activeId={activeScopeSection}
+                                onSelect={(id) => setSection(id as ScopeSectionId)}
+                                onCycle={cycleScopeSection}
+                                title="Station/Space/Node (click or Tab to switch)"
+                                className="w-full justify-center"
+                                size="sm"
+                            />
+                            <div className="text-[10px] text-[var(--semantic-color-text-muted)] mt-1 px-1">
+                                Current: {scopeLabel}
+                            </div>
+                        </div>
+
                         {availableNavItems.map(item => (
                             <button
                                 key={item.id}
                                 onClick={() => setSection(item.id)}
-                                data-state={section === item.id ? 'active' : 'inactive'}
+                                data-state={effectiveSection === item.id ? 'active' : 'inactive'}
                                 className="ui-selectable w-full text-left px-4 py-2.5 rounded-[var(--primitive-radius-input)] text-sm transition-colors"
                             >
                                 {item.label}
@@ -112,11 +188,11 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                     </button>
 
                     <div className="max-w-2xl mx-auto pt-4">
-                        {section === 'general' && (
+                        {effectiveSection === 'station' && (
                             <section className="space-y-6">
                                 <div>
-                                    <h2 className="text-[var(--semantic-color-text-primary)] text-xl font-medium">General</h2>
-                                    <p className="text-[var(--semantic-color-text-secondary)] text-sm mt-1">Station visibility defaults.</p>
+                                    <h2 className="text-[var(--semantic-color-text-primary)] text-xl font-medium">Station</h2>
+                                    <p className="text-[var(--semantic-color-text-secondary)] text-sm mt-1">Station-level defaults and visibility.</p>
                                 </div>
                                 <div className="glass-panel p-6 space-y-4">
                                     <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
@@ -127,30 +203,37 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                                         <span>Station labels</span>
                                         <TogglePill checked={showStationLabels} onToggle={() => setShowStationLabels(!showStationLabels)} />
                                     </div>
-
                                     <div className="h-px bg-[var(--semantic-color-border-default)] my-2 opacity-50" />
-
-                                    <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
-                                        <span>Show grid</span>
-                                        <TogglePill checked={showGrid} onToggle={() => setShowGrid(!showGrid)} />
-                                    </div>
-                                    <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
-                                        <span>Grid snap</span>
-                                        <TogglePill checked={gridSnapEnabled} onToggle={() => setGridSnapEnabled(!gridSnapEnabled)} />
-                                    </div>
-                                    <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
-                                        <span>Show links</span>
-                                        <TogglePill checked={showEdges} onToggle={() => setShowEdges(!showEdges)} />
+                                    <div className="space-y-2">
+                                        <div className="text-sm text-[var(--semantic-color-text-secondary)]">Path display</div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setPathDisplayMode('full')}
+                                                data-state={pathDisplayMode === 'full' ? 'active' : 'inactive'}
+                                                className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                            >
+                                                Full Breadcrumb
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPathDisplayMode('compact')}
+                                                data-state={pathDisplayMode === 'compact' ? 'active' : 'inactive'}
+                                                className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                            >
+                                                Level Capsule
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </section>
                         )}
 
-                        {section === 'space' && (
+                        {effectiveSection === 'space' && (
                             <section className="space-y-6">
                                 <div>
                                     <h2 className="text-[var(--semantic-color-text-primary)] text-xl font-medium">Space & View</h2>
-                                    <p className="text-[var(--semantic-color-text-secondary)] text-sm mt-1">Canvas interaction and visibility settings.</p>
+                                    <p className="text-[var(--semantic-color-text-secondary)] text-sm mt-1">Canvas interaction and visibility settings for current Space.</p>
                                 </div>
                                 <div className="glass-panel p-6 space-y-4">
                                     <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
@@ -162,11 +245,11 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                                         <TogglePill checked={showEdges} onToggle={() => setShowEdges(!showEdges)} />
                                     </div>
                                     <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
-                                        <span>HUD (Chips)</span>
+                                        <span>HUD chips</span>
                                         <TogglePill checked={showHud} onToggle={() => setShowHud(!showHud)} />
                                     </div>
                                     <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
-                                        <span>HUD (Counters)</span>
+                                        <span>HUD counters</span>
                                         <TogglePill checked={showCounters} onToggle={() => setShowCounters(!showCounters)} />
                                     </div>
 
@@ -184,9 +267,10 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                                                 <button
                                                     key={step}
                                                     onClick={() => setGridStepMul(step)}
-                                                    className={`px-2 py-1 rounded-[var(--primitive-radius-pill)] text-[10px] border transition-colors ${gridStepMul === step ? 'bg-[var(--semantic-color-text-primary)]/20 border-[var(--semantic-color-border-default)] text-[var(--semantic-color-text-primary)]' : 'border-transparent text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-secondary)]'}`}
+                                                    data-state={gridStepMul === step ? 'active' : 'inactive'}
+                                                    className="ui-selectable px-2 py-1 rounded-[var(--primitive-radius-pill)] text-[10px]"
                                                 >
-                                                    {step}×
+                                                    {step}x
                                                 </button>
                                             ))}
                                         </div>
@@ -197,13 +281,15 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                                         <div className="flex items-center gap-1 bg-[var(--semantic-color-text-primary)]/5 p-1 rounded-[var(--primitive-radius-pill)]">
                                             <button
                                                 onClick={() => setContextMenuMode('bar')}
-                                                className={`px-2 py-0.5 rounded-[var(--primitive-radius-pill)] text-[9px] uppercase tracking-wider transition-colors ${contextMenuMode === 'bar' ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-secondary)]'}`}
+                                                data-state={contextMenuMode === 'bar' ? 'active' : 'inactive'}
+                                                className="ui-selectable px-2 py-0.5 rounded-[var(--primitive-radius-pill)] text-[9px] uppercase tracking-wider"
                                             >
                                                 Bar
                                             </button>
                                             <button
                                                 onClick={() => setContextMenuMode('radial')}
-                                                className={`px-2 py-0.5 rounded-[var(--primitive-radius-pill)] text-[9px] uppercase tracking-wider transition-colors ${contextMenuMode === 'radial' ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-secondary)]'}`}
+                                                data-state={contextMenuMode === 'radial' ? 'active' : 'inactive'}
+                                                className="ui-selectable px-2 py-0.5 rounded-[var(--primitive-radius-pill)] text-[9px] uppercase tracking-wider"
                                             >
                                                 Radial
                                             </button>
@@ -213,11 +299,95 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                             </section>
                         )}
 
-                        {section === 'appearance' && (
+                        {effectiveSection === 'node' && (
+                            <section className="space-y-6">
+                                <div>
+                                    <h2 className="text-[var(--semantic-color-text-primary)] text-xl font-medium">Node Context</h2>
+                                    <p className="text-[var(--semantic-color-text-secondary)] text-sm mt-1">Node-level settings and editor context behavior.</p>
+                                </div>
+
+                                {!activeNode && (
+                                    <div className="glass-panel p-6 text-sm text-[var(--semantic-color-text-muted)]">
+                                        No active node in context.
+                                    </div>
+                                )}
+
+                                {activeNode && (
+                                    <>
+                                        <div className="glass-panel p-6 space-y-4">
+                                            <div className="space-y-2">
+                                                <label className="text-xs uppercase tracking-wider text-[var(--semantic-color-text-muted)]">Node title</label>
+                                                <input
+                                                    type="text"
+                                                    defaultValue={typeof activeNode.data?.label === 'string' ? activeNode.data.label : ''}
+                                                    onBlur={(event) => saveNodeLabel(event.currentTarget.value)}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter') {
+                                                            (event.currentTarget as HTMLInputElement).blur();
+                                                        }
+                                                    }}
+                                                    className="w-full bg-transparent border-b border-[var(--semantic-color-border-default)] text-[var(--semantic-color-text-primary)] text-lg focus:outline-none focus:border-[var(--semantic-color-action-primary)] py-1"
+                                                />
+                                            </div>
+
+                                            <div className="text-xs text-[var(--semantic-color-text-muted)] break-all">
+                                                Node ID: {activeNode.id}
+                                            </div>
+
+                                            <div className="text-xs text-[var(--semantic-color-text-muted)]">
+                                                Content format: {typeof activeNode.data?.contentFormat === 'string' ? activeNode.data.contentFormat : 'legacy'}
+                                            </div>
+                                        </div>
+
+                                        <div className="glass-panel p-6 space-y-4">
+                                            <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
+                                                <span>HUD chips in Node view</span>
+                                                <TogglePill checked={showHud} onToggle={() => setShowHud(!showHud)} />
+                                            </div>
+                                            <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
+                                                <span>HUD counters in Node view</span>
+                                                <TogglePill checked={showCounters} onToggle={() => setShowCounters(!showCounters)} />
+                                            </div>
+                                            <div className="flex items-center justify-between text-sm text-[var(--semantic-color-text-secondary)]">
+                                                <span>Context menu mode</span>
+                                                <div className="flex items-center gap-1 bg-[var(--semantic-color-text-primary)]/5 p-1 rounded-[var(--primitive-radius-pill)]">
+                                                    <button
+                                                        onClick={() => setContextMenuMode('bar')}
+                                                        data-state={contextMenuMode === 'bar' ? 'active' : 'inactive'}
+                                                        className="ui-selectable px-2 py-0.5 rounded-[var(--primitive-radius-pill)] text-[9px] uppercase tracking-wider"
+                                                    >
+                                                        Bar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setContextMenuMode('radial')}
+                                                        data-state={contextMenuMode === 'radial' ? 'active' : 'inactive'}
+                                                        className="ui-selectable px-2 py-0.5 rounded-[var(--primitive-radius-pill)] text-[9px] uppercase tracking-wider"
+                                                    >
+                                                        Radial
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    exitNode();
+                                                    onClose();
+                                                }}
+                                                className="ui-selectable w-full text-left px-4 py-2.5 rounded-[var(--primitive-radius-input)] text-sm"
+                                            >
+                                                Exit to Space
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </section>
+                        )}
+
+                        {effectiveSection === 'experimental' && (
                             <AppearanceSettingsPanel />
                         )}
 
-                        {section === 'account' && (
+                        {effectiveSection === 'account' && (
                             <section className="space-y-6">
                                 <div>
                                     <h2 className="text-[var(--semantic-color-text-primary)] text-xl font-medium">Account</h2>
@@ -248,7 +418,7 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                             </section>
                         )}
 
-                        {section === 'data' && (
+                        {effectiveSection === 'data' && (
                             <section className="space-y-6">
                                 <div>
                                     <h2 className="text-[var(--semantic-color-text-primary)] text-xl font-medium">Data</h2>

@@ -165,6 +165,17 @@
   --component-button-height-sm: 32px;
   --component-button-height-lg: 40px;
 
+  /* Capsule System (unified segmented/pill controls) */
+  --component-capsule-height-compact: 32px;
+  --component-capsule-item-height-compact: 24px;
+  --component-capsule-height-default: 44px;
+  --component-capsule-item-height-default: 34px;
+  --component-capsule-pad: 4px;
+  --component-capsule-gap: 6px;
+  --component-shape-pill: var(--primitive-radius-pill);
+  --component-shape-soft: var(--primitive-radius-input);
+  --component-shape-card: var(--primitive-radius-card);
+
   /* Inputs */
   --component-input-height-default: 36px;
   --component-input-radius: var(--primitive-radius-input);
@@ -199,6 +210,14 @@
   --motion-duration-slow: 240ms;
   --motion-easing-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
   --motion-easing-decelerate: cubic-bezier(0.0, 0.0, 0.2, 1);
+  --motion-system-speed: 1;
+  --motion-system-base-ms: 220ms;
+  --motion-close-delay-ms: 220ms;
+  --motion-rail-close-delay-ms: 220ms;
+  --motion-camera-focus-ms: 704ms;
+  --motion-camera-scope-ms: 418ms;
+  --motion-camera-undo-ms: 299ms;
+  --motion-camera-fit-delay-ms: 121ms;
 
   /* Legacy Support (to be migrated) */
   --panel-padding: var(--component-panel-padding);

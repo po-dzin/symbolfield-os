@@ -8,6 +8,19 @@ import { stateEngine, type DrawerRightTab } from '../core/state/StateEngine';
 import { eventBus, EVENTS } from '../core/events/EventBus';
 import type { NodeId } from '../core/types';
 import { spaceManager } from '../core/state/SpaceManager';
+import { settingsStorage } from '../core/storage/SettingsStorage';
+import {
+    normalizeHarmonyMatrix,
+    type HarmonyAccentId,
+    type HarmonyDensity,
+    type HarmonyMatrix,
+    type HarmonyMode,
+    type HarmonyMotion,
+    type HarmonyPresetSelection,
+    type HarmonySpeed,
+    type HarmonyTexture
+} from '../core/harmony/HarmonyEngine';
+import { getSystemMotionMetrics } from '../core/ui/SystemMotion';
 
 // Matches StateEngine constants
 type AppModeType = 'deep' | 'flow' | 'luma';
@@ -19,6 +32,17 @@ interface Session {
     startTime: number | null;
     label: string | null;
 }
+
+type ThemeOptionKey =
+    | 'themePreset'
+    | 'themeAccent'
+    | 'themeDensity'
+    | 'themeMotion'
+    | 'themeSpeed'
+    | 'themeTexture'
+    | 'themeIntensity'
+    | 'themeModeSource'
+    | 'themeModeOverride';
 
 interface AppState {
     appMode: AppModeType;
@@ -52,11 +76,17 @@ interface AppState {
     layoutMode: 'overlay' | 'pinned' | 'split';
     session: Session;
 
-    // Theme State
-    themeGlass: boolean;
-    themeNoise: boolean;
-    themeAccent: string;
-    themeGlowStrength: number;
+    // Harmony Theme Matrix (constrained customization)
+    themePreset: HarmonyPresetSelection;
+    themeAccent: HarmonyAccentId;
+    themeDensity: HarmonyDensity;
+    themeMotion: HarmonyMotion;
+    themeSpeed: HarmonySpeed;
+    themeTexture: HarmonyTexture;
+    themeIntensity: number;
+    themeModeSource: 'auto' | 'manual';
+    themeModeOverride: HarmonyMode;
+    pathDisplayMode: 'full' | 'compact';
 
     // Global UI State
     accountSettingsOpen: boolean;
@@ -65,6 +95,7 @@ interface AppState {
 
 interface AppStoreState extends AppState {
     omniQuery: string;
+    stationInspectorSpaceId: string | null;
     setAppMode: (mode: AppModeType) => void;
     setViewContext: (context: ViewContextType) => void;
     setTool: (tool: ToolType) => void;
@@ -108,12 +139,37 @@ interface AppStoreState extends AppState {
     setGatewayRoute: (route: { type: 'brand'; slug: string } | { type: 'portal'; brandSlug: string; portalSlug: string } | null) => void;
 
     // Theme Actions
-    setThemeOption: (key: 'themeGlass' | 'themeNoise' | 'themeAccent' | 'themeGlowStrength', value: any) => void;
+    setThemeOption: (key: ThemeOptionKey, value: string | number) => void;
+    setPathDisplayMode: (mode: 'full' | 'compact') => void;
+    setStationInspectorSpaceId: (spaceId: string | null) => void;
 }
 
-export const useAppStore = create<AppStoreState>((set) => {
+export const useAppStore = create<AppStoreState>((set, get) => {
     // Initial Sync
     const initialState = stateEngine.getState() as unknown as AppState;
+    const persistedSettings = settingsStorage.load();
+    const initialModeSource = persistedSettings.themeModeSource === 'manual' ? 'manual' : 'auto';
+    const initialModeOverride: HarmonyMode = (
+        persistedSettings.themeModeOverride === 'deep'
+        || persistedSettings.themeModeOverride === 'flow'
+        || persistedSettings.themeModeOverride === 'luma'
+    )
+        ? persistedSettings.themeModeOverride
+        : initialState.appMode;
+    const initialHarmonyMode = initialModeSource === 'auto' ? initialState.appMode : initialModeOverride;
+    const initialPathDisplayMode = persistedSettings.pathDisplayMode === 'compact' ? 'compact' : 'full';
+    const initialHarmonyInput: Partial<HarmonyMatrix> = {
+        mode: initialHarmonyMode
+    };
+    if (persistedSettings.themePreset) initialHarmonyInput.preset = persistedSettings.themePreset;
+    if (persistedSettings.themeAccent) initialHarmonyInput.accent = persistedSettings.themeAccent;
+    if (persistedSettings.themeDensity) initialHarmonyInput.density = persistedSettings.themeDensity;
+    if (persistedSettings.themeMotion) initialHarmonyInput.motion = persistedSettings.themeMotion;
+    if (persistedSettings.themeSpeed) initialHarmonyInput.speed = persistedSettings.themeSpeed;
+    if (persistedSettings.themeTexture) initialHarmonyInput.texture = persistedSettings.themeTexture;
+    if (typeof persistedSettings.themeIntensity === 'number') initialHarmonyInput.intensity = persistedSettings.themeIntensity;
+
+    const initialHarmony = normalizeHarmonyMatrix(initialHarmonyInput, initialState.appMode);
 
     // Subscribe to changes
     const sync = () =>
@@ -121,6 +177,15 @@ export const useAppStore = create<AppStoreState>((set) => {
             ...prev,
             ...(stateEngine.getState() as unknown as AppState)
         }));
+
+    const drawerCloseTimers: Record<'left' | 'right', number | null> = { left: null, right: null };
+    const clearDrawerCloseTimer = (side: 'left' | 'right') => {
+        const timer = drawerCloseTimers[side];
+        if (timer !== null) {
+            clearTimeout(timer);
+            drawerCloseTimers[side] = null;
+        }
+    };
 
     eventBus.on(EVENTS.TOOL_CHANGED, sync);
     eventBus.on(EVENTS.NODE_ENTERED, sync);
@@ -149,22 +214,85 @@ export const useAppStore = create<AppStoreState>((set) => {
     return {
         ...initialState,
         omniQuery: '',
+        stationInspectorSpaceId: null,
         gatewayRoute: { type: 'brand', slug: 'symbolfield' }, // Default route
 
-        // Theme Defaults
-        themeGlass: true,
-        themeNoise: true,
-        themeAccent: 'taupe', // "White-grey" default
-        themeGlowStrength: 0.5,
+        // Harmony Defaults (guardrailed custom matrix)
+        themePreset: initialHarmony.preset,
+        themeAccent: initialHarmony.accent,
+        themeDensity: initialHarmony.density,
+        themeMotion: initialHarmony.motion,
+        themeSpeed: initialHarmony.speed,
+        themeTexture: initialHarmony.texture,
+        themeIntensity: initialHarmony.intensity,
+        themeModeSource: initialModeSource,
+        themeModeOverride: initialModeOverride,
+        pathDisplayMode: initialPathDisplayMode,
 
         accountSettingsOpen: false,
         setAccountSettingsOpen: (open) => set({ accountSettingsOpen: open }),
 
         setThemeOption: (key, value) => {
-            set((prev) => ({ ...prev, [key]: value }));
-            // Side effect: update document CSS variables if needed, 
-            // but we will handle this in Shell for reactivity
+            const prev = get();
+            const asMode = (candidate: unknown): HarmonyMode => (
+                candidate === 'deep' || candidate === 'flow' || candidate === 'luma'
+            )
+                ? candidate
+                : prev.themeModeOverride;
+
+            let nextModeSource: 'auto' | 'manual' = prev.themeModeSource;
+            if (key === 'themeModeSource' && (value === 'auto' || value === 'manual')) {
+                nextModeSource = value;
+            }
+            if (key === 'themeModeOverride') {
+                nextModeSource = 'manual';
+            }
+
+            const nextModeOverride: HarmonyMode = key === 'themeModeOverride'
+                ? asMode(value)
+                : prev.themeModeOverride;
+            const effectiveMode: HarmonyMode = nextModeSource === 'auto' ? prev.appMode : nextModeOverride;
+
+            const next = normalizeHarmonyMatrix({
+                mode: effectiveMode,
+                preset: (key === 'themePreset' ? value : prev.themePreset) as HarmonyPresetSelection,
+                accent: (key === 'themeAccent' ? value : prev.themeAccent) as HarmonyAccentId,
+                density: (key === 'themeDensity' ? value : prev.themeDensity) as HarmonyDensity,
+                motion: (key === 'themeMotion' ? value : prev.themeMotion) as HarmonyMotion,
+                speed: (key === 'themeSpeed' ? value : prev.themeSpeed) as HarmonySpeed,
+                texture: (key === 'themeTexture' ? value : prev.themeTexture) as HarmonyTexture,
+                intensity: key === 'themeIntensity' ? Number(value) : prev.themeIntensity
+            }, effectiveMode);
+
+            set({
+                themePreset: next.preset,
+                themeAccent: next.accent,
+                themeDensity: next.density,
+                themeMotion: next.motion,
+                themeSpeed: next.speed,
+                themeTexture: next.texture,
+                themeIntensity: next.intensity,
+                themeModeSource: nextModeSource,
+                themeModeOverride: nextModeOverride
+            });
+            settingsStorage.save({
+                themePreset: next.preset,
+                themeAccent: next.accent,
+                themeDensity: next.density,
+                themeMotion: next.motion,
+                themeSpeed: next.speed,
+                themeTexture: next.texture,
+                themeIntensity: next.intensity,
+                themeModeSource: nextModeSource,
+                themeModeOverride: nextModeOverride
+            });
         },
+        setPathDisplayMode: (mode) => {
+            const nextMode = mode === 'compact' ? 'compact' : 'full';
+            set({ pathDisplayMode: nextMode });
+            settingsStorage.save({ pathDisplayMode: nextMode });
+        },
+        setStationInspectorSpaceId: (spaceId) => set({ stationInspectorSpaceId: spaceId }),
 
 
         // Actions are just proxies to Engine
@@ -287,12 +415,38 @@ export const useAppStore = create<AppStoreState>((set) => {
             set({ omniQuery: query });
         },
         setDrawerOpen: (side: 'left' | 'right', open: boolean) => {
-            stateEngine.setDrawerOpen(side, open);
-            sync();
+            if (open) {
+                clearDrawerCloseTimer(side);
+                stateEngine.setDrawerOpen(side, true);
+                sync();
+                return;
+            }
+
+            const current = get();
+            const alreadyClosed = side === 'left' ? !current.drawerLeftOpen : !current.drawerRightOpen;
+            if (alreadyClosed) {
+                clearDrawerCloseTimer(side);
+                return;
+            }
+
+            const closeDelayMs = getSystemMotionMetrics(current.themeMotion, current.themeSpeed).drawerCloseDelayMs;
+            if (typeof window === 'undefined' || closeDelayMs <= 0) {
+                stateEngine.setDrawerOpen(side, false);
+                sync();
+                return;
+            }
+
+            clearDrawerCloseTimer(side);
+            drawerCloseTimers[side] = window.setTimeout(() => {
+                drawerCloseTimers[side] = null;
+                stateEngine.setDrawerOpen(side, false);
+                sync();
+            }, closeDelayMs);
         },
         toggleDrawerOpen: (side: 'left' | 'right') => {
-            stateEngine.toggleDrawerOpen(side);
-            sync();
+            const current = get();
+            const isOpen = side === 'left' ? current.drawerLeftOpen : current.drawerRightOpen;
+            current.setDrawerOpen(side, !isOpen);
         },
         setDrawerPinned: (side: 'left' | 'right', pinned: boolean) => {
             stateEngine.setDrawerPinned(side, pinned);
@@ -311,6 +465,7 @@ export const useAppStore = create<AppStoreState>((set) => {
             sync();
         },
         setDrawerRightTab: (tab: DrawerRightTab | null) => {
+            clearDrawerCloseTimer('right');
             stateEngine.setDrawerRightTab(tab);
             sync();
         },
