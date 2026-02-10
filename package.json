@@ -14,8 +14,8 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:e2e": "playwright test",
-    "test:smoke": "playwright test tests/smoke.spec.js",
-    "test:hotkeys": "playwright test tests/hotkeys.spec.js",
+    "test:smoke": "playwright test tests/e2e/smoke.spec.js",
+    "test:hotkeys": "playwright test tests/e2e/hotkeys.spec.js",
     "typecheck": "tsc --noEmit",
     "postinstall": "node ./scripts/postinstall.js"
   },

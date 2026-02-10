@@ -23,6 +23,8 @@ vitest.config.ts
 /archive/
 /symbolfield-crew/
 /e2e/
+/tests/
+**/__tests__/
 /.agent/
 
 # Env files
