@@ -21,10 +21,11 @@ import {
     type HarmonyTexture
 } from '../core/harmony/HarmonyEngine';
 import { getSystemMotionMetrics } from '../core/ui/SystemMotion';
+import type { BreadcrumbLens, NavigationFlowMode } from '../core/navigation/PathProjection';
 
 // Matches StateEngine constants
 type AppModeType = 'deep' | 'flow' | 'luma';
-type ViewContextType = 'home' | 'space' | 'node' | 'now' | 'gateway';
+type ViewContextType = 'home' | 'space' | 'cluster' | 'node' | 'now' | 'gateway';
 type ToolType = 'pointer' | 'link' | 'area';
 
 interface Session {
@@ -87,6 +88,8 @@ interface AppState {
     themeModeSource: 'auto' | 'manual';
     themeModeOverride: HarmonyMode;
     pathDisplayMode: 'full' | 'compact';
+    breadcrumbLens: BreadcrumbLens;
+    navigationFlowMode: NavigationFlowMode;
 
     // Global UI State
     accountSettingsOpen: boolean;
@@ -100,7 +103,9 @@ interface AppStoreState extends AppState {
     setViewContext: (context: ViewContextType) => void;
     setTool: (tool: ToolType) => void;
     setSpace: (spaceId: string) => void;
-    setFieldScope: (hubId: NodeId | null) => void;
+    setFieldScope: (clusterId: NodeId | null) => void;
+    enterClusterScope: (clusterId: NodeId) => void;
+    toggleClusterScope: (clusterId: NodeId) => void;
     enterNode: (nodeId: NodeId) => void;
     exitNode: () => void;
     enterNow: (nodeId: NodeId) => void;
@@ -141,6 +146,8 @@ interface AppStoreState extends AppState {
     // Theme Actions
     setThemeOption: (key: ThemeOptionKey, value: string | number) => void;
     setPathDisplayMode: (mode: 'full' | 'compact') => void;
+    setBreadcrumbLens: (lens: BreadcrumbLens) => void;
+    setNavigationFlowMode: (mode: NavigationFlowMode) => void;
     setStationInspectorSpaceId: (spaceId: string | null) => void;
 }
 
@@ -158,6 +165,21 @@ export const useAppStore = create<AppStoreState>((set, get) => {
         : initialState.appMode;
     const initialHarmonyMode = initialModeSource === 'auto' ? initialState.appMode : initialModeOverride;
     const initialPathDisplayMode = persistedSettings.pathDisplayMode === 'compact' ? 'compact' : 'full';
+    const initialBreadcrumbLens: BreadcrumbLens = (
+        persistedSettings.breadcrumbLens === 'full'
+        || persistedSettings.breadcrumbLens === 'external'
+        || persistedSettings.breadcrumbLens === 'internal'
+        || persistedSettings.breadcrumbLens === 'focus'
+    )
+        ? persistedSettings.breadcrumbLens
+        : 'focus';
+    const initialNavigationFlowMode: NavigationFlowMode = (
+        persistedSettings.navigationFlowMode === 'build'
+        || persistedSettings.navigationFlowMode === 'explore'
+        || persistedSettings.navigationFlowMode === 'auto'
+    )
+        ? persistedSettings.navigationFlowMode
+        : 'auto';
     const initialHarmonyInput: Partial<HarmonyMatrix> = {
         mode: initialHarmonyMode
     };
@@ -228,6 +250,8 @@ export const useAppStore = create<AppStoreState>((set, get) => {
         themeModeSource: initialModeSource,
         themeModeOverride: initialModeOverride,
         pathDisplayMode: initialPathDisplayMode,
+        breadcrumbLens: initialBreadcrumbLens,
+        navigationFlowMode: initialNavigationFlowMode,
 
         accountSettingsOpen: false,
         setAccountSettingsOpen: (open) => set({ accountSettingsOpen: open }),
@@ -292,6 +316,27 @@ export const useAppStore = create<AppStoreState>((set, get) => {
             set({ pathDisplayMode: nextMode });
             settingsStorage.save({ pathDisplayMode: nextMode });
         },
+        setBreadcrumbLens: (lens) => {
+            const nextLens: BreadcrumbLens = (
+                lens === 'full'
+                || lens === 'external'
+                || lens === 'internal'
+                || lens === 'focus'
+            )
+                ? lens
+                : 'focus';
+            set({ breadcrumbLens: nextLens });
+            settingsStorage.save({ breadcrumbLens: nextLens });
+        },
+        setNavigationFlowMode: (mode) => {
+            const nextMode: NavigationFlowMode = (
+                mode === 'build' || mode === 'explore' || mode === 'auto'
+            )
+                ? mode
+                : 'auto';
+            set({ navigationFlowMode: nextMode });
+            settingsStorage.save({ navigationFlowMode: nextMode });
+        },
         setStationInspectorSpaceId: (spaceId) => set({ stationInspectorSpaceId: spaceId }),
 
 
@@ -311,8 +356,16 @@ export const useAppStore = create<AppStoreState>((set, get) => {
             stateEngine.setSpace(spaceId);
             sync();
         },
-        setFieldScope: (hubId: NodeId | null) => {
-            stateEngine.setFieldScope(hubId);
+        setFieldScope: (clusterId: NodeId | null) => {
+            stateEngine.setFieldScope(clusterId);
+            sync();
+        },
+        enterClusterScope: (clusterId: NodeId) => {
+            stateEngine.enterClusterScope(clusterId);
+            sync();
+        },
+        toggleClusterScope: (clusterId: NodeId) => {
+            stateEngine.toggleClusterScope(clusterId);
             sync();
         },
         enterNode: (nodeId: NodeId) => {

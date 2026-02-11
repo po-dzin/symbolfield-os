@@ -43,6 +43,10 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
     const setShowPlaygroundOnStation = useAppStore(state => state.setShowPlaygroundOnStation);
     const pathDisplayMode = useAppStore(state => state.pathDisplayMode);
     const setPathDisplayMode = useAppStore(state => state.setPathDisplayMode);
+    const breadcrumbLens = useAppStore(state => state.breadcrumbLens);
+    const setBreadcrumbLens = useAppStore(state => state.setBreadcrumbLens);
+    const navigationFlowMode = useAppStore(state => state.navigationFlowMode);
+    const setNavigationFlowMode = useAppStore(state => state.setNavigationFlowMode);
 
     // Space/View Settings
     const showGrid = useAppStore(state => state.showGrid);
@@ -222,6 +226,72 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                                                 className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
                                             >
                                                 Level Capsule
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="text-sm text-[var(--semantic-color-text-secondary)]">Path lens</div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setBreadcrumbLens('focus')}
+                                                data-state={breadcrumbLens === 'focus' ? 'active' : 'inactive'}
+                                                className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                            >
+                                                Focus
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setBreadcrumbLens('internal')}
+                                                data-state={breadcrumbLens === 'internal' ? 'active' : 'inactive'}
+                                                className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                            >
+                                                Internal
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setBreadcrumbLens('external')}
+                                                data-state={breadcrumbLens === 'external' ? 'active' : 'inactive'}
+                                                className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                            >
+                                                External
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setBreadcrumbLens('full')}
+                                                data-state={breadcrumbLens === 'full' ? 'active' : 'inactive'}
+                                                className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                            >
+                                                Full Chain
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="text-sm text-[var(--semantic-color-text-secondary)]">Flow mode</div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setNavigationFlowMode('auto')}
+                                                data-state={navigationFlowMode === 'auto' ? 'active' : 'inactive'}
+                                                className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                            >
+                                                Auto
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setNavigationFlowMode('build')}
+                                                data-state={navigationFlowMode === 'build' ? 'active' : 'inactive'}
+                                                className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                            >
+                                                Build
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setNavigationFlowMode('explore')}
+                                                data-state={navigationFlowMode === 'explore' ? 'active' : 'inactive'}
+                                                className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                            >
+                                                Explore
                                             </button>
                                         </div>
                                     </div>

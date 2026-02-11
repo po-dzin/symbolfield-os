@@ -10,7 +10,7 @@ import { spaceManager } from '../../core/state/SpaceManager';
 import { eventBus } from '../../core/events/EventBus';
 import { CapsuleTabs } from '../Common';
 
-type OmniScope = 'station' | 'space' | 'note';
+type OmniScope = 'all' | 'atlas' | 'portal' | 'station' | 'space' | 'cluster' | 'node' | 'external';
 
 interface OmniCommand {
     id: string;
@@ -33,26 +33,40 @@ const OmniOverlay: React.FC = () => {
     const omniQuery = useAppStore(state => state.omniQuery);
     const setOmniQuery = useAppStore(state => state.setOmniQuery);
 
+    const resolveScopeFromView = (ctx: string): OmniScope => {
+        if (ctx === 'gateway') return 'atlas';
+        if (ctx === 'home') return 'station';
+        if (ctx === 'cluster') return 'cluster';
+        if (ctx === 'node') return 'node';
+        if (ctx === 'space') return 'space';
+        return 'all';
+    };
+
     // Local State
     const [scope, setScope] = useState<OmniScope>(
-        viewContext === 'home' ? 'station' : viewContext === 'node' ? 'note' : 'space'
+        resolveScopeFromView(viewContext)
     );
     const [selectedIndex, setSelectedIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const cycleScope = (direction: 1 | -1 = 1) => {
         setScope(prev => {
-            const ids: OmniScope[] = ['station', 'space', 'note'];
+            const ids: OmniScope[] = ['all', 'atlas', 'portal', 'station', 'space', 'cluster', 'node', 'external'];
             const index = Math.max(0, ids.indexOf(prev));
             const next = (index + direction + ids.length) % ids.length;
-            return ids[next] ?? 'station';
+            return ids[next] ?? 'all';
         });
     };
 
     const scopeItems = useMemo(() => ([
+        { id: 'all', label: 'All' },
+        { id: 'atlas', label: 'Atlas' },
+        { id: 'portal', label: 'Portal' },
         { id: 'station', label: 'Station' },
         { id: 'space', label: 'Space' },
-        { id: 'note', label: 'Node' }
+        { id: 'cluster', label: 'Cluster' },
+        { id: 'node', label: 'Node' },
+        { id: 'external', label: 'Links' }
     ]), []);
 
     // Focus input on open
@@ -108,6 +122,14 @@ const OmniOverlay: React.FC = () => {
             keywords: ['link', 'connect', 'tool'],
             scope: 'space',
             action: () => setTool(activeTool === 'link' ? 'pointer' : 'link')
+        },
+        {
+            id: 'open-atlas',
+            label: 'Open Atlas',
+            hint: 'Jump to platform brand graph',
+            keywords: ['atlas', 'symbolverse', 'platform'],
+            scope: 'atlas',
+            action: () => useAppStore.getState().setViewContext('gateway')
         }
     ], [activeTool, toggleSettings, setTool, viewContext]);
 
@@ -119,13 +141,22 @@ const OmniOverlay: React.FC = () => {
         const cleanQuery = (isCommandMode || isTagMode) ? query.slice(1).trim() : query;
 
         // If empty, show recent/suggested based on scope (mock)
+        const matchesScope = (commandScope: OmniCommand['scope']): boolean => {
+            if (commandScope === 'any') return true;
+            if (scope === 'all') return true;
+            if (scope === 'external') {
+                return commandScope === 'external' || commandScope === 'atlas' || commandScope === 'portal';
+            }
+            return commandScope === scope;
+        };
+
         if (!cleanQuery && !isCommandMode && !isTagMode) {
-            return commands.filter(c => c.scope === 'any' || c.scope === scope);
+            return commands.filter(c => matchesScope(c.scope));
         }
 
         return commands.filter(cmd => {
             // Scope match (loose)
-            if (cmd.scope !== 'any' && cmd.scope !== scope) return false;
+            if (!matchesScope(cmd.scope)) return false;
 
             // Content match
             const content = `${cmd.label} ${cmd.hint} ${cmd.keywords?.join(' ')}`.toLowerCase();
@@ -175,13 +206,21 @@ const OmniOverlay: React.FC = () => {
                             activeId={scope}
                             onSelect={(id) => setScope(id as OmniScope)}
                             onCycle={cycleScope}
-                            title="Current scope (Tab to switch)"
+                            title="Current scope (Tab to switch, All = all levels)"
                         />
 
                         <input
                             ref={inputRef}
                             className="flex-1 bg-transparent border-none outline-none text-[var(--semantic-color-text-primary)] placeholder-[var(--semantic-color-text-muted)] text-lg"
-                            placeholder={scope === 'station' ? "Search Station..." : "Type /cmd or search..."}
+                            placeholder={
+                                scope === 'all'
+                                    ? 'Search all levels...'
+                                    : scope === 'station'
+                                        ? 'Search Station...'
+                                        : scope === 'atlas' || scope === 'portal' || scope === 'external'
+                                            ? 'Search Atlas / Portals...'
+                                            : 'Type /cmd or search...'
+                            }
                             value={omniQuery}
                             onChange={e => {
                                 setOmniQuery(e.target.value);
@@ -237,6 +276,7 @@ const OmniOverlay: React.FC = () => {
                     {/* Footer: Hints */}
                     <div className="bg-[var(--semantic-color-bg-app)]/50 px-4 py-2 text-[10px] text-[var(--semantic-color-text-muted)] border-t border-[var(--semantic-color-border-default)] flex items-center gap-4">
                         <span><strong className="text-[var(--semantic-color-text-secondary)]">Tab</strong> to switch scope</span>
+                        <span><strong className="text-[var(--semantic-color-text-secondary)]">All</strong> includes every graph level</span>
                         <span><strong className="text-[var(--semantic-color-text-secondary)]">/</strong> for commands</span>
                         <span><strong className="text-[var(--semantic-color-text-secondary)]">#</strong> for tags</span>
                     </div>

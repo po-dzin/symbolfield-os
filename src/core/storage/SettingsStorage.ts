@@ -23,6 +23,8 @@ export type SettingsSnapshot = {
     themeModeSource?: 'auto' | 'manual';
     themeModeOverride?: 'deep' | 'flow' | 'luma';
     pathDisplayMode?: 'full' | 'compact';
+    breadcrumbLens?: 'full' | 'external' | 'internal' | 'focus';
+    navigationFlowMode?: 'auto' | 'build' | 'explore';
 };
 
 export interface SettingsStorage {
@@ -89,6 +91,17 @@ const normalizeSettingsSnapshot = (input: unknown): SettingsSnapshot => {
     }
     if (raw.pathDisplayMode === 'full' || raw.pathDisplayMode === 'compact') {
         next.pathDisplayMode = raw.pathDisplayMode;
+    }
+    if (
+        raw.breadcrumbLens === 'full'
+        || raw.breadcrumbLens === 'external'
+        || raw.breadcrumbLens === 'internal'
+        || raw.breadcrumbLens === 'focus'
+    ) {
+        next.breadcrumbLens = raw.breadcrumbLens;
+    }
+    if (raw.navigationFlowMode === 'auto' || raw.navigationFlowMode === 'build' || raw.navigationFlowMode === 'explore') {
+        next.navigationFlowMode = raw.navigationFlowMode;
     }
 
     return next;

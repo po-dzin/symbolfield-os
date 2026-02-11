@@ -3,33 +3,36 @@ import { useAppStore } from '../../store/useAppStore';
 import { useGraphStore } from '../../store/useGraphStore';
 import { spaceManager } from '../../core/state/SpaceManager';
 import CapsuleTabs, { type CapsuleTabItem } from '../Common/CapsuleTabs';
-
-type ScopeId = 'brand' | 'home' | 'space' | 'node';
+import {
+    DEFAULT_ATLAS_LABEL,
+    DEFAULT_PORTAL_LABEL,
+    resolvePathProjection,
+    toDisplayLabel,
+    type PathSegmentId
+} from '../../core/navigation/PathProjection';
 
 const DEFAULT_BRAND_SLUG = 'symbolfield';
-
-const toDisplayLabel = (value: string): string => {
-    const normalized = value.trim();
-    if (!normalized) return '';
-    return normalized
-        .split(/[-_]/g)
-        .map(part => part ? part.charAt(0).toUpperCase() + part.slice(1) : '')
-        .join(' ');
-};
 
 const ScopeTabs: React.FC = () => {
     const viewContext = useAppStore(state => state.viewContext);
     const setViewContext = useAppStore(state => state.setViewContext);
     const currentSpaceId = useAppStore(state => state.currentSpaceId);
+    const fieldScopeId = useAppStore(state => state.fieldScopeId);
     const activeScope = useAppStore(state => state.activeScope);
     const gatewayRoute = useAppStore(state => state.gatewayRoute);
     const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
     const pathDisplayMode = useAppStore(state => state.pathDisplayMode);
+    const breadcrumbLens = useAppStore(state => state.breadcrumbLens);
+    const navigationFlowMode = useAppStore(state => state.navigationFlowMode);
 
     const nodes = useGraphStore(state => state.nodes);
     const activeNode = useMemo(
         () => nodes.find(node => node.id === activeScope) ?? null,
         [nodes, activeScope]
+    );
+    const activeCluster = useMemo(
+        () => nodes.find(node => node.id === fieldScopeId && node.type === 'cluster') ?? null,
+        [nodes, fieldScopeId]
     );
 
     const spaceLabel = useMemo(() => {
@@ -43,64 +46,121 @@ const ScopeTabs: React.FC = () => {
         return raw || `Node ${String(activeScope).slice(0, 6)}`;
     }, [activeNode, activeScope]);
 
-    const brandLabel = useMemo(() => {
-        if (gatewayRoute?.type === 'portal') return toDisplayLabel(gatewayRoute.brandSlug) || 'SymbolField';
-        if (gatewayRoute?.type === 'brand') return toDisplayLabel(gatewayRoute.slug) || 'SymbolField';
-        return 'SymbolField';
+    const clusterLabel = useMemo(() => {
+        if (!fieldScopeId) return 'Cluster';
+        const raw = typeof activeCluster?.data?.label === 'string' ? activeCluster.data.label.trim() : '';
+        return raw || `Cluster ${String(fieldScopeId).slice(0, 6)}`;
+    }, [activeCluster, fieldScopeId]);
+
+    const portalLabel = useMemo(() => {
+        if (gatewayRoute?.type === 'portal') {
+            const brand = toDisplayLabel(gatewayRoute.brandSlug) || 'Brand';
+            const portal = toDisplayLabel(gatewayRoute.portalSlug);
+            return portal ? `${brand} / ${portal}` : brand;
+        }
+        if (gatewayRoute?.type === 'brand') {
+            return toDisplayLabel(gatewayRoute.slug) || DEFAULT_PORTAL_LABEL;
+        }
+        return DEFAULT_PORTAL_LABEL;
     }, [gatewayRoute]);
 
-    const currentId: ScopeId = viewContext === 'gateway'
-        ? 'brand'
-        : viewContext === 'node'
-            ? 'node'
-            : viewContext === 'space'
-                ? 'space'
-                : 'home';
+    const projection = useMemo(
+        () =>
+            resolvePathProjection({
+                viewContext,
+                gatewayRoute,
+                currentSpaceId: currentSpaceId || null,
+                fieldScopeId,
+                activeScope,
+                navigationFlowMode,
+                breadcrumbLens,
+                pathDisplayMode,
+                labels: {
+                    atlas: DEFAULT_ATLAS_LABEL,
+                    portal: portalLabel,
+                    station: 'Station',
+                    space: spaceLabel,
+                    cluster: clusterLabel,
+                    node: nodeLabel
+                }
+            }),
+        [
+            viewContext,
+            gatewayRoute,
+            currentSpaceId,
+            fieldScopeId,
+            activeScope,
+            navigationFlowMode,
+            breadcrumbLens,
+            pathDisplayMode,
+            portalLabel,
+            spaceLabel,
+            clusterLabel,
+            nodeLabel
+        ]
+    );
 
-    const segments = useMemo<Array<CapsuleTabItem & { onSelect: () => void }>>(() => ([
-        {
-            id: 'brand',
-            label: brandLabel,
-            enabled: true,
-            onSelect: () => {
-                const slug = gatewayRoute?.type === 'portal'
-                    ? gatewayRoute.brandSlug
-                    : gatewayRoute?.type === 'brand'
-                        ? gatewayRoute.slug
-                        : DEFAULT_BRAND_SLUG;
-                setGatewayRoute({ type: 'brand', slug });
-                setViewContext('gateway');
-            }
-        },
-        {
-            id: 'home',
-            label: 'Station',
-            enabled: true,
-            onSelect: () => setViewContext('home')
-        },
-        {
-            id: 'space',
-            label: spaceLabel,
-            enabled: Boolean(currentSpaceId),
-            onSelect: () => {
-                if (!currentSpaceId) return;
-                setViewContext('space');
-            }
-        },
-        {
-            id: 'node',
-            label: nodeLabel,
-            enabled: Boolean(activeScope),
-            onSelect: () => {
-                if (!activeScope) return;
-                setViewContext('node');
-            }
+    const goAtlas = () => {
+        const slug = gatewayRoute?.type === 'portal'
+            ? gatewayRoute.brandSlug
+            : gatewayRoute?.type === 'brand'
+                ? gatewayRoute.slug
+                : DEFAULT_BRAND_SLUG;
+        setGatewayRoute({ type: 'brand', slug });
+        setViewContext('gateway');
+    };
+
+    const goPortal = () => {
+        if (gatewayRoute?.type === 'portal') {
+            setGatewayRoute({
+                type: 'portal',
+                brandSlug: gatewayRoute.brandSlug,
+                portalSlug: gatewayRoute.portalSlug
+            });
+            setViewContext('gateway');
+            return;
         }
-    ]), [brandLabel, gatewayRoute, setGatewayRoute, setViewContext, spaceLabel, currentSpaceId, nodeLabel, activeScope]);
+        const slug = gatewayRoute?.type === 'brand' ? gatewayRoute.slug : DEFAULT_BRAND_SLUG;
+        setGatewayRoute({ type: 'brand', slug });
+        setViewContext('gateway');
+    };
+
+    const segmentActions: Record<PathSegmentId, () => void> = {
+        atlas: goAtlas,
+        portal: goPortal,
+        station: () => setViewContext('home'),
+        space: () => {
+            if (!currentSpaceId) return;
+            setViewContext('space');
+        },
+        cluster: () => {
+            if (!fieldScopeId) return;
+            setViewContext('cluster');
+        },
+        node: () => {
+            if (!activeScope) return;
+            setViewContext('node');
+        }
+    };
+
+    const segmentEnabled = (id: PathSegmentId): boolean => {
+        if (id === 'space') return Boolean(currentSpaceId);
+        if (id === 'cluster') return Boolean(fieldScopeId);
+        if (id === 'node') return Boolean(activeScope);
+        return true;
+    };
+
+    const segments: Array<CapsuleTabItem & { onSelect: () => void }> = projection.segments.map(segment => ({
+        id: segment.id,
+        label: segment.label,
+        enabled: segment.enabled && segmentEnabled(segment.id),
+        onSelect: segmentActions[segment.id]
+    }));
 
     const cycleToNextLevel = (direction: 1 | -1) => {
-        const ids: ScopeId[] = ['brand', 'home', 'space', 'node'];
-        const currentIndex = Math.max(0, ids.indexOf(currentId));
+        if (!segments.length) return;
+        const ids = segments.map(segment => segment.id as PathSegmentId);
+        const currentIndex = Math.max(0, ids.indexOf(projection.activeId));
         const step = direction === -1 ? -1 : 1;
         for (let offset = 1; offset <= ids.length; offset += 1) {
             const nextIndex = (currentIndex + (offset * step) + ids.length) % ids.length;
@@ -114,12 +174,12 @@ const ScopeTabs: React.FC = () => {
     };
 
     return (
-        <div className="ml-3">
+        <div className="ml-3 min-w-0">
             <CapsuleTabs
                 items={segments}
-                activeId={currentId}
+                activeId={projection.activeId}
                 onSelect={(id) => {
-                    if (pathDisplayMode === 'compact') {
+                    if (projection.collapsed) {
                         cycleToNextLevel(1);
                         return;
                     }
@@ -129,10 +189,10 @@ const ScopeTabs: React.FC = () => {
                     }
                 }}
                 onCycle={cycleToNextLevel}
-                collapsed={pathDisplayMode === 'compact'}
-                title={pathDisplayMode === 'compact'
+                collapsed={projection.collapsed}
+                title={projection.collapsed
                     ? 'Compact path: click or Tab to move to next level'
-                    : 'Path: full breadcrumb (Tab cycles levels)'}
+                    : `Path lens: ${breadcrumbLens}, flow: ${projection.effectiveFlow} (Tab cycles levels)`}
                 size="sm"
             />
         </div>

@@ -158,7 +158,26 @@ export type ActiveTab = 'canvas' | 'settings' | 'debug'
 // Graph Addressing (Navigation)
 // =============================================================================
 
-export type GraphAddressTargetMode = 'field' | 'node' | 'now'
+export type GraphViewLevel = 'atlas' | 'portal' | 'station' | 'space' | 'cluster' | 'node';
+export type GraphAddressLod = 1 | 2 | 3;
+
+/**
+ * Fractal graph address v2.
+ * Keeps platform/external and internal graph levels in one contract.
+ */
+export interface GraphAddressV2 {
+    atlasId: string;
+    brandId?: string;
+    portalPageId?: string;
+    stationId?: string;
+    spaceId?: string;
+    clusterId?: NodeId;
+    nodeId?: NodeId;
+    view: GraphViewLevel;
+    lod: GraphAddressLod;
+}
+
+export type GraphAddressTargetMode = 'field' | 'cluster' | 'node' | 'now'
 
 export interface GraphAddressScope {
     clusterId?: NodeId
