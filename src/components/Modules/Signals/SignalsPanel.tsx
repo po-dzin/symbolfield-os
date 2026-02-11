@@ -27,6 +27,7 @@ const SignalsPanel = () => {
     const graphEdges = useGraphStore(state => state.edges);
     const spaces = spaceManager.getSpaces();
     const isStationSummary = viewContext === 'home';
+    const isFieldSummary = viewContext === 'space' || viewContext === 'cluster';
 
     const aggregateMetrics = React.useMemo(() => {
         const totals = spaces.reduce((acc, space) => {
@@ -72,7 +73,7 @@ const SignalsPanel = () => {
     const primarySelectedNodeId = selectedNodeIds[selectedNodeIds.length - 1] ?? null;
 
     const nodeWeightMetrics = React.useMemo(() => {
-        if (viewContext !== 'space') return null;
+        if (!isFieldSummary) return null;
         if (!primarySelectedNodeId) return null;
         if (!graphNodes.length) return null;
 
@@ -110,7 +111,7 @@ const SignalsPanel = () => {
             sharePct,
             degree
         };
-    }, [viewContext, primarySelectedNodeId, graphNodes, graphEdges]);
+    }, [isFieldSummary, primarySelectedNodeId, graphNodes, graphEdges]);
 
     return (
         <div className="h-full flex flex-col gap-6 p-[var(--component-panel-padding)] w-full relative">
@@ -139,7 +140,7 @@ const SignalsPanel = () => {
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-medium text-[var(--semantic-color-text-primary)]">Node Weight</span>
                         <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-muted)]">
-                            {viewContext === 'space' ? 'Space Level' : 'Station Level'}
+                            {isFieldSummary ? 'Space Level' : 'Station Level'}
                         </span>
                     </div>
                     {nodeWeightMetrics ? (

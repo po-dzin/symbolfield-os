@@ -7,7 +7,9 @@ import { spaceManager } from '../../core/state/SpaceManager';
 const BreadcrumbCapsule: React.FC = () => {
     const viewContext = useAppStore(state => state.viewContext);
     const activeScope = useAppStore(state => state.activeScope);
+    const fieldScopeId = useAppStore(state => state.fieldScopeId);
     const exitNode = useAppStore(state => state.exitNode);
+    const setViewContext = useAppStore(state => state.setViewContext);
     const nodes = useGraphStore(state => state.nodes);
 
     const currentSpaceId = useAppStore(state => state.currentSpaceId);
@@ -15,7 +17,7 @@ const BreadcrumbCapsule: React.FC = () => {
     // Helper to get node label
     const getNodeLabel = (id: string | null) => {
         if (!id) return null;
-        const node = nodes.find(n => n.id === activeScope);
+        const node = nodes.find(n => n.id === id);
         return (typeof node?.data?.label === 'string' ? node.data.label : null) || id.slice(0, 8);
     };
 
@@ -35,6 +37,13 @@ const BreadcrumbCapsule: React.FC = () => {
             // Space view: Just show Space name (non-clickable)
             return [
                 { label: getSpaceLabel(), onClick: null }
+            ];
+        }
+
+        if (viewContext === 'cluster') {
+            return [
+                { label: getSpaceLabel(), onClick: () => setViewContext('space') },
+                { label: getNodeLabel(fieldScopeId) || 'Cluster', onClick: null }
             ];
         }
 

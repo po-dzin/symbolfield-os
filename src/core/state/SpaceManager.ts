@@ -122,7 +122,7 @@ class SpaceManager {
         eventBus.on(EVENTS.NODE_DELETED, () => this.scheduleSave());
         eventBus.on(EVENTS.LINK_CREATED, () => this.scheduleSave());
         eventBus.on(EVENTS.LINK_DELETED, () => this.scheduleSave());
-        eventBus.on(EVENTS.HUB_CREATED, () => this.scheduleSave());
+        eventBus.on(EVENTS.CLUSTER_CREATED, () => this.scheduleSave());
         eventBus.on(EVENTS.GRAPH_CLEARED, () => this.scheduleSave());
         eventBus.on('UI_INTERACTION_START', (e) => {
             if (e.payload?.type === 'LINK_DRAG') {

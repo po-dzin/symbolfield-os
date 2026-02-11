@@ -16,7 +16,7 @@ import InteractionLayer from './InteractionLayer';
 import { eventBus, EVENTS, type BusEvent } from '../../core/events/EventBus';
 import { graphEngine } from '../../core/graph/GraphEngine';
 import { useCameraStore } from '../../store/useCameraStore';
-import { screenToWorld } from '../../utils/coords';
+import { screenToWorld } from '../../core/graph/GraphViewCore';
 import { GRID_METRICS, NODE_SIZES } from '../../utils/layoutMetrics';
 import { useEdgeSelectionStore } from '../../store/useEdgeSelectionStore';
 import { useAreaStore } from '../../store/useAreaStore';
@@ -27,6 +27,7 @@ import { spaceManager } from '../../core/state/SpaceManager';
 import { getCoreId, getCoreLabel } from '../../core/defaults/coreIds';
 import { GLOBAL_ZOOM_HOTKEY_EVENT, type ZoomHotkeyDetail } from '../../core/hotkeys/zoomHotkeys';
 import { getSystemMotionMetrics } from '../../core/ui/SystemMotion';
+import { computeScopeVisibilitySets } from '../../core/graph/clusterHierarchy';
 
 type DomEventListener = (event: Event) => void;
 
@@ -577,10 +578,16 @@ const CanvasView = () => {
     const getProjection = (e: { clientX: number; clientY: number }) => {
         if (!containerRef.current) return { x: 0, y: 0, worldX: 0, worldY: 0 };
         const rect = containerRef.current.getBoundingClientRect();
-        const world = screenToWorld(e.clientX, e.clientY, rect, { pan, zoom });
+        const localX = e.clientX - rect.left;
+        const localY = e.clientY - rect.top;
+        const world = screenToWorld(
+            { x: localX, y: localY },
+            { pan, zoom },
+            { width: rect.width, height: rect.height }
+        );
         return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
+            x: localX,
+            y: localY,
             worldX: world.x,
             worldY: world.y
         };
@@ -1047,11 +1054,7 @@ const CanvasView = () => {
             const resolvedId = asNodeId(nodeId);
             const node = graphEngine.getNode(resolvedId);
             if (node?.type === 'cluster') {
-                if (stateEngine.getState().fieldScopeId === resolvedId) {
-                    stateEngine.setFieldScope(null);
-                } else {
-                    stateEngine.setFieldScope(resolvedId);
-                }
+                stateEngine.enterClusterScope(resolvedId);
                 return;
             }
             if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'OPEN_NODE' });
@@ -1523,7 +1526,7 @@ const CanvasView = () => {
     const fitTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
-        if (viewContext !== 'space') {
+        if (viewContext !== 'space' && viewContext !== 'cluster') {
             lastCenteredSpaceId.current = null;
         }
     }, [viewContext]);
@@ -1537,7 +1540,7 @@ const CanvasView = () => {
     }, [setViewContext]);
 
     useEffect(() => {
-        if (viewContext !== 'space' || !currentSpaceId || !containerRef.current) return;
+        if ((viewContext !== 'space' && viewContext !== 'cluster') || !currentSpaceId || !containerRef.current) return;
         if (lastCenteredSpaceId.current === currentSpaceId) return;
 
         if (fitTimerRef.current) {
@@ -1571,60 +1574,17 @@ const CanvasView = () => {
     }, [viewContext, currentSpaceId, nodes, areas, fitToContent]);
 
     useEffect(() => {
-        if (!viewContext || viewContext !== 'space') return;
+        if (!viewContext || (viewContext !== 'space' && viewContext !== 'cluster')) return;
         const currentScope = fieldScopeId;
         const nodeMap = new Map(nodes.map(node => [node.id, node]));
         const focusSet = new Set<string>();
         const areaFocusSet = new Set<string>();
         const ghostSetLevel1 = new Set<string>();
 
-        const collectChildren = (clusterId: string) => {
-            nodes.forEach(node => {
-                if (node.meta?.parentClusterId === clusterId) {
-                    focusSet.add(node.id);
-                }
-            });
-        };
-
-        const adjacency = new Map<NodeId, Set<NodeId>>();
-        const nodeTypeMap = new Map<NodeId, string | undefined>(nodes.map(node => [node.id, node.type]));
-        edges.forEach(edge => {
-            if (!adjacency.has(edge.source)) adjacency.set(edge.source, new Set());
-            if (!adjacency.has(edge.target)) adjacency.set(edge.target, new Set());
-            adjacency.get(edge.source)?.add(edge.target);
-            adjacency.get(edge.target)?.add(edge.source);
-        });
-
-        const maxGhostDepthForScope = Math.max(0, subspaceLod - 1);
-
         if (currentScope) {
-            focusSet.add(currentScope);
-            collectChildren(currentScope);
-
-            const visited = new Set<NodeId>([currentScope]);
-            const queue: Array<{ id: NodeId; depth: number }> = [{ id: currentScope, depth: 0 }];
-            const maxDepth = 1 + maxGhostDepthForScope;
-
-            while (queue.length > 0) {
-                const current = queue.shift();
-                if (!current) break;
-                const neighbors = adjacency.get(current.id);
-                if (!neighbors) continue;
-                neighbors.forEach((neighbor) => {
-                    if (visited.has(neighbor)) return;
-                    const neighborType = nodeTypeMap.get(neighbor);
-                    if (neighborType === 'core') return;
-                    const nextDepth = current.depth + 1;
-                    if (nextDepth > maxDepth) return;
-                    visited.add(neighbor);
-                    queue.push({ id: neighbor, depth: nextDepth });
-                    if (nextDepth <= maxDepth - 1) {
-                        focusSet.add(neighbor);
-                    } else if (nextDepth === maxDepth && maxGhostDepthForScope > 0) {
-                        ghostSetLevel1.add(neighbor);
-                    }
-                });
-            }
+            const { focusIds, ghostIds } = computeScopeVisibilitySets(currentScope as NodeId, nodes, edges, subspaceLod);
+            focusIds.forEach(id => focusSet.add(id));
+            ghostIds.forEach(id => ghostSetLevel1.add(id));
         }
 
         let areaFocusActive = false;
@@ -2363,10 +2323,10 @@ const CanvasView = () => {
                             {/* Visual Source: The DOT is the center */}
                             <div className="relative flex items-center justify-center w-16 h-16">
                                 {/* Spreading Ring */}
-                                <div className="absolute inset-0 rounded-full border border-white/20 animate-source-pulse-spread" />
+                                <div className="absolute inset-0 rounded-full border border-white/35 animate-source-pulse-spread shadow-[0_0_18px_rgba(255,255,255,0.2)]" />
 
                                 {/* Center Dot */}
-                                <div className="w-2.5 h-2.5 bg-white rounded-full animate-source-dot-pulse relative z-10" />
+                                <div className="w-2.5 h-2.5 bg-white rounded-full animate-source-dot-pulse relative z-10 shadow-[0_0_10px_rgba(255,255,255,0.65)]" />
                             </div>
 
                             {/* Label Container: Positioned absolutely below the dot to avoid shifting the center */}

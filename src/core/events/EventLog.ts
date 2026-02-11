@@ -53,9 +53,9 @@ const ACTION_MAP: Partial<Record<EventKey, { actionType: string; entityKind?: st
         entityKind: 'edge',
         entityId: e => (e.payload as { id: EdgeId }).id
     },
-    [EVENTS.HUB_CREATED]: {
-        actionType: 'group_to_hub',
-        entityKind: 'hub',
+    [EVENTS.CLUSTER_CREATED]: {
+        actionType: 'group_to_cluster',
+        entityKind: 'cluster',
         entityId: e => (e.payload as { id: string } | undefined)?.id ?? null
     },
     [EVENTS.SESSION_STATE_SET]: {

@@ -2,6 +2,10 @@
  * coords.js
  * Utilities for mapping between Screen space and World space.
  */
+import {
+    screenToWorld as graphViewScreenToWorld,
+    worldToScreen as graphViewWorldToScreen
+} from '../core/graph/GraphViewCore';
 
 /**
  * Converts screen coordinates to world coordinates.
@@ -24,10 +28,11 @@ export const screenToWorld = (
 ) => {
     const localX = clientX - rect.left;
     const localY = clientY - rect.top;
-    return {
-        x: (localX - camera.pan.x) / camera.zoom,
-        y: (localY - camera.pan.y) / camera.zoom
-    };
+    return graphViewScreenToWorld(
+        { x: localX, y: localY },
+        camera,
+        { width: rect.width, height: rect.height }
+    );
 };
 
 /**
@@ -42,8 +47,9 @@ export const worldToScreen = (
     worldY: number,
     camera: CameraState
 ) => {
-    return {
-        x: worldX * camera.zoom + camera.pan.x,
-        y: worldY * camera.zoom + camera.pan.y
-    };
+    return graphViewWorldToScreen(
+        { x: worldX, y: worldY },
+        camera,
+        { width: 1, height: 1 }
+    );
 };

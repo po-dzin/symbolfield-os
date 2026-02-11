@@ -22,6 +22,7 @@ export const APP_MODES = {
 export const VIEW_CONTEXTS = {
     HOME: 'home',
     SPACE: 'space',
+    CLUSTER: 'cluster',
     NODE: 'node',
     // Legacy alias kept for backward compatibility with older deep links/state snapshots.
     NOW: 'now',
@@ -167,7 +168,7 @@ class StateEngine {
         }
         if (this.state.fieldScopeId) {
             this.state.fieldScopeId = null;
-            eventBus.emit(EVENTS.FIELD_SCOPE_CHANGED, { hubId: null });
+            eventBus.emit(EVENTS.FIELD_SCOPE_CHANGED, { clusterId: null });
         }
         eventBus.emit(EVENTS.SPACE_CHANGED, { spaceId });
         this._emitChange();
@@ -180,16 +181,56 @@ class StateEngine {
         this._emitChange();
     }
 
-    setFieldScope(hubId: NodeId | null) {
-        if (this.state.fieldScopeId === hubId) return;
-        this.state.fieldScopeId = hubId;
-        eventBus.emit(EVENTS.FIELD_SCOPE_CHANGED, { hubId });
+    setFieldScope(clusterId: NodeId | null) {
+        if (this.state.fieldScopeId === clusterId) return;
+        this.state.fieldScopeId = clusterId;
+        if (!clusterId && this.state.viewContext === VIEW_CONTEXTS.CLUSTER) {
+            this.state.viewContext = VIEW_CONTEXTS.SPACE;
+        }
+        eventBus.emit(EVENTS.FIELD_SCOPE_CHANGED, { clusterId });
         this._emitChange();
+    }
+
+    enterClusterScope(clusterId: NodeId) {
+        if (!clusterId) return;
+
+        if (this.state.viewContext === VIEW_CONTEXTS.NODE) {
+            this.state.viewContext = VIEW_CONTEXTS.CLUSTER;
+            this.state.activeScope = null;
+            eventBus.emit(EVENTS.NODE_EXITED);
+        } else if (this.state.viewContext !== VIEW_CONTEXTS.CLUSTER) {
+            this.state.viewContext = VIEW_CONTEXTS.CLUSTER;
+        }
+
+        if (this.state.fieldScopeId !== clusterId) {
+            this.state.fieldScopeId = clusterId;
+            eventBus.emit(EVENTS.FIELD_SCOPE_CHANGED, { clusterId });
+        }
+
+        this._emitChange();
+    }
+
+    toggleClusterScope(clusterId: NodeId) {
+        if (!clusterId) return;
+        if (this.state.fieldScopeId === clusterId && this.state.viewContext === VIEW_CONTEXTS.CLUSTER) {
+            this.setFieldScope(null);
+            return;
+        }
+        this.enterClusterScope(clusterId);
     }
 
     setViewContext(context: ViewContext) {
         if (!Object.values(VIEW_CONTEXTS).includes(context)) return;
+        if (context === VIEW_CONTEXTS.CLUSTER && !this.state.fieldScopeId) {
+            this.state.viewContext = VIEW_CONTEXTS.SPACE;
+            this._emitChange();
+            return;
+        }
         this.state.viewContext = context;
+        if (context !== VIEW_CONTEXTS.CLUSTER && this.state.fieldScopeId) {
+            this.state.fieldScopeId = null;
+            eventBus.emit(EVENTS.FIELD_SCOPE_CHANGED, { clusterId: null });
+        }
         // Previously cleared currentSpaceId here, but for "Flattened Navigation" (Tabs),
         // we want to persist the "Active Space" even when viewing Station.
         this._emitChange();
@@ -217,7 +258,7 @@ class StateEngine {
     }
 
     exitNode() {
-        this.state.viewContext = VIEW_CONTEXTS.SPACE;
+        this.state.viewContext = this.state.fieldScopeId ? VIEW_CONTEXTS.CLUSTER : VIEW_CONTEXTS.SPACE;
         this.state.activeScope = null;
         eventBus.emit(EVENTS.NODE_EXITED);
         this._emitChange();

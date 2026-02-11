@@ -48,7 +48,7 @@ export const useGraphStore = create<GraphStoreState>((set) => {
     eventBus.on(EVENTS.NODE_DELETED, sync);
     eventBus.on(EVENTS.LINK_CREATED, sync);
     eventBus.on(EVENTS.LINK_DELETED, sync);
-    eventBus.on(EVENTS.HUB_CREATED, sync);
+    eventBus.on(EVENTS.CLUSTER_CREATED, sync);
     eventBus.on(EVENTS.GRAPH_CLEARED, sync);
 
     return {

@@ -15,7 +15,7 @@ export interface PlaygroundNodeDef {
     label: string;
     icon_value?: string;
     icon_source?: 'sf' | 'generated' | 'blocksuite' | 'unicode';
-    type: 'node' | 'hub' | 'core';
+    type: 'node' | 'cluster' | 'core';
     position: { x: number; y: number };
     content?: string; // Node view content
 }
@@ -92,7 +92,7 @@ Or use **L mode**:
 Links represent relationships in your graph.`
     },
 
-    // Tutorial Node 4: Group into Hub
+    // Tutorial Node 4: Group into Cluster
     {
         id: asNodeId('playground-group'),
         label: 'Group & Organize',
@@ -105,10 +105,10 @@ Links represent relationships in your graph.`
 - Shift+Click to add/remove
 - Shift+Drag for box select
 
-**Create a Hub** from selection:
+**Create a Cluster** from selection:
 - Shift+Enter
 
-Hubs are containers that organize related nodes into subgraphs.`
+Clusters are containers that organize related nodes into subgraphs.`
     }
 ];
 

@@ -18,7 +18,7 @@ export const EVENTS = {
     NODE_DELETED: 'NodeDeleted',
     LINK_CREATED: 'LinkCreated',
     LINK_DELETED: 'LinkDeleted',
-    HUB_CREATED: 'HubCreated',
+    CLUSTER_CREATED: 'ClusterCreated',
     SESSION_STATE_SET: 'SessionStateSet',
 
     // UI (App State)
@@ -103,7 +103,7 @@ export interface EventMap {
     [EVENTS.NODE_DELETED]: { id: NodeId; node: NodeBase | undefined; edges: Edge[] };
     [EVENTS.LINK_CREATED]: Edge & { type?: string };
     [EVENTS.LINK_DELETED]: { id: EdgeId; edge: (Edge & { type?: string }) | undefined };
-    [EVENTS.HUB_CREATED]: { id: string } | undefined;
+    [EVENTS.CLUSTER_CREATED]: { id: string } | undefined;
     [EVENTS.SESSION_STATE_SET]: { isActive: boolean; startTime: number | null; label: string | null };
     [EVENTS.SELECTION_CHANGED]: {
         selection: NodeId[];
@@ -122,7 +122,7 @@ export interface EventMap {
     [EVENTS.PALETTE_TOGGLED]: { open: boolean };
     [EVENTS.EDGE_SELECTED]: { id: EdgeId } | undefined;
     [EVENTS.SPACE_CHANGED]: { spaceId: string };
-    [EVENTS.FIELD_SCOPE_CHANGED]: { hubId: NodeId | null };
+    [EVENTS.FIELD_SCOPE_CHANGED]: { clusterId: NodeId | null };
     [EVENTS.CONTEXT_MENU_MODE_CHANGED]: { mode: 'bar' | 'radial' };
     [EVENTS.GRID_SNAP_CHANGED]: { enabled: boolean };
     [EVENTS.GRID_VISIBILITY_CHANGED]: { enabled: boolean };
@@ -287,7 +287,7 @@ class EventBus {
      */
     private _categorize(type: string): EventCategory {
         // Defined in UI_INTERACTION_PIPELINE_SoT_v0.5
-        if (type.startsWith('Node') || type.startsWith('Link') || type.startsWith('Hub') || type.startsWith('Region') || type.startsWith('Session') || type.startsWith('Playground') || type.startsWith('Onboarding') || type.startsWith('Space')) return 'DOMAIN';
+        if (type.startsWith('Node') || type.startsWith('Link') || type.startsWith('Cluster') || type.startsWith('Region') || type.startsWith('Session') || type.startsWith('Playground') || type.startsWith('Onboarding') || type.startsWith('Space')) return 'DOMAIN';
         if (type.startsWith('Limit') || type.startsWith('Constraint')) return 'ERROR';
         if (type.includes('Preview') || type.includes('Hint')) return 'OVERLAY';
         return 'UI';

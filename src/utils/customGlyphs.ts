@@ -34,7 +34,7 @@ export const CUSTOM_GLYPHS: CustomGlyph[] = [
     { id: 'core', label: 'Core', categories: ['core'], svg: coreSvg },
     { id: 'archecore', label: 'ArcheCore', categories: ['core'], svg: archecoreSvg },
     { id: 'node', label: 'Node', categories: ['nodes'], svg: nodeSvg },
-    { id: 'hub', label: 'Hub', categories: ['nodes'], svg: hubSvg },
+    { id: 'hub', label: 'Cluster (Legacy)', categories: ['nodes'], svg: hubSvg },
     { id: 'cluster', label: 'Cluster', categories: ['nodes'], svg: clusterSvg },
     { id: 'portal', label: 'Portal', categories: ['nodes'], svg: portalSvg },
     { id: 'playground', label: 'Playground', categories: ['nodes'], svg: playgroundSvg },
