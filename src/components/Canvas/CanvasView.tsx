@@ -1567,7 +1567,8 @@ const CanvasView = () => {
     }, [viewContext, currentSpaceId, nodes, areas, fitToContent]);
 
     useEffect(() => {
-        if (!viewContext || viewContext !== 'space') return;
+        const isFieldView = viewContext === 'space' || viewContext === 'cluster';
+        if (!isFieldView) return;
         const currentScope = fieldScopeId;
         const nodeMap = new Map(nodes.map(node => [node.id, node]));
         const focusSet = new Set<string>();
