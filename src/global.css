@@ -17,6 +17,10 @@
     -moz-osx-font-smoothing: grayscale;
 }
 
+:root[data-theme="light"] {
+    color-scheme: light;
+}
+
 body {
     margin: 0;
     padding: 0;
@@ -24,6 +28,15 @@ body {
     height: 100vh;
     overflow: hidden;
     background-color: var(--semantic-color-bg-app);
+}
+
+a {
+    color: var(--semantic-color-link);
+    text-decoration-color: color-mix(in srgb, var(--semantic-color-link), transparent 55%);
+}
+
+a:hover {
+    color: color-mix(in srgb, var(--semantic-color-link), var(--semantic-color-text-primary) 28%);
 }
 
 #root {
@@ -138,6 +151,47 @@ body {
 
 .ui-shape-soft {
     border-radius: var(--component-shape-soft);
+}
+
+.ui-drawer-row {
+    transition: all 200ms;
+    border: 1px solid transparent;
+    cursor: pointer;
+    color: var(--semantic-color-text-secondary);
+    background-color: transparent;
+    border-radius: var(--component-shape-soft);
+}
+
+.ui-drawer-row:hover {
+    color: var(--semantic-color-text-primary);
+    background-color: color-mix(in srgb, var(--semantic-color-text-primary), transparent 95%);
+}
+
+.ui-drawer-row[aria-pressed="true"],
+.ui-drawer-row[data-state="active"],
+.ui-drawer-row.is-active {
+    color: var(--semantic-color-text-primary);
+    background-color: color-mix(in srgb, var(--semantic-color-text-primary), transparent 85%);
+    border-color: color-mix(in srgb, var(--semantic-color-text-primary), transparent 70%);
+}
+
+.ui-field-soft {
+    border-radius: var(--component-shape-soft);
+    transition: color 180ms var(--motion-easing-standard), border-color 180ms var(--motion-easing-standard), background-color 180ms var(--motion-easing-standard);
+    background-color: color-mix(in srgb, var(--semantic-color-bg-surface), var(--semantic-color-text-primary) 5%);
+    border: 1px solid var(--semantic-color-border-default);
+    color: var(--semantic-color-text-secondary);
+}
+
+.ui-field-soft::placeholder {
+    color: var(--semantic-color-text-muted);
+}
+
+.ui-field-soft:focus,
+.ui-field-soft:focus-visible {
+    outline: none;
+    border-color: color-mix(in srgb, var(--semantic-color-action-primary), transparent 15%);
+    color: var(--semantic-color-text-primary);
 }
 
 .ui-capsule-compact {

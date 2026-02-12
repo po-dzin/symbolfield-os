@@ -41,16 +41,7 @@ const Station = () => {
 
     React.useEffect(() => {
         spaceManager.ensureOnboardingSpaces();
-        // Check onboarding state on mount
-        const onboardingState = loadOnboardingState();
-        if (!onboardingState.isCompleted && !onboardingState.hasSeenWelcome) {
-            setShowOnboarding(true);
-        }
-    }, []);
-
-    React.useEffect(() => {
-        spaceManager.ensureOnboardingSpaces();
-        // Check onboarding state on mount
+        // Show first-entry SF Gates modal once.
         const onboardingState = loadOnboardingState();
         if (!onboardingState.isCompleted && !onboardingState.hasSeenWelcome) {
             setShowOnboarding(true);
@@ -142,7 +133,7 @@ const Station = () => {
                                 </div>
                                 <div className="space-y-6 text-[var(--semantic-color-text-primary)] overflow-y-auto overflow-x-hidden flex-1 no-scrollbar pb-10">
                                     <CollapsibleSection title="Favorites" count={0}>
-                                        <div className="text-xs text-[var(--semantic-color-text-muted)] italic py-2 pl-2">No favorites yet</div>
+                                        <div className="text-xs text-[var(--semantic-color-text-muted)] italic py-2 px-2">No favorites yet</div>
                                     </CollapsibleSection>
 
                                     <CollapsibleSection title="Recent" defaultOpen>
@@ -158,7 +149,7 @@ const Station = () => {
                                     </CollapsibleSection>
 
                                     <CollapsibleSection title="Trash" defaultOpen={false} count={0}>
-                                        <div className="text-xs text-[var(--semantic-color-text-muted)] italic py-2 pl-2">Trash is empty</div>
+                                        <div className="text-xs text-[var(--semantic-color-text-muted)] italic py-2 px-2">Trash is empty</div>
                                     </CollapsibleSection>
                                 </div>
                             </div>

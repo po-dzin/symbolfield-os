@@ -22,6 +22,9 @@ export type SettingsSnapshot = {
     themeIntensity?: number;
     themeModeSource?: 'auto' | 'manual';
     themeModeOverride?: 'deep' | 'flow' | 'luma';
+    uiThemeSource?: 'manual' | 'sync';
+    uiThemeValue?: 'dark' | 'light';
+    experimentalUiEnabled?: boolean;
     pathDisplayMode?: 'full' | 'compact';
     breadcrumbLens?: 'full' | 'external' | 'internal' | 'focus';
     navigationFlowMode?: 'auto' | 'build' | 'explore';
@@ -88,6 +91,15 @@ const normalizeSettingsSnapshot = (input: unknown): SettingsSnapshot => {
     }
     if (raw.themeModeOverride === 'deep' || raw.themeModeOverride === 'flow' || raw.themeModeOverride === 'luma') {
         next.themeModeOverride = raw.themeModeOverride;
+    }
+    if (raw.uiThemeSource === 'manual' || raw.uiThemeSource === 'sync') {
+        next.uiThemeSource = raw.uiThemeSource;
+    }
+    if (raw.uiThemeValue === 'dark' || raw.uiThemeValue === 'light') {
+        next.uiThemeValue = raw.uiThemeValue;
+    }
+    if (typeof raw.experimentalUiEnabled === 'boolean') {
+        next.experimentalUiEnabled = raw.experimentalUiEnabled;
     }
     if (raw.pathDisplayMode === 'full' || raw.pathDisplayMode === 'compact') {
         next.pathDisplayMode = raw.pathDisplayMode;

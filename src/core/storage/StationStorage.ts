@@ -37,10 +37,21 @@ const normalizeStationLayout = (input: unknown): StationLayout => {
 const normalizeRoute = (input: unknown): ExternalGraphRoute | null => {
     if (!input || typeof input !== 'object') return null;
     const raw = input as Record<string, unknown>;
+    if (raw.type === 'symbolverse') {
+        return { type: 'symbolverse' };
+    }
+    if (raw.type === 'atlas') {
+        return { type: 'atlas' };
+    }
     if (raw.type === 'brand') {
         const slug = typeof raw.slug === 'string' ? raw.slug.trim() : '';
         if (!slug) return null;
         return { type: 'brand', slug };
+    }
+    if (raw.type === 'portal-builder') {
+        const slug = typeof raw.slug === 'string' ? raw.slug.trim() : '';
+        if (!slug) return null;
+        return { type: 'portal-builder', slug };
     }
     if (raw.type === 'portal') {
         const brandSlug = typeof raw.brandSlug === 'string' ? raw.brandSlug.trim() : '';
@@ -56,8 +67,17 @@ const normalizeVisibility = (input: unknown): ExternalGraphLinkVisibility => (
 );
 
 const buildDefaultLinkLabel = (target: ExternalGraphRoute): string => {
+    if (target.type === 'symbolverse') {
+        return 'Symbolverse';
+    }
+    if (target.type === 'atlas') {
+        return 'Atlas';
+    }
     if (target.type === 'brand') {
         return `Brand: ${target.slug}`;
+    }
+    if (target.type === 'portal-builder') {
+        return `Builder: ${target.slug}`;
     }
     return `Portal: ${target.brandSlug}/${target.portalSlug}`;
 };
@@ -101,9 +121,15 @@ const normalizeExternalGraphLinks = (input: unknown): ExternalGraphLink[] => {
 };
 
 const routeKey = (target: ExternalGraphRoute): string => (
-    target.type === 'brand'
-        ? `brand:${target.slug.toLowerCase()}`
-        : `portal:${target.brandSlug.toLowerCase()}/${target.portalSlug.toLowerCase()}`
+    target.type === 'symbolverse'
+        ? 'symbolverse'
+        : target.type === 'atlas'
+            ? 'atlas'
+            : target.type === 'brand'
+                ? `brand:${target.slug.toLowerCase()}`
+                : target.type === 'portal-builder'
+                    ? `builder:${target.slug.toLowerCase()}`
+                    : `portal:${target.brandSlug.toLowerCase()}/${target.portalSlug.toLowerCase()}`
 );
 
 const loadLocalStationLayout = (): StationLayout => {

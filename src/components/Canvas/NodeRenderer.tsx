@@ -39,15 +39,21 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
     const isParentFolded = Boolean(parentCluster?.meta?.isFolded);
     const isHidden = Boolean(node.meta?.isHidden || (node.meta?.focusHidden && !isFocusGhost) || isParentFolded);
     const [isHover, setIsHover] = useState(false);
-    const bodyColor = nodeData?.color_body ?? nodeData?.color ?? 'rgba(255,255,255,0.06)';
-    const strokeColor = nodeData?.color_stroke ?? nodeData?.color ?? 'rgba(255,255,255,0.4)';
-    const glowColor = nodeData?.color_glow ?? 'rgba(255,255,255,0.08)';
-    const hoverStrokeColor = nodeData?.color_glow ?? 'rgba(255,255,255,0.7)';
-    const glyphColor = nodeData?.color_glyph ?? 'rgba(255,255,255,0.9)';
+    const bodyColor = nodeData?.color_body ?? nodeData?.color ?? 'var(--semantic-color-graph-node-fill)';
+    const strokeColor = nodeData?.color_stroke ?? nodeData?.color ?? 'var(--semantic-color-graph-node-stroke)';
+    const glowColor = nodeData?.color_glow ?? 'var(--semantic-color-graph-node-glow)';
+    const hoverStrokeColor = nodeData?.color_glow ?? 'var(--semantic-color-graph-edge-strong)';
+    const glyphColor = nodeData?.color_glyph ?? 'var(--semantic-color-graph-node-glyph)';
     // TODO: add glyph symmetry checks for non-centered unicode glyphs (builder backlog).
     const glyphScale = nodeData?.glyph_scale ?? 1;
     const glyphOffsetX = nodeData?.glyph_offset_x ?? 0;
     const glyphOffsetY = nodeData?.glyph_offset_y ?? 0;
+    const focusGhostStrokeColor = focusGhostLevel > 1
+        ? 'color-mix(in srgb, var(--semantic-color-graph-node-stroke), transparent 45%)'
+        : 'color-mix(in srgb, var(--semantic-color-graph-node-stroke), transparent 30%)';
+    const focusGhostGlyphColor = focusGhostLevel > 1
+        ? 'color-mix(in srgb, var(--semantic-color-graph-node-glyph), transparent 60%)'
+        : 'color-mix(in srgb, var(--semantic-color-graph-node-glyph), transparent 45%)';
 
     const sizePx = isCore ? NODE_SIZES.root : isCluster ? NODE_SIZES.cluster : NODE_SIZES.base;
     const glyphSize = sizePx * 0.6;
@@ -109,7 +115,7 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
                     shadow-[0_6px_30px_-2px_rgba(0,0,0,0.5),inset_0_0_18px_rgba(255,255,255,0.09)]
                     
                     /* Hover/Select State (Purely Visual) */
-                    ${isSelected ? 'scale-105 animate-breathe border-white/50' : 'hover:scale-105 hover:border-white/40 hover:shadow-[0_0_20px_rgba(255,255,255,0.12)]'}
+                    ${isSelected ? 'scale-105 animate-breathe' : 'hover:scale-105'}
                 `}
                     onPointerEnter={() => setIsHover(true)}
                     onPointerLeave={() => setIsHover(false)}
@@ -118,12 +124,12 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
                         height: '100%',
                         backgroundColor: isFocusGhost ? 'transparent' : bodyColor,
                         borderColor: isFocusGhost
-                            ? (focusGhostLevel > 1 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.3)')
-                            : (isSelected || isHover ? hoverStrokeColor : strokeColor),
+                            ? focusGhostStrokeColor
+                            : (isSelected ? 'var(--semantic-color-graph-node-active-stroke)' : (isHover ? hoverStrokeColor : strokeColor)),
                         borderStyle: isFocusGhost ? 'dashed' : undefined,
                         boxShadow: isFocusGhost
                             ? 'none'
-                            : `0 6px 30px -2px rgba(0,0,0,0.5), inset 0 0 18px rgba(255,255,255,0.09), 0 0 ${isSelected ? 14 : 6}px ${glowColor}`,
+                            : `0 6px 30px -2px rgba(0,0,0,0.5), inset 0 0 18px color-mix(in srgb, var(--semantic-color-graph-node-glow), white 28%), 0 0 ${isSelected ? 14 : 6}px ${glowColor}`,
                         opacity: isHidden ? 0 : (isFocusGhost ? (focusGhostLevel > 1 ? 0.35 : 0.55) : 1),
                         transition: isCore ? 'border-color 220ms ease' : undefined
                     }}
@@ -134,8 +140,11 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
                             <div className="orbit-sector orbit-sector-1" style={{ inset: `-${orbit1Inset}px` }} />
                             <div className="orbit-sector orbit-sector-2" style={{ inset: `-${orbit2Inset}px` }} />
                             <div
-                                className="absolute rounded-full border border-dashed border-white/20 animate-orbit-slow pointer-events-none"
-                                style={{ inset: `-${dashInset}px` }}
+                                className="absolute rounded-full border border-dashed animate-orbit-slow pointer-events-none"
+                                style={{
+                                    inset: `-${dashInset}px`,
+                                    borderColor: 'color-mix(in srgb, var(--semantic-color-graph-node-stroke), transparent 45%)'
+                                }}
                             />
                         </>
                     )}
@@ -143,18 +152,18 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
                     {/* Content */}
                     {(isCluster || isCore || iconValue || resolvedGlyph) && (
                         <span className={`
-                        font-bold tracking-widest text-white/90 select-none pointer-events-none font-sans drop-shadow-md flex items-center justify-center leading-none
+                        font-bold tracking-widest select-none pointer-events-none font-sans drop-shadow-md flex items-center justify-center leading-none
                         ${glyphAppearClass}
                     `}>
                             {resolvedGlyph ? (
                                 <GlyphIcon
                                     id={resolvedGlyph.id}
                                     size={glyphSize * glyphScale}
-                                    className="text-white/90"
-                                    style={{ color: isFocusGhost ? (focusGhostLevel > 1 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)') : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}
+                                    className="text-[var(--semantic-color-graph-node-glyph)]"
+                                    style={{ color: isFocusGhost ? focusGhostGlyphColor : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}
                                 />
                             ) : (
-                                <span style={{ fontSize: `${glyphSize * glyphScale}px`, lineHeight: 1, display: 'block', color: isFocusGhost ? (focusGhostLevel > 1 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)') : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}>
+                                <span style={{ fontSize: `${glyphSize * glyphScale}px`, lineHeight: 1, display: 'block', color: isFocusGhost ? focusGhostGlyphColor : glyphColor, transform: `translate(${glyphOffsetX}px, ${glyphOffsetY}px)` }}>
                                     {iconValue || '○'}
                                 </span>
                             )}

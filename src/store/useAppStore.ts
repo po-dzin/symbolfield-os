@@ -22,11 +22,13 @@ import {
 } from '../core/harmony/HarmonyEngine';
 import { getSystemMotionMetrics } from '../core/ui/SystemMotion';
 import type { BreadcrumbLens, NavigationFlowMode } from '../core/navigation/PathProjection';
+import type { ExternalGraphRoute } from '../core/types/gateway';
 
 // Matches StateEngine constants
 type AppModeType = 'deep' | 'flow' | 'luma';
 type ViewContextType = 'home' | 'space' | 'cluster' | 'node' | 'now' | 'gateway';
 type ToolType = 'pointer' | 'link' | 'area';
+type SettingsSectionTarget = 'station' | 'space' | 'node' | 'appearance' | 'portal' | 'experimental' | 'account' | 'data';
 
 interface Session {
     isActive: boolean;
@@ -43,7 +45,10 @@ type ThemeOptionKey =
     | 'themeTexture'
     | 'themeIntensity'
     | 'themeModeSource'
-    | 'themeModeOverride';
+    | 'themeModeOverride'
+    | 'uiThemeSource'
+    | 'uiThemeValue'
+    | 'experimentalUiEnabled';
 
 interface AppState {
     appMode: AppModeType;
@@ -87,6 +92,9 @@ interface AppState {
     themeIntensity: number;
     themeModeSource: 'auto' | 'manual';
     themeModeOverride: HarmonyMode;
+    uiThemeSource: 'manual' | 'sync';
+    uiThemeValue: 'dark' | 'light';
+    experimentalUiEnabled: boolean;
     pathDisplayMode: 'full' | 'compact';
     breadcrumbLens: BreadcrumbLens;
     navigationFlowMode: NavigationFlowMode;
@@ -99,6 +107,7 @@ interface AppState {
 interface AppStoreState extends AppState {
     omniQuery: string;
     stationInspectorSpaceId: string | null;
+    settingsTargetSection: SettingsSectionTarget | null;
     setAppMode: (mode: AppModeType) => void;
     setViewContext: (context: ViewContextType) => void;
     setTool: (tool: ToolType) => void;
@@ -115,8 +124,9 @@ interface AppStoreState extends AppState {
     togglePalette: () => void;
     closePalette: () => void;
     toggleSettings: () => void;
-    openSettings: () => void;
+    openSettings: (section?: SettingsSectionTarget) => void;
     closeSettings: () => void;
+    setSettingsTargetSection: (section: SettingsSectionTarget | null) => void;
     setContextMenuMode: (mode: 'bar' | 'radial') => void;
     toggleContextMenuMode: () => void;
     setGridSnapEnabled: (enabled: boolean) => void;
@@ -140,11 +150,11 @@ interface AppStoreState extends AppState {
     setDrawerRightTab: (tab: DrawerRightTab | null) => void;
 
     // Gateway Navigation
-    gatewayRoute: { type: 'brand'; slug: string } | { type: 'portal'; brandSlug: string; portalSlug: string } | null;
-    setGatewayRoute: (route: { type: 'brand'; slug: string } | { type: 'portal'; brandSlug: string; portalSlug: string } | null) => void;
+    gatewayRoute: ExternalGraphRoute | null;
+    setGatewayRoute: (route: ExternalGraphRoute | null) => void;
 
     // Theme Actions
-    setThemeOption: (key: ThemeOptionKey, value: string | number) => void;
+    setThemeOption: (key: ThemeOptionKey, value: string | number | boolean) => void;
     setPathDisplayMode: (mode: 'full' | 'compact') => void;
     setBreadcrumbLens: (lens: BreadcrumbLens) => void;
     setNavigationFlowMode: (mode: NavigationFlowMode) => void;
@@ -180,6 +190,9 @@ export const useAppStore = create<AppStoreState>((set, get) => {
     )
         ? persistedSettings.navigationFlowMode
         : 'auto';
+    const initialUiThemeSource: 'manual' | 'sync' = persistedSettings.uiThemeSource === 'sync' ? 'sync' : 'manual';
+    const initialUiThemeValue: 'dark' | 'light' = persistedSettings.uiThemeValue === 'light' ? 'light' : 'dark';
+    const initialExperimentalUiEnabled = persistedSettings.experimentalUiEnabled === true;
     const initialHarmonyInput: Partial<HarmonyMatrix> = {
         mode: initialHarmonyMode
     };
@@ -237,7 +250,8 @@ export const useAppStore = create<AppStoreState>((set, get) => {
         ...initialState,
         omniQuery: '',
         stationInspectorSpaceId: null,
-        gatewayRoute: { type: 'brand', slug: 'symbolfield' }, // Default route
+        settingsTargetSection: null,
+        gatewayRoute: { type: 'symbolverse' }, // Default platform route
 
         // Harmony Defaults (guardrailed custom matrix)
         themePreset: initialHarmony.preset,
@@ -249,6 +263,9 @@ export const useAppStore = create<AppStoreState>((set, get) => {
         themeIntensity: initialHarmony.intensity,
         themeModeSource: initialModeSource,
         themeModeOverride: initialModeOverride,
+        uiThemeSource: initialUiThemeSource,
+        uiThemeValue: initialUiThemeValue,
+        experimentalUiEnabled: initialExperimentalUiEnabled,
         pathDisplayMode: initialPathDisplayMode,
         breadcrumbLens: initialBreadcrumbLens,
         navigationFlowMode: initialNavigationFlowMode,
@@ -276,6 +293,15 @@ export const useAppStore = create<AppStoreState>((set, get) => {
                 ? asMode(value)
                 : prev.themeModeOverride;
             const effectiveMode: HarmonyMode = nextModeSource === 'auto' ? prev.appMode : nextModeOverride;
+            const nextUiThemeSource: 'manual' | 'sync' = key === 'uiThemeSource'
+                ? (value === 'sync' ? 'sync' : 'manual')
+                : prev.uiThemeSource;
+            const nextUiThemeValue: 'dark' | 'light' = key === 'uiThemeValue'
+                ? (value === 'light' ? 'light' : 'dark')
+                : prev.uiThemeValue;
+            const nextExperimentalUiEnabled = key === 'experimentalUiEnabled'
+                ? value === true
+                : prev.experimentalUiEnabled;
 
             const next = normalizeHarmonyMatrix({
                 mode: effectiveMode,
@@ -297,7 +323,10 @@ export const useAppStore = create<AppStoreState>((set, get) => {
                 themeTexture: next.texture,
                 themeIntensity: next.intensity,
                 themeModeSource: nextModeSource,
-                themeModeOverride: nextModeOverride
+                themeModeOverride: nextModeOverride,
+                uiThemeSource: nextUiThemeSource,
+                uiThemeValue: nextUiThemeValue,
+                experimentalUiEnabled: nextExperimentalUiEnabled
             });
             settingsStorage.save({
                 themePreset: next.preset,
@@ -308,7 +337,10 @@ export const useAppStore = create<AppStoreState>((set, get) => {
                 themeTexture: next.texture,
                 themeIntensity: next.intensity,
                 themeModeSource: nextModeSource,
-                themeModeOverride: nextModeOverride
+                themeModeOverride: nextModeOverride,
+                uiThemeSource: nextUiThemeSource,
+                uiThemeValue: nextUiThemeValue,
+                experimentalUiEnabled: nextExperimentalUiEnabled
             });
         },
         setPathDisplayMode: (mode) => {
@@ -395,11 +427,18 @@ export const useAppStore = create<AppStoreState>((set, get) => {
         toggleSettings: () => {
             stateEngine.toggleSettings();
         },
-        openSettings: () => {
+        openSettings: (section) => {
+            if (section) {
+                set({ settingsTargetSection: section });
+            }
             stateEngine.openSettings();
         },
         closeSettings: () => {
+            set({ settingsTargetSection: null });
             stateEngine.closeSettings();
+        },
+        setSettingsTargetSection: (section) => {
+            set({ settingsTargetSection: section });
         }
         ,
         setContextMenuMode: (mode: 'bar' | 'radial') => {

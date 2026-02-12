@@ -10,6 +10,16 @@ export interface Brand {
     coverImage?: string;
     avatar?: string;
     links?: { label: string; url: string }[];
+    portal?: {
+        subdomain?: string;
+        customDomain?: string | null;
+        skin?: 'deep' | 'flow' | 'luma';
+        builder?: {
+            layoutPreset?: 'core-shell';
+            moduleSlots?: Array<'signals' | 'chronos' | 'offers' | 'community'>;
+            panelSlots?: Array<'insights' | 'activity' | 'links'>;
+        };
+    };
 }
 
 export interface Listing {
@@ -39,7 +49,10 @@ export interface Listing {
 }
 
 export type ExternalGraphRoute =
+    | { type: 'symbolverse' }
+    | { type: 'atlas' }
     | { type: 'brand'; slug: string }
+    | { type: 'portal-builder'; slug: string }
     | { type: 'portal'; brandSlug: string; portalSlug: string };
 
 export type ExternalGraphLinkVisibility = 'private' | 'shared' | 'public';

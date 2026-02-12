@@ -9,7 +9,6 @@ import { useAppStore } from '../../store/useAppStore';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { eventBus, EVENTS } from '../../core/events/EventBus';
 import { stationStorage } from '../../core/storage/StationStorage';
-import { CapsuleTabs } from '../Common';
 import type { ExternalGraphLink } from '../../core/types/gateway';
 
 type OmniScope = 'all' | 'atlas' | 'portal' | 'station' | 'space' | 'cluster' | 'node' | 'external';
@@ -39,12 +38,17 @@ const OmniOverlay: React.FC = () => {
     const setOmniQuery = useAppStore(state => state.setOmniQuery);
 
     const resolveScopeFromView = (ctx: string): OmniScope => {
-        if (ctx === 'gateway') return 'atlas';
+        if (ctx === 'gateway') {
+            if (!gatewayRoute || gatewayRoute.type === 'symbolverse' || gatewayRoute.type === 'atlas') {
+                return 'atlas';
+            }
+            return 'portal';
+        }
         if (ctx === 'home') return 'station';
         if (ctx === 'cluster') return 'cluster';
         if (ctx === 'node') return 'node';
         if (ctx === 'space') return 'space';
-        return 'all';
+        return 'station';
     };
 
     // Local State
@@ -55,34 +59,40 @@ const OmniOverlay: React.FC = () => {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const cycleScope = (direction: 1 | -1 = 1) => {
-        setScope(prev => {
-            const ids: OmniScope[] = ['all', 'atlas', 'portal', 'station', 'space', 'cluster', 'node', 'external'];
-            const index = Math.max(0, ids.indexOf(prev));
-            const next = (index + direction + ids.length) % ids.length;
-            return ids[next] ?? 'all';
-        });
-    };
-
     const scopeItems = useMemo(() => ([
-        { id: 'all', label: 'All' },
-        { id: 'atlas', label: 'Atlas' },
-        { id: 'portal', label: 'Portal' },
         { id: 'station', label: 'Station' },
         { id: 'space', label: 'Space' },
         { id: 'cluster', label: 'Cluster' },
         { id: 'node', label: 'Node' },
-        { id: 'external', label: 'Links' }
+        { id: 'links', label: 'Links' },
+        { id: 'atlas', label: 'Atlas' },
+        { id: 'portal', label: 'Portal' }
     ]), []);
+
+    const cycleScope = (direction: 1 | -1 = 1) => {
+        setScope(prev => {
+            const ids = scopeItems.map(item => (item.id === 'links' ? 'external' : item.id as OmniScope));
+            const index = Math.max(0, ids.indexOf(prev));
+            const next = (index + direction + ids.length) % ids.length;
+            return ids[next] ?? 'station';
+        });
+    };
+
+    const currentScopeLabel = useMemo(() => {
+        if (scope === 'external') return 'Links';
+        const match = scopeItems.find(item => item.id === scope);
+        return match?.label ?? 'Station';
+    }, [scope, scopeItems]);
 
     // Focus input on open
     useEffect(() => {
         if (paletteOpen) {
+            setScope(resolveScopeFromView(viewContext));
             requestAnimationFrame(() => inputRef.current?.focus());
         } else {
             setOmniQuery(''); // Reset on close
         }
-    }, [paletteOpen, setOmniQuery]);
+    }, [paletteOpen, setOmniQuery, viewContext, gatewayRoute]);
 
     useEffect(() => {
         const refresh = () => setExternalLinks(stationStorage.loadExternalGraphLinks());
@@ -139,8 +149,11 @@ const OmniOverlay: React.FC = () => {
             hint: activeTool === 'link' ? 'Turn off' : 'Turn on',
             shortcut: 'L',
             keywords: ['link', 'connect', 'tool'],
-            scope: 'space',
-            action: () => setTool(activeTool === 'link' ? 'pointer' : 'link')
+            scope: 'any',
+            action: () => {
+                if (viewContext !== 'space' && viewContext !== 'cluster') return;
+                setTool(activeTool === 'link' ? 'pointer' : 'link');
+            }
         },
         {
             id: 'open-atlas',
@@ -148,7 +161,21 @@ const OmniOverlay: React.FC = () => {
             hint: 'Jump to platform brand graph',
             keywords: ['atlas', 'symbolverse', 'platform'],
             scope: 'atlas',
-            action: () => setViewContext('gateway')
+            action: () => {
+                setGatewayRoute({ type: 'atlas' });
+                setViewContext('gateway');
+            }
+        },
+        {
+            id: 'open-portal-builder',
+            label: 'Open Portal Builder',
+            hint: 'Private brand portal constructor',
+            keywords: ['portal', 'builder', 'brand', 'private'],
+            scope: 'portal',
+            action: () => {
+                setGatewayRoute({ type: 'portal-builder', slug: 'symbolfield' });
+                setViewContext('gateway');
+            }
         },
         ...(gatewayRoute ? [{
             id: 'save-current-external-link',
@@ -157,18 +184,30 @@ const OmniOverlay: React.FC = () => {
             keywords: ['save', 'link', 'portal', 'station'],
             scope: 'external' as const,
             action: () => {
-                const label = gatewayRoute.type === 'brand'
-                    ? `Brand: ${gatewayRoute.slug}`
-                    : `Portal: ${gatewayRoute.brandSlug}/${gatewayRoute.portalSlug}`;
+                const label = gatewayRoute.type === 'symbolverse'
+                    ? 'Symbolverse'
+                    : gatewayRoute.type === 'atlas'
+                        ? 'Atlas'
+                        : gatewayRoute.type === 'brand'
+                            ? `Brand: ${gatewayRoute.slug}`
+                            : gatewayRoute.type === 'portal-builder'
+                                ? `Builder: ${gatewayRoute.slug}`
+                            : `Portal: ${gatewayRoute.brandSlug}/${gatewayRoute.portalSlug}`;
                 stationStorage.upsertExternalGraphLink(gatewayRoute, { label, visibility: 'private' });
             }
         }] : []),
         ...externalLinks.slice(0, 8).map((link) => ({
             id: `open-external-link-${link.id}`,
             label: `Open: ${link.label}`,
-            hint: link.target.type === 'brand'
-                ? `brand/${link.target.slug}`
-                : `${link.target.brandSlug}/${link.target.portalSlug}`,
+            hint: link.target.type === 'symbolverse'
+                ? 'platform/symbolverse'
+                : link.target.type === 'atlas'
+                    ? 'platform/atlas'
+                    : link.target.type === 'brand'
+                        ? `brand/${link.target.slug}`
+                        : link.target.type === 'portal-builder'
+                            ? `builder/${link.target.slug}`
+                        : `${link.target.brandSlug}/${link.target.portalSlug}`,
             keywords: ['external', 'graph', 'link', 'portal', 'brand'],
             scope: 'external' as const,
             action: () => openExternalLink(link)
@@ -242,22 +281,32 @@ const OmniOverlay: React.FC = () => {
 
                     {/* Header: Scope Switcher + Input */}
                     <div className="flex items-center px-4 py-3 gap-3 border-b border-[var(--semantic-color-border-default)]/50">
-                        {/* Scope Chip */}
-                        <CapsuleTabs
-                            items={scopeItems}
-                            activeId={scope}
-                            onSelect={(id) => setScope(id as OmniScope)}
-                            onCycle={cycleScope}
-                            title="Current scope (Tab to switch, All = all levels)"
-                        />
+                        {/* Fixed scope capsule: current level + click/tab cycle */}
+                        <button
+                            type="button"
+                            title="Current scope (click or Tab to switch)"
+                            onClick={() => cycleScope(1)}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Tab') {
+                                    event.preventDefault();
+                                    cycleScope(event.shiftKey ? -1 : 1);
+                                    return;
+                                }
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    cycleScope(1);
+                                }
+                            }}
+                            className="ui-selectable ui-shape-pill h-[34px] min-w-[112px] px-4 flex items-center justify-center bg-[var(--semantic-color-bg-app)]/85 border border-[var(--semantic-color-border-default)] font-mono uppercase tracking-[0.14em] text-[11px] text-[var(--semantic-color-text-secondary)]"
+                        >
+                            {currentScopeLabel}
+                        </button>
 
                         <input
                             ref={inputRef}
                             className="flex-1 bg-transparent border-none outline-none text-[var(--semantic-color-text-primary)] placeholder-[var(--semantic-color-text-muted)] text-lg"
                             placeholder={
-                                scope === 'all'
-                                    ? 'Search all levels...'
-                                    : scope === 'station'
+                                scope === 'station'
                                         ? 'Search Station...'
                                         : scope === 'atlas' || scope === 'portal' || scope === 'external'
                                             ? 'Search Atlas / Portals...'
@@ -318,7 +367,7 @@ const OmniOverlay: React.FC = () => {
                     {/* Footer: Hints */}
                     <div className="bg-[var(--semantic-color-bg-app)]/50 px-4 py-2 text-[10px] text-[var(--semantic-color-text-muted)] border-t border-[var(--semantic-color-border-default)] flex items-center gap-4">
                         <span><strong className="text-[var(--semantic-color-text-secondary)]">Tab</strong> to switch scope</span>
-                        <span><strong className="text-[var(--semantic-color-text-secondary)]">All</strong> includes every graph level</span>
+                        <span><strong className="text-[var(--semantic-color-text-secondary)]">Click</strong> capsule to cycle level</span>
                         <span><strong className="text-[var(--semantic-color-text-secondary)]">/</strong> for commands</span>
                         <span><strong className="text-[var(--semantic-color-text-secondary)]">#</strong> for tags</span>
                     </div>

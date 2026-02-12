@@ -39,7 +39,7 @@ const SpaceProperties = () => {
                     key={`space-name-${inspectedSpaceId ?? 'none'}`}
                     type="text"
                     defaultValue={meta.name ?? ''}
-                    className="w-full bg-transparent border-b border-[var(--semantic-color-border-default)] text-[var(--semantic-color-text-primary)] font-medium text-lg focus:outline-none focus:border-[var(--semantic-color-action-primary)] transition-colors py-1"
+                    className="ui-field-soft w-full px-3 py-2 text-[var(--semantic-color-text-primary)] font-medium text-base"
                 />
             </div>
 
@@ -52,7 +52,7 @@ const SpaceProperties = () => {
                     key={`space-description-${inspectedSpaceId ?? 'none'}`}
                     defaultValue={meta.description ?? ''}
                     rows={4}
-                    className="w-full bg-[var(--semantic-color-bg-surface-hover)] rounded-[var(--primitive-radius-sm)] border border-transparent focus:border-[var(--semantic-color-action-primary)] p-3 text-sm text-[var(--semantic-color-text-secondary)] resize-none focus:outline-none transition-all"
+                    className="ui-field-soft w-full p-3 text-sm resize-none"
                     placeholder="Add a description..."
                 />
             </div>
@@ -99,10 +99,10 @@ const SpaceProperties = () => {
 
             {/* Actions */}
             <div className="flex flex-col gap-2 pt-4 border-t border-[var(--semantic-color-border-default)]">
-                <button className="w-full py-2 px-4 rounded-[var(--primitive-radius-sm)] text-sm font-medium text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-bg-surface-hover)] hover:text-[var(--semantic-color-text-primary)] transition-colors flex items-center justify-center gap-2">
+                <button className="ui-selectable ui-shape-soft w-full py-2 px-4 text-sm font-medium text-[var(--semantic-color-text-secondary)] flex items-center justify-center gap-2">
                     <span>Export Space</span>
                 </button>
-                <button className="w-full py-2 px-4 rounded-[var(--primitive-radius-sm)] text-sm font-medium text-[var(--semantic-color-status-error)] hover:bg-[var(--semantic-color-status-error)]/10 transition-colors flex items-center justify-center gap-2">
+                <button className="ui-selectable ui-shape-soft w-full py-2 px-4 text-sm font-medium text-[var(--semantic-color-status-error)] hover:bg-[var(--semantic-color-status-error)]/10 flex items-center justify-center gap-2">
                     <span>Archive Space</span>
                 </button>
             </div>

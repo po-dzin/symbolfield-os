@@ -56,6 +56,37 @@ const clamp = (value: number, min: number, max: number): number => Math.min(max,
 
 const lerp = (from: number, to: number, t: number): number => from + (to - from) * t;
 
+const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
+    const normalized = hex.replace('#', '');
+    const full = normalized.length === 3
+        ? normalized.split('').map(ch => `${ch}${ch}`).join('')
+        : normalized;
+    const value = Number.parseInt(full, 16);
+    if (Number.isNaN(value)) return { r: 212, g: 175, b: 55 };
+    return {
+        r: (value >> 16) & 255,
+        g: (value >> 8) & 255,
+        b: value & 255
+    };
+};
+
+const rgba = ({ r, g, b }: { r: number; g: number; b: number }, alpha: number): string => (
+    `rgba(${r}, ${g}, ${b}, ${clamp(alpha, 0, 1).toFixed(3)})`
+);
+
+const toLinear = (channel: number): number => {
+    const normalized = channel / 255;
+    return normalized <= 0.03928
+        ? normalized / 12.92
+        : ((normalized + 0.055) / 1.055) ** 2.4;
+};
+
+const readableTextOnAccent = (hex: string): string => {
+    const { r, g, b } = hexToRgb(hex);
+    const luminance = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+    return luminance > 0.42 ? '#1F1A14' : '#F5EFE6';
+};
+
 const ACCENT_PALETTE: Record<HarmonyAccentId, { a1: string; a2: string; a3: string }> = {
     gold: { a1: '#D4AF37', a2: '#9CAD98', a3: '#E09F9F' },
     rose: { a1: '#E09F9F', a2: '#D4AF37', a3: '#CDBEFF' },
@@ -215,6 +246,26 @@ export const buildHarmonyProfile = (rawInput: Partial<HarmonyMatrix>): HarmonyPr
     const durationScale = systemMotion.multiplier;
 
     const soundGain = clamp(lerp(0.22, 0.52, t) * (matrix.motion === 'reduce' ? 0.75 : 1), 0.15, 0.55);
+    const accentRgb = hexToRgb(accent.a1);
+    const graphEdgeBase = matrix.mode === 'luma'
+        ? 'rgba(70, 59, 46, 0.22)'
+        : 'rgba(255, 255, 255, 0.34)';
+    const graphEdgeStrong = matrix.mode === 'luma'
+        ? 'rgba(70, 59, 46, 0.34)'
+        : 'rgba(255, 255, 255, 0.52)';
+    const graphNodeFill = matrix.mode === 'luma'
+        ? 'rgba(43, 34, 25, 0.09)'
+        : 'rgba(255, 255, 255, 0.06)';
+    const graphNodeStroke = matrix.mode === 'luma'
+        ? 'rgba(61, 50, 38, 0.34)'
+        : 'rgba(255, 255, 255, 0.36)';
+    const graphNodeGlow = matrix.mode === 'luma'
+        ? 'rgba(61, 50, 38, 0.16)'
+        : 'rgba(255, 255, 255, 0.12)';
+    const graphGlyph = matrix.mode === 'luma'
+        ? 'rgba(43, 34, 25, 0.9)'
+        : 'rgba(255, 255, 255, 0.9)';
+    const actionOnPrimary = readableTextOnAccent(accent.a1);
 
     const cssVars: Record<string, string> = {
         '--primitive-color-accent-gold': accent.a1,
@@ -223,7 +274,21 @@ export const buildHarmonyProfile = (rawInput: Partial<HarmonyMatrix>): HarmonyPr
         '--semantic-color-action-primary': accent.a1,
         '--semantic-color-action-secondary': accent.a2,
         '--semantic-color-action-tertiary': accent.a3,
+        '--semantic-color-action-on-primary': actionOnPrimary,
+        '--semantic-color-link': accent.a1,
+        '--semantic-color-status-success': accent.a3,
+        '--semantic-color-status-warning': accent.a1,
+        '--semantic-color-status-info': accent.a2,
         '--theme-border-active': accent.a1,
+
+        '--semantic-color-graph-node-fill': graphNodeFill,
+        '--semantic-color-graph-node-stroke': graphNodeStroke,
+        '--semantic-color-graph-node-glow': graphNodeGlow,
+        '--semantic-color-graph-node-glyph': graphGlyph,
+        '--semantic-color-graph-node-active-stroke': rgba(accentRgb, matrix.mode === 'luma' ? 0.85 : 0.92),
+        '--semantic-color-graph-edge': graphEdgeBase,
+        '--semantic-color-graph-edge-strong': graphEdgeStrong,
+        '--semantic-color-graph-edge-active': rgba(accentRgb, matrix.mode === 'luma' ? 0.78 : 0.88),
 
         '--theme-glass-opacity': `${glassOpacity.toFixed(3)}`,
         '--theme-blur-radius': px(blurRadiusPx),

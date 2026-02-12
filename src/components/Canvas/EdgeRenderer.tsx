@@ -127,12 +127,12 @@ const EdgeRenderer = ({ edge }: EdgeRendererProps) => {
                 stroke={isGhostLink
                     ? (ghostLevel > 1 ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.2)")
                     : isSelected
-                        ? "rgba(255,255,255,0.9)"
+                        ? "var(--semantic-color-graph-edge-active)"
                         : isHovered
-                            ? "rgba(255,255,255,0.75)"
+                            ? "var(--semantic-color-graph-edge-strong)"
                             : edge.type === 'associative'
-                                ? "rgba(255,255,255,0.3)"
-                                : "rgba(255,255,255,0.5)"
+                                ? "var(--semantic-color-graph-edge)"
+                                : "var(--semantic-color-graph-edge-strong)"
                 }
                 strokeWidth={isGhostLink ? "1.2" : isSelected ? "2.2" : isHovered ? "2.0" : "1.5"}
                 strokeLinecap="round"
@@ -144,7 +144,11 @@ const EdgeRenderer = ({ edge }: EdgeRendererProps) => {
             {!isGhostLink && edge.type !== 'associative' && (
                 <line
                     x1={x1} y1={y1} x2={x2} y2={y2}
-                    stroke={isSelected ? "rgba(255,255,255,0.25)" : isHovered ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.15)"}
+                    stroke={isSelected
+                        ? "color-mix(in srgb, var(--semantic-color-graph-edge-active), transparent 70%)"
+                        : isHovered
+                            ? "color-mix(in srgb, var(--semantic-color-graph-edge-strong), transparent 72%)"
+                            : "color-mix(in srgb, var(--semantic-color-graph-edge), transparent 78%)"}
                     strokeWidth={isSelected ? "8" : isHovered ? "7" : "6"}
                     style={{ filter: `blur(${glowBlur}px)` }}
                     pointerEvents="none"

@@ -12,10 +12,10 @@ const CollapsibleSection: React.FC<Props> = ({ title, children, defaultOpen = tr
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
     return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center justify-between w-full group text-left focus:outline-none py-1 hover:bg-[var(--semantic-color-bg-surface-hover)] rounded-[var(--primitive-radius-sm)] px-1 -ml-1 transition-colors"
+                className="ui-drawer-row flex items-center justify-between w-full group text-left focus:outline-none py-1.5 px-2"
             >
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-[var(--semantic-color-text-secondary)] group-hover:text-[var(--semantic-color-text-primary)] transition-colors">{title}</span>
@@ -39,7 +39,7 @@ const CollapsibleSection: React.FC<Props> = ({ title, children, defaultOpen = tr
             <div
                 className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}
             >
-                <div className="pl-2">
+                <div className="px-0">
                     {children}
                 </div>
             </div>

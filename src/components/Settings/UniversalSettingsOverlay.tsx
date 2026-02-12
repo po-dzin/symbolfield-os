@@ -10,7 +10,7 @@ interface UniversalSettingsOverlayProps {
 }
 
 type ScopeSectionId = 'station' | 'space' | 'node';
-type SectionId = ScopeSectionId | 'experimental' | 'account' | 'data';
+type SectionId = ScopeSectionId | 'appearance' | 'portal' | 'experimental' | 'account' | 'data';
 
 const SCOPE_SECTIONS: Array<{ id: ScopeSectionId; label: string }> = [
     { id: 'station', label: 'Station' },
@@ -19,7 +19,9 @@ const SCOPE_SECTIONS: Array<{ id: ScopeSectionId; label: string }> = [
 ];
 
 const NAV_ITEMS: Array<{ id: Exclude<SectionId, ScopeSectionId>; label: string; context?: string[] }> = [
-    { id: 'experimental', label: 'Experimental UI Sandbox' },
+    { id: 'appearance', label: 'Appearance' },
+    { id: 'portal', label: 'Portal Scope' },
+    { id: 'experimental', label: 'Experimental UI' },
     { id: 'account', label: 'Account' },
     { id: 'data', label: 'Data', context: ['home'] }
 ];
@@ -27,14 +29,27 @@ const NAV_ITEMS: Array<{ id: Exclude<SectionId, ScopeSectionId>; label: string; 
 const isScopeSection = (value: SectionId): value is ScopeSectionId =>
     value === 'station' || value === 'space' || value === 'node';
 
-const getDefaultSection = (viewContext: string): ScopeSectionId => {
+const getDefaultSection = (viewContext: string): SectionId => {
     if (viewContext === 'home') return 'station';
     if (viewContext === 'node') return 'node';
+    if (viewContext === 'gateway') return 'station';
     return 'space';
+};
+
+const getDefaultScopeSection = (viewContext: string): ScopeSectionId => {
+    if (viewContext === 'home') return 'station';
+    if (viewContext === 'node') return 'node';
+    if (viewContext === 'space' || viewContext === 'cluster') return 'space';
+    return 'station';
 };
 
 const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) => {
     const viewContext = useAppStore(state => state.viewContext);
+    const gatewayRoute = useAppStore(state => state.gatewayRoute);
+    const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
+    const setViewContext = useAppStore(state => state.setViewContext);
+    const settingsTargetSection = useAppStore(state => state.settingsTargetSection);
+    const setSettingsTargetSection = useAppStore(state => state.setSettingsTargetSection);
 
     // Global/Station Settings
     const showStationLabels = useAppStore(state => state.showStationLabels);
@@ -47,6 +62,8 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
     const setBreadcrumbLens = useAppStore(state => state.setBreadcrumbLens);
     const navigationFlowMode = useAppStore(state => state.navigationFlowMode);
     const setNavigationFlowMode = useAppStore(state => state.setNavigationFlowMode);
+    const experimentalUiEnabled = useAppStore(state => state.experimentalUiEnabled);
+    const setThemeOption = useAppStore(state => state.setThemeOption);
 
     // Space/View Settings
     const showGrid = useAppStore(state => state.showGrid);
@@ -70,8 +87,15 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
     const nodes = useGraphStore(state => state.nodes);
     const updateNode = useGraphStore(state => state.updateNode);
 
-    const defaultScopeSection = getDefaultSection(viewContext);
-    const [section, setSection] = useState<SectionId>(defaultScopeSection);
+    const defaultSection = getDefaultSection(viewContext);
+    const defaultScopeSection = getDefaultScopeSection(viewContext);
+    const [section, setSection] = useState<SectionId>(settingsTargetSection ?? defaultSection);
+
+    useEffect(() => {
+        if (!settingsTargetSection) return;
+        setSection(settingsTargetSection);
+        setSettingsTargetSection(null);
+    }, [settingsTargetSection, setSettingsTargetSection]);
 
     const availableNavItems = useMemo(
         () => NAV_ITEMS.filter(item => !item.context || item.context.includes(viewContext)),
@@ -80,7 +104,7 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
 
     const effectiveSection: SectionId = isScopeSection(section) || availableNavItems.find(item => item.id === section)
         ? section
-        : defaultScopeSection;
+        : defaultSection;
 
     const activeScopeSection: ScopeSectionId = isScopeSection(effectiveSection)
         ? effectiveSection
@@ -100,6 +124,15 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
         if (viewContext !== 'node' || !activeScope) return null;
         return nodes.find(node => node.id === activeScope) ?? null;
     }, [viewContext, activeScope, nodes]);
+
+    const portalRouteLabel = useMemo(() => {
+        if (!gatewayRoute) return 'Symbolverse';
+        if (gatewayRoute.type === 'symbolverse') return 'Symbolverse';
+        if (gatewayRoute.type === 'atlas') return 'Atlas';
+        if (gatewayRoute.type === 'brand') return `Brand / ${gatewayRoute.slug}`;
+        if (gatewayRoute.type === 'portal-builder') return `Builder / ${gatewayRoute.slug}`;
+        return `Portal / ${gatewayRoute.brandSlug} / ${gatewayRoute.portalSlug}`;
+    }, [gatewayRoute]);
 
     const saveNodeLabel = (nextValue: string) => {
         if (!activeNode) return;
@@ -124,7 +157,7 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [onClose]);
 
-    const scopeLabel = viewContext === 'home'
+    const scopeLabel = viewContext === 'home' || viewContext === 'gateway'
         ? 'Station Scope'
         : viewContext === 'node'
             ? 'Node Scope'
@@ -169,16 +202,24 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                             </div>
                         </div>
 
-                        {availableNavItems.map(item => (
-                            <button
-                                key={item.id}
-                                onClick={() => setSection(item.id)}
-                                data-state={effectiveSection === item.id ? 'active' : 'inactive'}
-                                className="ui-selectable w-full text-left px-4 py-2.5 rounded-[var(--primitive-radius-input)] text-sm transition-colors"
-                            >
-                                {item.label}
-                            </button>
-                        ))}
+                        {availableNavItems.map(item => {
+                            const disabled = item.id === 'experimental' && !experimentalUiEnabled;
+                            return (
+                                <button
+                                    key={item.id}
+                                    onClick={() => {
+                                        if (disabled) return;
+                                        setSection(item.id);
+                                    }}
+                                    data-state={effectiveSection === item.id ? 'active' : 'inactive'}
+                                    aria-disabled={disabled}
+                                    className={`ui-selectable w-full text-left px-4 py-2.5 rounded-[var(--primitive-radius-input)] text-sm transition-colors ${disabled ? 'opacity-45 cursor-not-allowed' : ''}`}
+                                >
+                                    {item.label}
+                                    {item.id === 'experimental' && !experimentalUiEnabled ? ' (off)' : ''}
+                                </button>
+                            );
+                        })}
                     </div>
                 </aside>
 
@@ -192,6 +233,10 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                     </button>
 
                     <div className="max-w-2xl mx-auto pt-4">
+                        {effectiveSection === 'appearance' && (
+                            <AppearanceSettingsPanel variant="base" />
+                        )}
+
                         {effectiveSection === 'station' && (
                             <section className="space-y-6">
                                 <div>
@@ -453,8 +498,84 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                             </section>
                         )}
 
+                        {effectiveSection === 'portal' && (
+                            <section className="space-y-6">
+                                <div>
+                                    <h2 className="text-[var(--semantic-color-text-primary)] text-xl font-medium">Portal Scope</h2>
+                                    <p className="text-[var(--semantic-color-text-secondary)] text-sm mt-1">Platform and portal navigation defaults with the same global path contract.</p>
+                                </div>
+                                <div className="glass-panel p-6 space-y-4">
+                                    <div className="text-xs uppercase tracking-[0.16em] text-[var(--semantic-color-text-muted)]">Active External Route</div>
+                                    <div className="text-sm text-[var(--semantic-color-text-primary)]">{portalRouteLabel}</div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setGatewayRoute({ type: 'symbolverse' });
+                                                setViewContext('gateway');
+                                            }}
+                                            data-state={gatewayRoute?.type === 'symbolverse' ? 'active' : 'inactive'}
+                                            className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                        >
+                                            Symbolverse
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setGatewayRoute({ type: 'atlas' });
+                                                setViewContext('gateway');
+                                            }}
+                                            data-state={gatewayRoute?.type === 'atlas' ? 'active' : 'inactive'}
+                                            className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                        >
+                                            Atlas
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setGatewayRoute({ type: 'brand', slug: 'symbolfield' });
+                                                setViewContext('gateway');
+                                            }}
+                                            data-state={gatewayRoute?.type === 'brand' || gatewayRoute?.type === 'portal' || gatewayRoute?.type === 'portal-builder' ? 'active' : 'inactive'}
+                                            className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                        >
+                                            Brand Portal
+                                        </button>
+                                    </div>
+                                    <div className="h-px bg-[var(--semantic-color-border-default)] my-2 opacity-50" />
+                                    <div className="space-y-2">
+                                        <div className="text-sm text-[var(--semantic-color-text-secondary)]">Path display</div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setPathDisplayMode('full')}
+                                                data-state={pathDisplayMode === 'full' ? 'active' : 'inactive'}
+                                                className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                            >
+                                                Full Breadcrumb
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPathDisplayMode('compact')}
+                                                data-state={pathDisplayMode === 'compact' ? 'active' : 'inactive'}
+                                                className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
+                                            >
+                                                Level Capsule
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
                         {effectiveSection === 'experimental' && (
-                            <AppearanceSettingsPanel />
+                            <AppearanceSettingsPanel
+                                variant="experimental"
+                                experimentalEnabled={experimentalUiEnabled}
+                                onEnableExperimental={() => {
+                                    setThemeOption('experimentalUiEnabled', true);
+                                }}
+                            />
                         )}
 
                         {effectiveSection === 'account' && (

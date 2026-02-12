@@ -25,8 +25,8 @@ const TogglePill = ({
             className={`
                 relative w-12 h-6 rounded-full border transition-colors duration-[var(--primitive-motion-duration-normal)]
                 ${checked
-                    ? 'bg-white/20 border-white/30'
-                    : 'bg-white/5 border-white/10'
+                    ? 'bg-[var(--semantic-color-action-primary)]/20 border-[var(--semantic-color-action-primary)]/45'
+                    : 'bg-[var(--semantic-color-bg-surface)]/70 border-[var(--semantic-color-border-default)]'
                 }
                 ${className}
             `}
@@ -34,14 +34,14 @@ const TogglePill = ({
             {/* Knob - white circle, position indicates state */}
             <span
                 className={`
-                    absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow-sm bg-white
+                    absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow-sm
                     transition-all duration-[var(--primitive-motion-duration-normal)]
                     ${checked ? 'right-1' : 'left-1'}
                 `}
+                style={{ backgroundColor: checked ? 'var(--semantic-color-action-primary)' : 'var(--semantic-color-text-muted)' }}
             />
         </button>
     );
 };
 
 export default TogglePill;
-

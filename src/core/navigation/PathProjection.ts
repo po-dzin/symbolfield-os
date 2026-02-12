@@ -3,12 +3,15 @@ import type { NodeId } from '../types';
 export type NavigationFlowMode = 'auto' | 'build' | 'explore';
 export type BreadcrumbLens = 'full' | 'external' | 'internal' | 'focus';
 export type PathDisplayMode = 'full' | 'compact';
-export type PathSegmentId = 'atlas' | 'portal' | 'station' | 'space' | 'cluster' | 'node';
+export type PathSegmentId = 'symbolverse' | 'atlas' | 'portal' | 'station' | 'space' | 'cluster' | 'node';
 
 type ViewContext = 'home' | 'space' | 'cluster' | 'node' | 'now' | 'gateway';
 
 type GatewayRoute =
+    | { type: 'symbolverse' }
+    | { type: 'atlas' }
     | { type: 'brand'; slug: string }
+    | { type: 'portal-builder'; slug: string }
     | { type: 'portal'; brandSlug: string; portalSlug: string }
     | null;
 
@@ -29,6 +32,7 @@ export interface PathProjectionInput {
     breadcrumbLens: BreadcrumbLens;
     pathDisplayMode: PathDisplayMode;
     labels: {
+        symbolverse: string;
         atlas: string;
         portal: string;
         station: string;
@@ -45,7 +49,8 @@ export interface PathProjectionResult {
     effectiveFlow: 'build' | 'explore';
 }
 
-export const DEFAULT_ATLAS_LABEL = 'Symbolverse';
+export const DEFAULT_SYMBOLVERSE_LABEL = 'Symbolverse';
+export const DEFAULT_ATLAS_LABEL = 'Atlas';
 export const DEFAULT_PORTAL_LABEL = 'Brand Portal';
 
 export const toDisplayLabel = (value: string): string => {
@@ -65,11 +70,15 @@ export const resolveEffectiveFlow = (
     return viewContext === 'gateway' ? 'explore' : 'build';
 };
 
-const resolveCurrentDepthId = (viewContext: ViewContext): PathSegmentId => {
+const resolveCurrentDepthId = (viewContext: ViewContext, gatewayRoute: GatewayRoute): PathSegmentId => {
     if (viewContext === 'node' || viewContext === 'now') return 'node';
     if (viewContext === 'cluster') return 'cluster';
     if (viewContext === 'space') return 'space';
-    if (viewContext === 'gateway') return 'portal';
+    if (viewContext === 'gateway') {
+        if (gatewayRoute?.type === 'symbolverse') return 'symbolverse';
+        if (gatewayRoute?.type === 'atlas') return 'atlas';
+        return 'portal';
+    }
     return 'station';
 };
 
@@ -117,12 +126,26 @@ const resolveInternalSegments = (input: PathProjectionInput): PathSegment[] => {
 const resolveExternalSegments = (input: PathProjectionInput): PathSegment[] => {
     const segments: PathSegment[] = [
         {
+            id: 'symbolverse',
+            label: input.labels.symbolverse || DEFAULT_SYMBOLVERSE_LABEL,
+            enabled: true,
+            group: 'external'
+        },
+        {
             id: 'atlas',
             label: input.labels.atlas || DEFAULT_ATLAS_LABEL,
             enabled: true,
             group: 'external'
         }
     ];
+
+    if (input.gatewayRoute?.type === 'symbolverse') {
+        return [segments[0]!];
+    }
+
+    if (input.gatewayRoute?.type === 'atlas') {
+        return segments;
+    }
 
     if (input.gatewayRoute?.type === 'portal') {
         const brandLabel = toDisplayLabel(input.gatewayRoute.brandSlug) || DEFAULT_PORTAL_LABEL;
@@ -141,6 +164,17 @@ const resolveExternalSegments = (input: PathProjectionInput): PathSegment[] => {
         segments.push({
             id: 'portal',
             label: brandLabel,
+            enabled: true,
+            group: 'external'
+        });
+        return segments;
+    }
+
+    if (input.gatewayRoute?.type === 'portal-builder') {
+        const brandLabel = toDisplayLabel(input.gatewayRoute.slug) || DEFAULT_PORTAL_LABEL;
+        segments.push({
+            id: 'portal',
+            label: `${brandLabel} / Builder`,
             enabled: true,
             group: 'external'
         });
@@ -170,7 +204,7 @@ const combineUnique = (left: PathSegment[], right: PathSegment[]): PathSegment[]
 
 export const resolvePathProjection = (input: PathProjectionInput): PathProjectionResult => {
     const effectiveFlow = resolveEffectiveFlow(input.navigationFlowMode, input.viewContext);
-    const currentDepthId = resolveCurrentDepthId(input.viewContext);
+    const currentDepthId = resolveCurrentDepthId(input.viewContext, input.gatewayRoute);
     const internal = resolveInternalSegments(input);
     const external = resolveExternalSegments(input);
 

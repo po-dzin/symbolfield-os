@@ -8,7 +8,7 @@ const TemplatesRow = () => {
     return (
         <div>
 
-            <div className="space-y-1 pl-1">
+            <div className="space-y-1">
                 {templates.map(t => (
                     <button
                         key={t.id}
@@ -16,7 +16,7 @@ const TemplatesRow = () => {
                             const id = spaceManager.createSpace(t.title);
                             spaceManager.loadSpace(id);
                         }}
-                        className="group flex items-center gap-3 w-full text-left focus-visible:outline-none hover:bg-[var(--semantic-color-bg-surface-hover)] rounded-[6px] px-2 py-1.5 transition-all mx-1 w-[calc(100%-8px)]"
+                        className="ui-drawer-row group flex items-center gap-3 w-full text-left focus-visible:outline-none px-2 py-1.5"
                     >
                         {/* Template Icon (Empty Placeholder Circle) */}
                         <div className="

@@ -29,7 +29,7 @@ const NodeProperties = () => {
                 <input
                     type="text"
                     defaultValue={typeof label === 'string' ? label : ''}
-                    className="w-full bg-transparent border-b border-[var(--semantic-color-border-default)] text-[var(--semantic-color-text-primary)] font-medium text-lg focus:outline-none focus:border-[var(--semantic-color-action-primary)] transition-colors py-1"
+                    className="ui-field-soft w-full px-3 py-2 text-[var(--semantic-color-text-primary)] font-medium text-base"
                 />
             </div>
 
@@ -39,7 +39,7 @@ const NodeProperties = () => {
                     Type
                 </label>
                 <div className="flex items-center gap-2">
-                    <span className="px-2 py-1 bg-[var(--semantic-color-bg-surface-hover)] rounded text-xs font-mono text-[var(--semantic-color-text-secondary)] border border-[var(--semantic-color-border-default)]">
+                    <span className="ui-shape-soft px-2 py-1 bg-[var(--semantic-color-bg-surface-hover)] text-xs font-mono text-[var(--semantic-color-text-secondary)] border border-[var(--semantic-color-border-default)]">
                         {typeof type === 'string' ? type : 'generic'}
                     </span>
                 </div>
@@ -69,10 +69,10 @@ const NodeProperties = () => {
 
             {/* Actions */}
             <div className="flex flex-col gap-2 pt-4 border-t border-[var(--semantic-color-border-default)]">
-                <button className="w-full py-2 px-4 rounded-[var(--primitive-radius-sm)] text-sm font-medium text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-bg-surface-hover)] hover:text-[var(--semantic-color-text-primary)] transition-colors flex items-center justify-center gap-2">
+                <button className="ui-selectable ui-shape-soft w-full py-2 px-4 text-sm font-medium text-[var(--semantic-color-text-secondary)] flex items-center justify-center gap-2">
                     <span>Convert Type...</span>
                 </button>
-                <button className="w-full py-2 px-4 rounded-[var(--primitive-radius-sm)] text-sm font-medium text-[var(--semantic-color-status-error)] hover:bg-[var(--semantic-color-status-error)]/10 transition-colors flex items-center justify-center gap-2">
+                <button className="ui-selectable ui-shape-soft w-full py-2 px-4 text-sm font-medium text-[var(--semantic-color-status-error)] hover:bg-[var(--semantic-color-status-error)]/10 flex items-center justify-center gap-2">
                     <span>Delete Node</span>
                 </button>
             </div>

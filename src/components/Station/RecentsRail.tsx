@@ -42,7 +42,7 @@ const RecentsRail = ({ selectedSpaceId }: { selectedSpaceId?: string | null }) =
         .sort((a, b) => (b.lastAccessedAt || 0) - (a.lastAccessedAt || 0));
 
     return (
-        <div className="space-y-1 pl-1">
+        <div className="space-y-1">
             {showPlaygroundOnStation && playground && (
                 <SpaceRow
                     key={playground.id}
@@ -101,7 +101,7 @@ const SpaceRow = ({
                 onMouseEnter={() => eventBus.emit(EVENTS.PORTAL_HOVERED, { spaceId: item.id })}
                 onMouseLeave={() => eventBus.emit(EVENTS.PORTAL_HOVERED, {})}
                 data-state={isSelected ? 'active' : 'inactive'}
-                className="ui-selectable group flex items-center gap-3 w-full text-left focus-visible:outline-none rounded-[6px] px-2 py-1.5 transition-all mx-1 w-[calc(100%-8px)]"
+                className="ui-drawer-row group flex items-center gap-3 w-full text-left focus-visible:outline-none px-2 py-1.5"
             >
                 {/* Space Icon (Empty Placeholder Circle) */}
                 <div className={`
@@ -120,7 +120,7 @@ const SpaceRow = ({
 
             <button
                 onClick={() => setMenuOpen(prev => !prev)}
-                className="absolute right-0 top-1/2 -translate-y-1/2 px-2 text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-secondary)] text-xs transition-colors"
+                className="absolute right-1 top-1/2 -translate-y-1/2 px-2 text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-secondary)] text-xs transition-colors"
                 aria-label="Space actions"
             >
                 ⋯
@@ -130,14 +130,14 @@ const SpaceRow = ({
                 <div className="absolute right-0 top-full mt-2 z-20 min-w-[140px] rounded-[var(--primitive-radius-card)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)] backdrop-blur p-1 text-xs shadow-lg">
                     <button
                         onClick={handleRename}
-                        className="w-full text-left px-3 py-2 rounded-[8px] hover:bg-[var(--semantic-color-text-primary)]/10 text-[var(--semantic-color-text-secondary)]"
+                        className="ui-selectable ui-shape-soft w-full text-left px-3 py-2 text-[var(--semantic-color-text-secondary)]"
                     >
                         Rename
                     </button>
                     {!isPlayground && (
                         <button
                             onClick={handleDelete}
-                            className="w-full text-left px-3 py-2 rounded-[8px] hover:bg-[var(--semantic-color-status-error)]/10 hover:text-[var(--semantic-color-status-error)] text-[var(--semantic-color-text-secondary)]"
+                            className="ui-selectable ui-shape-soft w-full text-left px-3 py-2 hover:bg-[var(--semantic-color-status-error)]/10 hover:text-[var(--semantic-color-status-error)] text-[var(--semantic-color-text-secondary)]"
                         >
                             Delete
                         </button>

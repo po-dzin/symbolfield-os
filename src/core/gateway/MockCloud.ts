@@ -10,6 +10,16 @@ const MOCK_BRANDS: Brand[] = [
         name: 'SymbolField Official',
         bio: 'The official showroom for SymbolField OS templates, maps, and guides.',
         avatar: 'https://ui-avatars.com/api/?name=SF&background=000&color=fff',
+        portal: {
+            subdomain: 'symbolfield.sf',
+            customDomain: 'symbolfield.world',
+            skin: 'deep',
+            builder: {
+                layoutPreset: 'core-shell',
+                moduleSlots: ['signals', 'chronos'],
+                panelSlots: ['insights', 'links']
+            }
+        },
         links: [
             { label: 'Website', url: 'https://symbolfield.com' },
             { label: 'Documentation', url: 'https://docs.symbolfield.com' }
@@ -20,7 +30,17 @@ const MOCK_BRANDS: Brand[] = [
         slug: 'creator_labs',
         name: 'Creator Labs',
         bio: 'Experimental spaces for thinkers and builders.',
-        avatar: 'https://ui-avatars.com/api/?name=CL&background=333&color=fff'
+        avatar: 'https://ui-avatars.com/api/?name=CL&background=333&color=fff',
+        portal: {
+            subdomain: 'creatorlabs.sf',
+            customDomain: null,
+            skin: 'flow',
+            builder: {
+                layoutPreset: 'core-shell',
+                moduleSlots: ['offers', 'community'],
+                panelSlots: ['activity']
+            }
+        }
     }
 ];
 

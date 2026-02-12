@@ -128,6 +128,43 @@ const CanvasView = () => {
         motionMetricsRef.current = getSystemMotionMetrics(themeMotion, themeSpeed);
     }, [themeMotion, themeSpeed]);
 
+    // Keep keyboard routing independent from wheel/gesture setup so cluster scope
+    // always receives canvas hotkeys, even if pointer listeners are delayed.
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement | null;
+            if (target?.closest('input, textarea, [contenteditable="true"]')) {
+                return;
+            }
+            if (e.code === 'Space') {
+                isSpacePressed.current = true;
+                setSpacePanArmed(true);
+            }
+            if ((e.key === 'Escape' || e.key === 'Esc' || e.code === 'Escape') && stateEngine.getState().fieldScopeId) {
+                stateEngine.setFieldScope(null);
+                return;
+            }
+            if (e.defaultPrevented && (e.metaKey || e.ctrlKey)) {
+                return;
+            }
+            gestureRouter.handleKeyDown(e);
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.code === 'Space') {
+                isSpacePressed.current = false;
+                setSpacePanArmed(false);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, []);
+
     const getAreaCenter = (area: (typeof areas)[number]) => {
         if (area.shape !== 'circle') return null;
         if (area.anchor.type === 'node') {
@@ -1410,33 +1447,6 @@ const CanvasView = () => {
         document.addEventListener('gesturechange', handleGestureChange as DomEventListener, { passive: false });
         document.addEventListener('gestureend', handleGestureEnd as DomEventListener, { passive: false });
 
-        // Global hotkey listener for Router & local state
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.defaultPrevented) return;
-            const target = e.target as HTMLElement | null;
-            if (target?.closest('input, textarea, [contenteditable="true"]')) {
-                return;
-            }
-            if (e.code === 'Space') {
-                isSpacePressed.current = true;
-                setSpacePanArmed(true);
-            }
-            if ((e.key === 'Escape' || e.key === 'Esc' || e.code === 'Escape') && stateEngine.getState().fieldScopeId) {
-                stateEngine.setFieldScope(null);
-                return;
-            }
-            gestureRouter.handleKeyDown(e);
-        };
-        const handleKeyUp = (e: KeyboardEvent) => {
-            if (e.code === 'Space') {
-                isSpacePressed.current = false;
-                setSpacePanArmed(false);
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
-
         const onGlobalZoomHotkey = (event: Event) => {
             const detail = (event as CustomEvent<ZoomHotkeyDetail>).detail;
             if (!detail) return;
@@ -1503,8 +1513,6 @@ const CanvasView = () => {
             if (gestureFallbackTimer) {
                 window.clearTimeout(gestureFallbackTimer);
             }
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keyup', handleKeyUp);
             window.removeEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as DomEventListener);
             unsubFocus();
             unsubUndo();
@@ -2318,7 +2326,7 @@ const CanvasView = () => {
                                                         left: width / 2 + ring.r - handleSize / 2,
                                                         top: height / 2 - handleSize / 2,
                                                         cursor: 'ew-resize',
-                                                        backgroundColor: 'rgb(255,255,255)'
+                                                        backgroundColor: 'var(--semantic-color-text-primary)'
                                                     }}
                                                     onPointerDown={(e) => {
                                                         e.stopPropagation();
@@ -2360,10 +2368,16 @@ const CanvasView = () => {
                             {/* Visual Source: The DOT is the center */}
                             <div className="relative flex items-center justify-center w-16 h-16">
                                 {/* Spreading Ring */}
-                                <div className="absolute inset-0 rounded-full border border-white/20 animate-source-pulse-spread" />
+                                <div
+                                    className="absolute inset-0 rounded-full animate-source-pulse-spread"
+                                    style={{ border: '1px solid color-mix(in srgb, var(--semantic-color-graph-node-stroke), transparent 20%)' }}
+                                />
 
                                 {/* Center Dot */}
-                                <div className="w-2.5 h-2.5 bg-white rounded-full animate-source-dot-pulse relative z-10" />
+                                <div
+                                    className="w-2.5 h-2.5 rounded-full animate-source-dot-pulse relative z-10"
+                                    style={{ backgroundColor: 'var(--semantic-color-text-primary)' }}
+                                />
                             </div>
 
                             {/* Label Container: Positioned absolutely below the dot to avoid shifting the center */}
@@ -2371,10 +2385,10 @@ const CanvasView = () => {
                                 className="absolute top-[100%] flex flex-col items-center gap-1.5 pointer-events-none"
                                 style={{ paddingTop: `${GRID_METRICS.cell * 2 - 40}px` }}
                             >
-                                <span className="text-[10px] uppercase tracking-[0.2em] text-white/30 font-mono select-none group-hover:text-white/60 transition-colors">
+                                <span className="text-[10px] uppercase tracking-[0.2em] font-mono select-none transition-colors text-[color:color-mix(in_srgb,var(--semantic-color-text-primary),transparent_70%)] group-hover:text-[color:color-mix(in_srgb,var(--semantic-color-text-primary),transparent_35%)]">
                                     Source
                                 </span>
-                                <span className="text-[8px] uppercase tracking-[0.15em] text-white/20 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-1 group-hover:translate-y-0 whitespace-nowrap">
+                                <span className="text-[8px] uppercase tracking-[0.15em] opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-1 group-hover:translate-y-0 whitespace-nowrap text-[color:color-mix(in_srgb,var(--semantic-color-text-primary),transparent_82%)]">
                                     Double-click to materialize
                                 </span>
                             </div>

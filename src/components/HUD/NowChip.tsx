@@ -52,7 +52,7 @@ const NowChip = () => {
                 >
                     {getModeIcon(appMode)}
                 </span>
-                <div className="w-2 h-2 rounded-full bg-[var(--primitive-color-utility-success)]" title="Tone" />
+                <div className="w-2 h-2 rounded-full bg-[var(--semantic-color-status-success)]" title="Tone" />
                 <span className="text-[var(--semantic-color-text-secondary)] opacity-30">|</span>
                 <div className="flex items-center gap-1 text-[var(--semantic-color-text-primary)] font-medium text-xs">
                     <span>⏱</span>

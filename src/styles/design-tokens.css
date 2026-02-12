@@ -113,6 +113,7 @@
   /* Backgrounds */
   --semantic-color-bg-app: var(--primitive-color-n1-bg);
   --semantic-color-bg-surface: var(--primitive-color-n2-surface);
+  --semantic-color-bg-surface-hover: color-mix(in srgb, var(--semantic-color-bg-surface), var(--semantic-color-text-primary) 6%);
 
   /* Borders */
   /* Borders */
@@ -129,6 +130,18 @@
   --semantic-color-action-primary: var(--primitive-color-accent-gold);
   --semantic-color-action-secondary: var(--primitive-color-accent-rose);
   --semantic-color-action-tertiary: var(--primitive-color-accent-sage);
+  --semantic-color-action-on-primary: #121212;
+  --semantic-color-link: var(--semantic-color-action-primary);
+
+  /* Graph Semantics */
+  --semantic-color-graph-node-fill: rgba(255, 255, 255, 0.06);
+  --semantic-color-graph-node-stroke: rgba(255, 255, 255, 0.36);
+  --semantic-color-graph-node-glow: rgba(255, 255, 255, 0.12);
+  --semantic-color-graph-node-glyph: rgba(255, 255, 255, 0.9);
+  --semantic-color-graph-node-active-stroke: var(--theme-border-active);
+  --semantic-color-graph-edge: rgba(255, 255, 255, 0.34);
+  --semantic-color-graph-edge-strong: rgba(255, 255, 255, 0.52);
+  --semantic-color-graph-edge-active: color-mix(in srgb, var(--theme-border-active), white 22%);
 
   /* Theme Variables (Dynamic) */
   --theme-noise-opacity: 0.03;
@@ -140,6 +153,7 @@
   --semantic-color-status-success: var(--primitive-color-utility-success);
   --semantic-color-status-warning: var(--primitive-color-utility-warning);
   --semantic-color-status-info: var(--primitive-color-utility-info);
+  --semantic-color-status-error: #B86A63;
 
   /* Font Styles */
   --semantic-font-family-ui: var(--primitive-font-ui);
@@ -226,10 +240,38 @@
 
 /* Light Mode Override (v0.1 Baseline) */
 :root[data-theme="light"] {
-  --semantic-color-bg-app: #F7F5EF;
-  --semantic-color-bg-surface: #FFFFFF;
-  --semantic-color-border-default: #D8D2C6;
-  --semantic-color-text-primary: #1A1C20;
-  --semantic-color-text-secondary: #505966;
-  --semantic-color-text-muted: #6E7785;
+  --semantic-color-bg-app: #F1EDE4;
+  --semantic-color-bg-surface: #FBF7F0;
+  --semantic-color-bg-surface-hover: #EFE7DB;
+  --semantic-color-border-default: #D8CCBC;
+  --semantic-color-border-subtle: rgba(34, 29, 24, 0.12);
+
+  --semantic-color-text-primary: #201C17;
+  --semantic-color-text-secondary: #5B5348;
+  --semantic-color-text-muted: #888073;
+
+  --semantic-color-action-primary: #B79A7D;
+  --semantic-color-action-secondary: #C99A87;
+  --semantic-color-action-tertiary: #94A98D;
+  --semantic-color-action-on-primary: #201C17;
+  --semantic-color-link: #9D7F62;
+
+  --semantic-color-graph-node-fill: rgba(43, 34, 25, 0.09);
+  --semantic-color-graph-node-stroke: rgba(61, 50, 38, 0.34);
+  --semantic-color-graph-node-glow: rgba(61, 50, 38, 0.16);
+  --semantic-color-graph-node-glyph: rgba(43, 34, 25, 0.9);
+  --semantic-color-graph-node-active-stroke: #A98A6C;
+  --semantic-color-graph-edge: rgba(70, 59, 46, 0.22);
+  --semantic-color-graph-edge-strong: rgba(70, 59, 46, 0.34);
+  --semantic-color-graph-edge-active: #A98A6C;
+
+  --semantic-color-status-success: #7FA48D;
+  --semantic-color-status-warning: #C6975F;
+  --semantic-color-status-info: #6E89AA;
+  --semantic-color-status-error: #B86A63;
+
+  --theme-border-active: #B79A7D;
+  --theme-glass-opacity: 0.86;
+  --theme-noise-opacity: 0.018;
+  --theme-glow-strength: 0.22;
 }

@@ -5,6 +5,7 @@ import { spaceManager } from '../../core/state/SpaceManager';
 import CapsuleTabs, { type CapsuleTabItem } from '../Common/CapsuleTabs';
 import {
     DEFAULT_ATLAS_LABEL,
+    DEFAULT_SYMBOLVERSE_LABEL,
     DEFAULT_PORTAL_LABEL,
     resolvePathProjection,
     toDisplayLabel,
@@ -53,6 +54,12 @@ const ScopeTabs: React.FC = () => {
     }, [activeCluster, fieldScopeId]);
 
     const portalLabel = useMemo(() => {
+        if (gatewayRoute?.type === 'symbolverse') {
+            return DEFAULT_PORTAL_LABEL;
+        }
+        if (gatewayRoute?.type === 'atlas') {
+            return 'Atlas';
+        }
         if (gatewayRoute?.type === 'portal') {
             const brand = toDisplayLabel(gatewayRoute.brandSlug) || 'Brand';
             const portal = toDisplayLabel(gatewayRoute.portalSlug);
@@ -60,6 +67,10 @@ const ScopeTabs: React.FC = () => {
         }
         if (gatewayRoute?.type === 'brand') {
             return toDisplayLabel(gatewayRoute.slug) || DEFAULT_PORTAL_LABEL;
+        }
+        if (gatewayRoute?.type === 'portal-builder') {
+            const brand = toDisplayLabel(gatewayRoute.slug) || DEFAULT_PORTAL_LABEL;
+            return `${brand} / Builder`;
         }
         return DEFAULT_PORTAL_LABEL;
     }, [gatewayRoute]);
@@ -76,6 +87,7 @@ const ScopeTabs: React.FC = () => {
                 breadcrumbLens,
                 pathDisplayMode,
                 labels: {
+                    symbolverse: DEFAULT_SYMBOLVERSE_LABEL,
                     atlas: DEFAULT_ATLAS_LABEL,
                     portal: portalLabel,
                     station: 'Station',
@@ -101,12 +113,12 @@ const ScopeTabs: React.FC = () => {
     );
 
     const goAtlas = () => {
-        const slug = gatewayRoute?.type === 'portal'
-            ? gatewayRoute.brandSlug
-            : gatewayRoute?.type === 'brand'
-                ? gatewayRoute.slug
-                : DEFAULT_BRAND_SLUG;
-        setGatewayRoute({ type: 'brand', slug });
+        setGatewayRoute({ type: 'atlas' });
+        setViewContext('gateway');
+    };
+
+    const goSymbolverse = () => {
+        setGatewayRoute({ type: 'symbolverse' });
         setViewContext('gateway');
     };
 
@@ -120,12 +132,23 @@ const ScopeTabs: React.FC = () => {
             setViewContext('gateway');
             return;
         }
-        const slug = gatewayRoute?.type === 'brand' ? gatewayRoute.slug : DEFAULT_BRAND_SLUG;
+        if (gatewayRoute?.type === 'portal-builder') {
+            setGatewayRoute({
+                type: 'portal-builder',
+                slug: gatewayRoute.slug
+            });
+            setViewContext('gateway');
+            return;
+        }
+        const slug = gatewayRoute?.type === 'brand'
+            ? gatewayRoute.slug
+            : DEFAULT_BRAND_SLUG;
         setGatewayRoute({ type: 'brand', slug });
         setViewContext('gateway');
     };
 
     const segmentActions: Record<PathSegmentId, () => void> = {
+        symbolverse: goSymbolverse,
         atlas: goAtlas,
         portal: goPortal,
         station: () => setViewContext('home'),
@@ -192,7 +215,9 @@ const ScopeTabs: React.FC = () => {
                 collapsed={projection.collapsed}
                 title={projection.collapsed
                     ? 'Compact path: click or Tab to move to next level'
-                    : `Path lens: ${breadcrumbLens}, flow: ${projection.effectiveFlow} (Tab cycles levels)`}
+                    : pathDisplayMode === 'full'
+                        ? 'Path: full breadcrumb (all levels visible)'
+                        : `Path lens: ${breadcrumbLens}, flow: ${projection.effectiveFlow} (Tab cycles levels)`}
                 size="sm"
             />
         </div>

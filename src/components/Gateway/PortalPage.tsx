@@ -73,7 +73,7 @@ const PortalPage = ({ brandSlug, portalSlug }: { brandSlug: string; portalSlug: 
                 <div className="flex gap-4">
                     <button
                         onClick={handleFork}
-                        className="flex-1 py-3 px-6 rounded-lg bg-[var(--semantic-color-action-primary)] text-white font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                        className="flex-1 py-3 px-6 rounded-lg bg-[var(--semantic-color-action-primary)] text-[var(--semantic-color-action-on-primary)] font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                     >
                         <span>Fork Space</span>
                     </button>

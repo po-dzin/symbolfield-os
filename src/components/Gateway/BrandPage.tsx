@@ -9,7 +9,6 @@ const BrandPage = ({ brandSlug }: { brandSlug: string }) => {
     const [brand, setBrand] = useState<Brand | null>(null);
     const [listings, setListings] = useState<Listing[]>([]);
     const [loading, setLoading] = useState(true);
-
     useEffect(() => {
         const load = async () => {
             setLoading(true);
@@ -35,7 +34,7 @@ const BrandPage = ({ brandSlug }: { brandSlug: string }) => {
                     {brand.avatar ? (
                         <img src={brand.avatar} alt={brand.name} className="w-full h-full object-cover" />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center text-2xl font-bold bg-gradient-to-br from-gray-800 to-black text-white">
+                        <div className="w-full h-full flex items-center justify-center text-2xl font-semibold bg-[var(--semantic-color-bg-surface)] text-[var(--semantic-color-text-primary)]">
                             {brand.name[0]}
                         </div>
                     )}
@@ -59,21 +58,29 @@ const BrandPage = ({ brandSlug }: { brandSlug: string }) => {
                         ))}
                     </div>
                 )}
-                <button
-                    type="button"
-                    onClick={() => {
-                        stationStorage.upsertExternalGraphLink(
-                            { type: 'brand', slug: brandSlug },
-                            { label: `${brand.name} Portal`, visibility: 'private' }
-                        );
-                    }}
-                    className="mt-4 px-4 py-2 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] text-sm text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-bg-surface-hover)] transition-colors"
-                >
-                    Save Link to Station
-                </button>
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            stationStorage.upsertExternalGraphLink(
+                                { type: 'brand', slug: brandSlug },
+                                { label: `${brand.name} Portal`, visibility: 'private' }
+                            );
+                        }}
+                        className="px-4 py-2 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] text-sm text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-bg-surface-hover)] transition-colors"
+                    >
+                        Save Link to Station
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setGatewayRoute({ type: 'portal-builder', slug: brandSlug })}
+                        className="px-4 py-2 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] text-sm text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-bg-surface-hover)] transition-colors"
+                    >
+                        Open Builder Module
+                    </button>
+                </div>
             </div>
 
-            {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {listings.map(listing => (
                     <div
@@ -81,13 +88,11 @@ const BrandPage = ({ brandSlug }: { brandSlug: string }) => {
                         onClick={() => setGatewayRoute({ type: 'portal', brandSlug: brandSlug, portalSlug: listing.slug })}
                         className="group bg-[var(--semantic-color-bg-surface)] border border-[var(--semantic-color-border-default)] rounded-[var(--primitive-radius-card)] overflow-hidden hover:border-[var(--semantic-color-text-secondary)] transition-all cursor-pointer flex flex-col h-full"
                     >
-                        {/* Cover Placeholder */}
                         <div className="aspect-video bg-[var(--semantic-color-bg-surface-hover)] relative overflow-hidden">
                             <div className="absolute inset-0 flex items-center justify-center text-4xl opacity-20 group-hover:scale-105 transition-transform duration-500">
                                 {listing.type === 'map' ? '🗺️' : listing.type === 'course' ? '🎓' : '📦'}
                             </div>
-                            {/* Badge */}
-                            <div className="absolute top-3 left-3 px-2 py-1 rounded-[var(--primitive-radius-pill)] bg-black/50 backdrop-blur-md text-[10px] uppercase tracking-wider text-white border border-white/10">
+                            <div className="absolute top-3 left-3 px-2 py-1 rounded-[var(--primitive-radius-pill)] bg-[var(--semantic-color-bg-app)]/75 backdrop-blur-md text-[10px] uppercase tracking-wider text-[var(--semantic-color-text-secondary)] border border-[var(--semantic-color-border-default)]">
                                 {listing.type}
                             </div>
                         </div>

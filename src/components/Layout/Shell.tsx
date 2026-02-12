@@ -20,8 +20,12 @@ import UnifiedTopBar from './UnifiedTopBar';
 import GatewayLayout from '../Gateway/GatewayLayout';
 import BrandPage from '../Gateway/BrandPage';
 import PortalPage from '../Gateway/PortalPage';
+import SymbolversePage from '../Gateway/SymbolversePage';
+import AtlasPage from '../Gateway/AtlasPage';
+import PortalBuilderPage from '../Gateway/PortalBuilderPage';
 import { emitZoomHotkeyFromKeyboard } from '../../core/hotkeys/zoomHotkeys';
 import { applyHarmonyProfileToRoot, buildHarmonyProfile } from '../../core/harmony/HarmonyEngine';
+import { resolveUiTheme } from '../../core/ui/themeResolution';
 
 const Shell = () => {
     const appMode = useAppStore(state => state.appMode);
@@ -100,6 +104,8 @@ const Shell = () => {
     const themeIntensity = useAppStore(state => state.themeIntensity);
     const themeModeSource = useAppStore(state => state.themeModeSource);
     const themeModeOverride = useAppStore(state => state.themeModeOverride);
+    const uiThemeSource = useAppStore(state => state.uiThemeSource);
+    const uiThemeValue = useAppStore(state => state.uiThemeValue);
 
     useEffect(() => {
         const harmonyMode = themeModeSource === 'auto' ? appMode : themeModeOverride;
@@ -114,7 +120,11 @@ const Shell = () => {
             intensity: themeIntensity
         });
         applyHarmonyProfileToRoot(profile);
-    }, [appMode, themePreset, themeAccent, themeDensity, themeMotion, themeSpeed, themeTexture, themeIntensity, themeModeSource, themeModeOverride]);
+
+        const root = document.documentElement;
+        const resolvedTheme = resolveUiTheme(uiThemeSource, uiThemeValue, appMode);
+        root.setAttribute('data-theme', resolvedTheme);
+    }, [appMode, themePreset, themeAccent, themeDensity, themeMotion, themeSpeed, themeTexture, themeIntensity, themeModeSource, themeModeOverride, uiThemeSource, uiThemeValue]);
 
     // Gateway Mode
     if (viewContext === 'gateway') {
@@ -122,8 +132,14 @@ const Shell = () => {
             <GatewayLayout>
                 {gatewayRoute?.type === 'portal' ? (
                     <PortalPage brandSlug={gatewayRoute.brandSlug} portalSlug={gatewayRoute.portalSlug} />
-                ) : (
+                ) : gatewayRoute?.type === 'portal-builder' ? (
+                    <PortalBuilderPage brandSlug={gatewayRoute.slug} />
+                ) : gatewayRoute?.type === 'brand' ? (
                     <BrandPage brandSlug={gatewayRoute?.slug || 'symbolfield'} />
+                ) : gatewayRoute?.type === 'atlas' ? (
+                    <AtlasPage />
+                ) : (
+                    <SymbolversePage />
                 )}
             </GatewayLayout>
         );
