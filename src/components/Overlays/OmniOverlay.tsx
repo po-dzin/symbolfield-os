@@ -7,8 +7,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { spaceManager } from '../../core/state/SpaceManager';
-import { eventBus } from '../../core/events/EventBus';
+import { eventBus, EVENTS } from '../../core/events/EventBus';
+import { stationStorage } from '../../core/storage/StationStorage';
 import { CapsuleTabs } from '../Common';
+import type { ExternalGraphLink } from '../../core/types/gateway';
 
 type OmniScope = 'all' | 'atlas' | 'portal' | 'station' | 'space' | 'cluster' | 'node' | 'external';
 
@@ -28,6 +30,9 @@ const OmniOverlay: React.FC = () => {
     const closePalette = useAppStore(state => state.closePalette);
     const viewContext = useAppStore(state => state.viewContext);
     const setTool = useAppStore(state => state.setTool);
+    const setViewContext = useAppStore(state => state.setViewContext);
+    const gatewayRoute = useAppStore(state => state.gatewayRoute);
+    const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
     const activeTool = useAppStore(state => state.activeTool);
     const toggleSettings = useAppStore(state => state.toggleSettings);
     const omniQuery = useAppStore(state => state.omniQuery);
@@ -46,6 +51,7 @@ const OmniOverlay: React.FC = () => {
     const [scope, setScope] = useState<OmniScope>(
         resolveScopeFromView(viewContext)
     );
+    const [externalLinks, setExternalLinks] = useState<ExternalGraphLink[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -77,6 +83,19 @@ const OmniOverlay: React.FC = () => {
             setOmniQuery(''); // Reset on close
         }
     }, [paletteOpen, setOmniQuery]);
+
+    useEffect(() => {
+        const refresh = () => setExternalLinks(stationStorage.loadExternalGraphLinks());
+        refresh();
+        const unsub = eventBus.on(EVENTS.EXTERNAL_GRAPH_LINKS_CHANGED, refresh);
+        return unsub;
+    }, []);
+
+    const openExternalLink = (link: ExternalGraphLink) => {
+        stationStorage.touchExternalGraphLink(link.id);
+        setGatewayRoute(link.target);
+        setViewContext('gateway');
+    };
 
     // --- mock commands (migration from CommandPalette) ---
     const commands = useMemo<OmniCommand[]>(() => [
@@ -129,9 +148,32 @@ const OmniOverlay: React.FC = () => {
             hint: 'Jump to platform brand graph',
             keywords: ['atlas', 'symbolverse', 'platform'],
             scope: 'atlas',
-            action: () => useAppStore.getState().setViewContext('gateway')
-        }
-    ], [activeTool, toggleSettings, setTool, viewContext]);
+            action: () => setViewContext('gateway')
+        },
+        ...(gatewayRoute ? [{
+            id: 'save-current-external-link',
+            label: 'Save Current Graph Link',
+            hint: 'Add current Atlas/Portal route to Station links',
+            keywords: ['save', 'link', 'portal', 'station'],
+            scope: 'external' as const,
+            action: () => {
+                const label = gatewayRoute.type === 'brand'
+                    ? `Brand: ${gatewayRoute.slug}`
+                    : `Portal: ${gatewayRoute.brandSlug}/${gatewayRoute.portalSlug}`;
+                stationStorage.upsertExternalGraphLink(gatewayRoute, { label, visibility: 'private' });
+            }
+        }] : []),
+        ...externalLinks.slice(0, 8).map((link) => ({
+            id: `open-external-link-${link.id}`,
+            label: `Open: ${link.label}`,
+            hint: link.target.type === 'brand'
+                ? `brand/${link.target.slug}`
+                : `${link.target.brandSlug}/${link.target.portalSlug}`,
+            keywords: ['external', 'graph', 'link', 'portal', 'brand'],
+            scope: 'external' as const,
+            action: () => openExternalLink(link)
+        }))
+    ], [activeTool, toggleSettings, setTool, viewContext, setViewContext, gatewayRoute, externalLinks, setGatewayRoute]);
 
     // Filter Logic
     const filteredItems = useMemo(() => {

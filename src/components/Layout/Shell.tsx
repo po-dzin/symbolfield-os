@@ -146,7 +146,7 @@ const Shell = () => {
                         <Station />
                     </div>
                 )}
-                {viewContext === 'space' && (
+                {(viewContext === 'space' || viewContext === 'cluster') && (
                     <CanvasView />
                 )}
                 {viewContext === 'node' && (
@@ -154,8 +154,8 @@ const Shell = () => {
                 )}
             </div>
 
-            {/* Z5: Space-only shell tools. NodeBuilder has its own local tools. */}
-            {viewContext === 'space' && (
+            {/* Z5: Field shell tools for Space + Cluster scopes. NodeBuilder has its own local tools. */}
+            {(viewContext === 'space' || viewContext === 'cluster') && (
                 <>
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 z-[var(--z-ui)]">
                         <ToolDock />

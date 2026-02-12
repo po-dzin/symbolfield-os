@@ -4,6 +4,7 @@ import { useAppStore } from '../../store/useAppStore';
 import StartGates from './StartGates';
 import RecentsRail from './RecentsRail';
 import TemplatesRow from './TemplatesRow';
+import ExternalLinksRail from './ExternalLinksRail';
 import CollapsibleSection from './CollapsibleSection';
 import OnboardingOverlay from './OnboardingOverlay';
 import { loadOnboardingState } from '../../core/state/onboardingState';
@@ -146,6 +147,10 @@ const Station = () => {
 
                                     <CollapsibleSection title="Recent" defaultOpen>
                                         <RecentsRail selectedSpaceId={selectedSpaceId} />
+                                    </CollapsibleSection>
+
+                                    <CollapsibleSection title="External Links" defaultOpen={false}>
+                                        <ExternalLinksRail />
                                     </CollapsibleSection>
 
                                     <CollapsibleSection title="Templates">

@@ -78,7 +78,11 @@ const resolveInternalSegments = (input: PathProjectionInput): PathSegment[] => {
         { id: 'station', label: input.labels.station, enabled: true, group: 'internal' }
     ];
 
-    if (!input.currentSpaceId) {
+    const isSpaceDepth = input.viewContext === 'space' || input.viewContext === 'cluster' || input.viewContext === 'node' || input.viewContext === 'now';
+    const isClusterDepth = input.viewContext === 'cluster' || input.viewContext === 'node' || input.viewContext === 'now';
+    const isNodeDepth = input.viewContext === 'node' || input.viewContext === 'now';
+
+    if (!input.currentSpaceId || !isSpaceDepth) {
         return base;
     }
 
@@ -89,7 +93,7 @@ const resolveInternalSegments = (input: PathProjectionInput): PathSegment[] => {
         group: 'internal'
     });
 
-    if (input.fieldScopeId) {
+    if (input.fieldScopeId && isClusterDepth) {
         base.push({
             id: 'cluster',
             label: input.labels.cluster,
@@ -98,7 +102,7 @@ const resolveInternalSegments = (input: PathProjectionInput): PathSegment[] => {
         });
     }
 
-    if (input.activeScope) {
+    if (input.activeScope && isNodeDepth) {
         base.push({
             id: 'node',
             label: input.labels.node,

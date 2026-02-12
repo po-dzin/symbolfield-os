@@ -17,6 +17,12 @@ import { useAppStore } from '../../store/useAppStore';
 import { asEdgeId, asNodeId, type NodeId } from '../types';
 import { GRID_METRICS, NODE_SIZES } from '../../utils/layoutMetrics';
 import { snapPointToGrid, snapValueToGrid } from '../../utils/gridSnap';
+import {
+    collectClusterDescendants,
+    deleteClusterSubtree,
+    getTopLevelClusterSelection,
+    releaseClusterSubtree
+} from '../graph/clusterHierarchy';
 
 type TargetType = 'node' | 'edge' | 'empty';
 
@@ -85,6 +91,19 @@ class GestureRouter {
         if (node.type === 'core') return NODE_SIZES.root / 2;
         if (node.type === 'cluster') return NODE_SIZES.cluster / 2;
         return NODE_SIZES.base / 2;
+    }
+
+    private _openNodeTarget(nodeId: NodeId) {
+        const node = graphEngine.getNode(nodeId);
+        if (!node) return;
+
+        if (node.type === 'cluster') {
+            stateEngine.enterClusterScope(node.id);
+            return;
+        }
+
+        eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'OPEN_NODE' });
+        stateEngine.enterNode(nodeId);
     }
 
     private _isOverlapping(x: number, y: number, radius: number, others: Array<{ x: number; y: number; r: number }>) {
@@ -751,11 +770,7 @@ class GestureRouter {
                 break;
 
             case 'OPEN_NODE':
-                {
-                    const node = graphEngine.getNode(intent.nodeId as NodeId);
-                    if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'OPEN_NODE' });
-                }
-                stateEngine.enterNode(intent.nodeId as NodeId);
+                this._openNodeTarget(intent.nodeId as NodeId);
                 break;
 
             case 'START_BOX_SELECT':
@@ -958,6 +973,7 @@ class GestureRouter {
                 });
                 useEdgeSelectionStore.getState().clear();
                 selectionState.select(cluster.id);
+                eventBus.emit(EVENTS.CLUSTER_CREATED, { id: cluster.id });
                 eventBus.emit('UI_SIGNAL', { x: clusterX, y: clusterY, type: 'GROUP_CREATED' });
                 break;
             }
@@ -1078,16 +1094,10 @@ class GestureRouter {
                 if (!selectedId) return;
                 const node = graphEngine.getNode(selectedId);
                 if (node?.type === 'cluster') {
-                    const currentScope = stateEngine.getState().fieldScopeId;
-                    if (currentScope === node.id) {
-                        stateEngine.setFieldScope(null);
-                    } else {
-                        stateEngine.setFieldScope(node.id);
-                    }
+                    stateEngine.toggleClusterScope(node.id);
                     return;
                 }
-                if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'OPEN_NODE' });
-                stateEngine.enterNode(selectedId);
+                this._openNodeTarget(selectedId);
             }
             return;
         }
@@ -1144,12 +1154,13 @@ class GestureRouter {
 
         // 8. Deletion
         if (e.key === 'Delete' || e.key === 'Backspace' || code === 'Delete' || code === 'Backspace') {
-            const requestClusterAction = () => {
+            const requestClusterAction = (descendantCount: number, clusterCount: number) => {
                 const label = 'Delete';
                 const response = window.prompt(
                     `${label} cluster?\n` +
-                    `1 — ${label} cluster and delete children\n` +
-                    `2 — ${label} cluster and keep children (release to field)\n` +
+                    `Recursive action for ${clusterCount} selected cluster(s): ${descendantCount} descendant node(s).\n` +
+                    `1 — ${label} cluster and delete descendants recursively\n` +
+                    `2 — ${label} cluster and keep descendants (release to field)\n` +
                     `Cancel — abort`,
                     '2'
                 );
@@ -1158,25 +1169,6 @@ class GestureRouter {
                 if (choice === '1') return 'with';
                 if (choice === '2') return 'keep';
                 return null;
-            };
-            const getClusterChildren = (clusterId: NodeId) => (
-                graphEngine.getNodes().filter(node => node.meta?.parentClusterId === clusterId)
-            );
-            const releaseClusterChildren = (clusterId: NodeId) => {
-                getClusterChildren(clusterId).forEach(child => {
-                    graphEngine.updateNode(child.id, {
-                        meta: {
-                            ...(child.meta ?? {}),
-                            parentClusterId: null,
-                            isHidden: false
-                        }
-                    });
-                });
-            };
-            const deleteClusterChildren = (clusterId: NodeId) => {
-                getClusterChildren(clusterId).forEach(child => {
-                    graphEngine.removeNode(child.id);
-                });
             };
             const edgeSelection = useEdgeSelectionStore.getState().selectedEdgeIds;
             if (edgeSelection.length > 0) {
@@ -1196,24 +1188,54 @@ class GestureRouter {
             }
             const selection = selectionState.getSelection();
             if (selection.length > 0) {
+                const nodesSnapshot = graphEngine.getNodes();
+                const edgesSnapshot = graphEngine.getEdges();
+                const skipNodeDeletion = new Set<NodeId>();
                 const selectedClusters = selection
                     .map(id => graphEngine.getNode(id))
                     .filter((node): node is NonNullable<ReturnType<typeof graphEngine.getNode>> =>
                         Boolean(node && node.type === 'cluster')
                     );
                 if (selectedClusters.length > 0) {
-                    const choice = requestClusterAction();
-                    if (!choice) return;
-                    selectedClusters.forEach(cluster => {
-                        if (choice === 'with') {
-                            deleteClusterChildren(cluster.id);
-                        } else {
-                            releaseClusterChildren(cluster.id);
-                        }
-                        graphEngine.removeNode(cluster.id);
+                    const topLevelClusterIds = getTopLevelClusterSelection(
+                        selectedClusters.map(cluster => cluster.id),
+                        nodesSnapshot
+                    );
+                    const descendantsByCluster = new Map<NodeId, ReturnType<typeof collectClusterDescendants>>();
+                    const uniqueDescendants = new Set<NodeId>();
+                    topLevelClusterIds.forEach((clusterId) => {
+                        const descendants = collectClusterDescendants(clusterId, nodesSnapshot, edgesSnapshot, {
+                            includeEdgeLinked: true
+                        });
+                        descendantsByCluster.set(clusterId, descendants);
+                        descendants.forEach(item => uniqueDescendants.add(item.id));
                     });
+
+                    const choice = requestClusterAction(uniqueDescendants.size, topLevelClusterIds.length);
+                    if (!choice) return;
+
+                    const protectedNodeIds = new Set<NodeId>();
+
+                    topLevelClusterIds.forEach((clusterId) => {
+                        const descendants = descendantsByCluster.get(clusterId) ?? [];
+                        descendants.forEach(item => protectedNodeIds.add(item.id));
+
+                        if (choice === 'with') {
+                            deleteClusterSubtree(clusterId, nodesSnapshot, edgesSnapshot, graphEngine.removeNode.bind(graphEngine));
+                        } else {
+                            releaseClusterSubtree(clusterId, nodesSnapshot, edgesSnapshot, graphEngine.updateNode.bind(graphEngine));
+                        }
+
+                        graphEngine.removeNode(clusterId);
+                    });
+
+                    // Avoid deleting descendants that were explicitly kept/released.
+                    if (choice === 'keep') {
+                        protectedNodeIds.forEach(id => skipNodeDeletion.add(id));
+                    }
                 }
                 selection.forEach(id => {
+                    if (skipNodeDeletion.has(id)) return;
                     const node = graphEngine.getNode(id);
                     // Protect Core nodes from deletion (User Request)
                     if (node && node.type !== 'core' && node.type !== 'cluster') {

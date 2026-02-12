@@ -3,7 +3,6 @@ import clusterSvg from '../assets/glyphs/cluster.svg?raw';
 import coreSvg from '../assets/glyphs/core.svg?raw';
 import glyphSvg from '../assets/glyphs/glyph.svg?raw';
 import groupSvg from '../assets/glyphs/group.svg?raw';
-import hubSvg from '../assets/glyphs/hub.svg?raw';
 import linkSvg from '../assets/glyphs/link.svg?raw';
 import linkActionSvg from '../assets/glyphs/link-action.svg?raw';
 import nodeSvg from '../assets/glyphs/node.svg?raw';
@@ -34,7 +33,6 @@ export const CUSTOM_GLYPHS: CustomGlyph[] = [
     { id: 'core', label: 'Core', categories: ['core'], svg: coreSvg },
     { id: 'archecore', label: 'ArcheCore', categories: ['core'], svg: archecoreSvg },
     { id: 'node', label: 'Node', categories: ['nodes'], svg: nodeSvg },
-    { id: 'hub', label: 'Hub', categories: ['nodes'], svg: hubSvg },
     { id: 'cluster', label: 'Cluster', categories: ['nodes'], svg: clusterSvg },
     { id: 'portal', label: 'Portal', categories: ['nodes'], svg: portalSvg },
     { id: 'playground', label: 'Playground', categories: ['nodes'], svg: playgroundSvg },
@@ -53,7 +51,7 @@ export const CUSTOM_GLYPHS: CustomGlyph[] = [
 
 export const GLYPH_CATEGORIES: CustomGlyphCategory[] = [
     { id: 'core', label: 'Core', glyphs: ['core', 'archecore'] },
-    { id: 'nodes', label: 'Nodes', glyphs: ['node', 'hub', 'cluster', 'portal', 'playground'] },
+    { id: 'nodes', label: 'Nodes', glyphs: ['node', 'cluster', 'portal', 'playground'] },
     { id: 'graph', label: 'Graph', glyphs: ['link', 'group'] },
     { id: 'meta', label: 'Meta', glyphs: ['glyph'] }
 ];

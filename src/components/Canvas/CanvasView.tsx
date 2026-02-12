@@ -1047,11 +1047,7 @@ const CanvasView = () => {
             const resolvedId = asNodeId(nodeId);
             const node = graphEngine.getNode(resolvedId);
             if (node?.type === 'cluster') {
-                if (stateEngine.getState().fieldScopeId === resolvedId) {
-                    stateEngine.setFieldScope(null);
-                } else {
-                    stateEngine.setFieldScope(resolvedId);
-                }
+                stateEngine.toggleClusterScope(resolvedId);
                 return;
             }
             if (node) eventBus.emit('UI_SIGNAL', { x: node.position.x, y: node.position.y, type: 'OPEN_NODE' });

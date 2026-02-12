@@ -37,3 +37,19 @@ export interface Listing {
         role: 'owner' | 'editor' | 'viewer';
     }[];
 }
+
+export type ExternalGraphRoute =
+    | { type: 'brand'; slug: string }
+    | { type: 'portal'; brandSlug: string; portalSlug: string };
+
+export type ExternalGraphLinkVisibility = 'private' | 'shared' | 'public';
+
+export interface ExternalGraphLink {
+    id: string;
+    label: string;
+    target: ExternalGraphRoute;
+    visibility: ExternalGraphLinkVisibility;
+    createdAt: number;
+    updatedAt: number;
+    lastOpenedAt?: number;
+}

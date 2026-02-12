@@ -22,13 +22,19 @@ import { useCameraStore } from '../../store/useCameraStore';
 import { inferGlyphSource, resolveNodeGlyph } from '../../utils/sfGlyphLayer';
 import type { NodeData } from '../../core/types';
 import { gestureRouter } from '../../core/interaction/GestureRouter';
+import {
+    collectClusterDescendants,
+    deleteClusterSubtree,
+    getTopLevelClusterSelection,
+    releaseClusterSubtree
+} from '../../core/graph/clusterHierarchy';
 
 const ContextToolbar = () => {
     const selectedIds = useSelectionStore(state => state.selectedIds);
     const clearSelection = useSelectionStore(state => state.clear);
     const enterNode = useAppStore(state => state.enterNode);
     const fieldScopeId = useAppStore(state => state.fieldScopeId);
-    const setFieldScope = useAppStore(state => state.setFieldScope);
+    const toggleClusterScope = useAppStore(state => state.toggleClusterScope);
     const contextMenuMode = useAppStore(state => state.contextMenuMode);
     const setTool = useAppStore(state => state.setTool);
     const activeTool = useAppStore(state => state.activeTool);
@@ -225,11 +231,7 @@ const ContextToolbar = () => {
     };
     const handleToggleFocusMode = () => {
         if (!primaryNode || primaryNode.type !== 'cluster') return;
-        if (fieldScopeId === primaryNode.id) {
-            setFieldScope(null);
-        } else {
-            setFieldScope(primaryNode.id);
-        }
+        toggleClusterScope(primaryNode.id);
     };
     const handleColorSelect = (role: 'body' | 'stroke' | 'glow' | 'glyph', color: string) => {
         if (!primaryNode) return;
@@ -244,34 +246,13 @@ const ContextToolbar = () => {
         setShowColorPicker(false);
     };
 
-    const getClusterChildren = (clusterId: NodeId) => (
-        nodes.filter(node => node.meta?.parentClusterId === clusterId)
-    );
-
-    const releaseClusterChildren = (clusterId: NodeId) => {
-        getClusterChildren(clusterId).forEach(child => {
-            updateNode(child.id, {
-                meta: {
-                    ...child.meta,
-                    parentClusterId: null,
-                    isHidden: false
-                }
-            });
-        });
-    };
-
-    const deleteClusterChildren = (clusterId: NodeId) => {
-        getClusterChildren(clusterId).forEach(child => {
-            removeNode(child.id);
-        });
-    };
-
-    const requestClusterAction = () => {
+    const requestClusterAction = (descendantCount: number, clusterCount: number) => {
         const label = 'Delete';
         const response = window.prompt(
             `${label} cluster?\n` +
-            `1 — ${label} cluster and delete children\n` +
-            `2 — ${label} cluster and keep children (release to field)\n` +
+            `Recursive action for ${clusterCount} selected cluster(s): ${descendantCount} descendant node(s).\n` +
+            `1 — ${label} cluster and delete descendants recursively\n` +
+            `2 — ${label} cluster and keep descendants (release to field)\n` +
             `Cancel — abort`,
             '2'
         );
@@ -284,7 +265,9 @@ const ContextToolbar = () => {
     const handleUngroup = () => {
         if (!primaryNode || primaryNode.type !== 'cluster') return;
         if (!primaryId) return;
-        releaseClusterChildren(primaryId);
+        const nodesSnapshot = graphEngine.getNodes();
+        const edgesSnapshot = graphEngine.getEdges();
+        releaseClusterSubtree(primaryId, nodesSnapshot, edgesSnapshot, graphEngine.updateNode.bind(graphEngine));
         removeNode(primaryId);
         clearSelection();
     };
@@ -592,23 +575,51 @@ const ContextToolbar = () => {
             .map(id => nodes.find(node => node.id === id))
             .filter((node): node is NodeBase => Boolean(node && node.type === 'cluster'));
         if (selectedClusters.length > 0) {
-            const choice = requestClusterAction();
-            if (!choice) return;
-            selectedClusters.forEach(cluster => {
-                if (choice === 'with') {
-                    deleteClusterChildren(cluster.id);
-                } else {
-                    releaseClusterChildren(cluster.id);
-                }
-                removeNode(cluster.id);
+            const nodesSnapshot = graphEngine.getNodes();
+            const edgesSnapshot = graphEngine.getEdges();
+            const topLevelClusterIds = getTopLevelClusterSelection(
+                selectedClusters.map(cluster => cluster.id),
+                nodesSnapshot
+            );
+            const descendantsByCluster = new Map<NodeId, ReturnType<typeof collectClusterDescendants>>();
+            const uniqueDescendants = new Set<NodeId>();
+            topLevelClusterIds.forEach((clusterId) => {
+                const descendants = collectClusterDescendants(clusterId, nodesSnapshot, edgesSnapshot, {
+                    includeEdgeLinked: true
+                });
+                descendantsByCluster.set(clusterId, descendants);
+                descendants.forEach(item => uniqueDescendants.add(item.id));
             });
-            const remaining = selectedIds.filter(id => !selectedClusters.some(cluster => cluster.id === id));
-            remaining.forEach(id => removeNode(id));
+
+            const choice = requestClusterAction(uniqueDescendants.size, topLevelClusterIds.length);
+            if (!choice) return;
+            const protectedNodeIds = new Set<NodeId>();
+            topLevelClusterIds.forEach((clusterId) => {
+                const descendants = descendantsByCluster.get(clusterId) ?? [];
+                descendants.forEach(item => protectedNodeIds.add(item.id));
+                if (choice === 'with') {
+                    deleteClusterSubtree(clusterId, nodesSnapshot, edgesSnapshot, graphEngine.removeNode.bind(graphEngine));
+                } else {
+                    releaseClusterSubtree(clusterId, nodesSnapshot, edgesSnapshot, graphEngine.updateNode.bind(graphEngine));
+                }
+                removeNode(clusterId);
+            });
+            const remaining = selectedIds.filter(id => !topLevelClusterIds.includes(id));
+            remaining.forEach(id => {
+                if (choice === 'keep' && protectedNodeIds.has(id)) return;
+                const node = graphEngine.getNode(id);
+                if (!node || node.type === 'core' || node.type === 'cluster') return;
+                removeNode(id);
+            });
             clearSelection();
             return;
         }
         selectedEdgeIds.forEach((id: string) => removeEdge(id));
-        selectedIds.forEach((id: NodeId) => removeNode(id));
+        selectedIds.forEach((id: NodeId) => {
+            const node = graphEngine.getNode(id);
+            if (!node || node.type === 'core' || node.type === 'cluster') return;
+            removeNode(id);
+        });
         selectedAreaIds.forEach((id: string) => removeArea(id));
         clearSelection();
         useEdgeSelectionStore.getState().clear();

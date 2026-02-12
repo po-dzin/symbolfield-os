@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { mockCloud } from '../../core/gateway/MockCloud';
 import type { Brand, Listing } from '../../core/types/gateway';
+import { stationStorage } from '../../core/storage/StationStorage';
 
 const BrandPage = ({ brandSlug }: { brandSlug: string }) => {
     const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
@@ -58,6 +59,18 @@ const BrandPage = ({ brandSlug }: { brandSlug: string }) => {
                         ))}
                     </div>
                 )}
+                <button
+                    type="button"
+                    onClick={() => {
+                        stationStorage.upsertExternalGraphLink(
+                            { type: 'brand', slug: brandSlug },
+                            { label: `${brand.name} Portal`, visibility: 'private' }
+                        );
+                    }}
+                    className="mt-4 px-4 py-2 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] text-sm text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-bg-surface-hover)] transition-colors"
+                >
+                    Save Link to Station
+                </button>
             </div>
 
             {/* Grid */}

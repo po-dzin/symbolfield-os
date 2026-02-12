@@ -4,6 +4,7 @@ import { mockCloud } from '../../core/gateway/MockCloud';
 import type { Listing, Brand } from '../../core/types/gateway';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { stateEngine } from '../../core/state/StateEngine';
+import { stationStorage } from '../../core/storage/StationStorage';
 
 const PortalPage = ({ brandSlug, portalSlug }: { brandSlug: string; portalSlug: string }) => {
     const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
@@ -76,8 +77,17 @@ const PortalPage = ({ brandSlug, portalSlug }: { brandSlug: string; portalSlug: 
                     >
                         <span>Fork Space</span>
                     </button>
-                    <button className="py-3 px-6 rounded-lg border border-[var(--semantic-color-border-default)] hover:bg-[var(--semantic-color-bg-surface-hover)] transition-colors">
-                        Share
+                    <button
+                        type="button"
+                        onClick={() => {
+                            stationStorage.upsertExternalGraphLink(
+                                { type: 'portal', brandSlug, portalSlug },
+                                { label: listing.title, visibility: 'private' }
+                            );
+                        }}
+                        className="py-3 px-6 rounded-lg border border-[var(--semantic-color-border-default)] hover:bg-[var(--semantic-color-bg-surface-hover)] transition-colors"
+                    >
+                        Save Link
                     </button>
                 </div>
 
