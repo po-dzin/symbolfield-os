@@ -33,7 +33,10 @@ const ContextToolbar = () => {
     const selectedIds = useSelectionStore(state => state.selectedIds);
     const clearSelection = useSelectionStore(state => state.clear);
     const enterNode = useAppStore(state => state.enterNode);
+    const viewContext = useAppStore(state => state.viewContext);
+    const setViewContext = useAppStore(state => state.setViewContext);
     const fieldScopeId = useAppStore(state => state.fieldScopeId);
+    const setFieldScope = useAppStore(state => state.setFieldScope);
     const toggleClusterScope = useAppStore(state => state.toggleClusterScope);
     const contextMenuMode = useAppStore(state => state.contextMenuMode);
     const setTool = useAppStore(state => state.setTool);
@@ -229,9 +232,35 @@ const ContextToolbar = () => {
         updateNode(primaryId, { data: nextData });
         setShowGlyphPicker(false);
     };
-    const handleToggleFocusMode = () => {
+    const isClusterScopeActive = Boolean(
+        primaryNode?.type === 'cluster'
+        && primaryId
+        && fieldScopeId === primaryId
+    );
+    const isClusterEntered = isClusterScopeActive && viewContext === 'cluster';
+    const isClusterFocused = isClusterScopeActive && viewContext === 'space';
+
+    const handleEnterClusterLevel = () => {
         if (!primaryNode || primaryNode.type !== 'cluster') return;
         toggleClusterScope(primaryNode.id);
+    };
+
+    const handleToggleClusterFocus = () => {
+        if (!primaryNode || primaryNode.type !== 'cluster') return;
+        const clusterId = primaryNode.id;
+
+        if (isClusterFocused) {
+            setFieldScope(null);
+            return;
+        }
+
+        if (isClusterEntered) {
+            setViewContext('space');
+        } else if (viewContext !== 'space') {
+            setViewContext('space');
+        }
+
+        setFieldScope(clusterId);
     };
     const handleColorSelect = (role: 'body' | 'stroke' | 'glow' | 'glyph', color: string) => {
         if (!primaryNode) return;
@@ -851,13 +880,13 @@ const ContextToolbar = () => {
             radialItems.push({
                 key: 'enter',
                 title: primaryNode?.type === 'cluster'
-                    ? (fieldScopeId === primaryId ? 'Exit Cluster' : 'Enter Cluster')
+                    ? (isClusterEntered ? 'Exit Cluster' : 'Enter Cluster')
                     : `Enter ${primaryNode?.type === 'portal' ? 'Portal' : 'Node'}`,
                 content: '↵',
                 onClick: () => {
                     exitLinkMode();
                     if (primaryNode?.type === 'cluster') {
-                        handleToggleFocusMode();
+                        handleEnterClusterLevel();
                         return;
                     }
                     if (primaryId) {
@@ -865,6 +894,23 @@ const ContextToolbar = () => {
                     }
                 }
             });
+            if (primaryNode?.type === 'cluster') {
+                radialItems.push({
+                    key: 'focus-cluster',
+                    title: isClusterFocused ? 'Exit focus' : 'Focus cluster',
+                    content: (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 21h-5" />
+                            <circle cx="12" cy="12" r="3.5" />
+                        </svg>
+                    ),
+                    active: isClusterFocused,
+                    onClick: () => {
+                        exitLinkMode();
+                        handleToggleClusterFocus();
+                    }
+                });
+            }
             radialItems.push({
                 key: 'link',
                 title: 'Create Link',
@@ -1450,7 +1496,7 @@ const ContextToolbar = () => {
                                 onClick={() => {
                                     exitLinkMode();
                                     if (primaryNode?.type === 'cluster') {
-                                        handleToggleFocusMode();
+                                        handleEnterClusterLevel();
                                         return;
                                     }
                                     if (primaryId) {
@@ -1458,10 +1504,26 @@ const ContextToolbar = () => {
                                     }
                                 }}
                                 className="ui-selectable w-10 h-10 flex items-center justify-center rounded-full text-lg leading-none transition-colors"
-                                title={primaryNode?.type === 'cluster' ? (fieldScopeId === primaryId ? 'Exit Cluster' : 'Enter Cluster') : `Enter ${primaryNode?.type === 'portal' ? 'Portal' : 'Node'}`}
+                                title={primaryNode?.type === 'cluster' ? (isClusterEntered ? 'Exit Cluster' : 'Enter Cluster') : `Enter ${primaryNode?.type === 'portal' ? 'Portal' : 'Node'}`}
                             >
                                 ↵
                             </button>
+                            {primaryNode?.type === 'cluster' && (
+                                <button
+                                    onClick={() => {
+                                        exitLinkMode();
+                                        handleToggleClusterFocus();
+                                    }}
+                                    data-state={isClusterFocused ? 'active' : 'inactive'}
+                                    className="ui-selectable w-10 h-10 flex items-center justify-center rounded-full text-lg leading-none transition-colors"
+                                    title={isClusterFocused ? 'Exit focus' : 'Focus cluster'}
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 21h-5" />
+                                        <circle cx="12" cy="12" r="3.5" />
+                                    </svg>
+                                </button>
+                            )}
                             <button
                                 onClick={() => {
                                     setTool('link');
