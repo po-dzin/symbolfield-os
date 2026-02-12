@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { mockCloud } from '../../core/gateway/MockCloud';
+import { gatewayData } from '../../core/gateway/GatewayData';
 import type { Brand, Listing } from '../../core/types/gateway';
 import { stationStorage } from '../../core/storage/StationStorage';
 
@@ -12,10 +12,10 @@ const BrandPage = ({ brandSlug }: { brandSlug: string }) => {
     useEffect(() => {
         const load = async () => {
             setLoading(true);
-            const b = await mockCloud.getBrandBySlug(brandSlug);
+            const b = await gatewayData.getBrandBySlug(brandSlug);
             setBrand(b);
             if (b) {
-                const l = await mockCloud.getBrandListings(b.id);
+                const l = await gatewayData.getBrandListingsBySlug(b.slug);
                 setListings(l);
             }
             setLoading(false);

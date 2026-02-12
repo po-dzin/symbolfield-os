@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { mockCloud } from '../../core/gateway/MockCloud';
+import { gatewayData } from '../../core/gateway/GatewayData';
 import type { Brand } from '../../core/types/gateway';
 
 const SymbolversePage: React.FC = () => {
@@ -10,7 +10,7 @@ const SymbolversePage: React.FC = () => {
 
     useEffect(() => {
         let mounted = true;
-        void mockCloud.getAllBrands().then((items) => {
+        void gatewayData.getAllBrands().then((items) => {
             if (!mounted) return;
             setBrands(items);
         });

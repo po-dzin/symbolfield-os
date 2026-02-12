@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { mockCloud } from '../../core/gateway/MockCloud';
+import { gatewayData } from '../../core/gateway/GatewayData';
 import type { Listing, Brand } from '../../core/types/gateway';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { stateEngine } from '../../core/state/StateEngine';
 import { stationStorage } from '../../core/storage/StationStorage';
+import { buildPortalPreviewLayout } from '../../core/gateway/portalPreview';
 
 const PortalPage = ({ brandSlug, portalSlug }: { brandSlug: string; portalSlug: string }) => {
     const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
@@ -15,8 +16,8 @@ const PortalPage = ({ brandSlug, portalSlug }: { brandSlug: string; portalSlug: 
     useEffect(() => {
         const load = async () => {
             setLoading(true);
-            const l = await mockCloud.getListingBySlug(brandSlug, portalSlug);
-            const b = await mockCloud.getBrandBySlug(brandSlug);
+            const l = await gatewayData.getListingBySlug(brandSlug, portalSlug);
+            const b = await gatewayData.getBrandBySlug(brandSlug);
             setListing(l);
             setBrand(b);
             setLoading(false);
@@ -26,6 +27,9 @@ const PortalPage = ({ brandSlug, portalSlug }: { brandSlug: string; portalSlug: 
 
     if (loading) return <div className="p-10 text-center opacity-50">Loading portal...</div>;
     if (!listing || !brand) return <div className="p-10 text-center">Portal not found</div>;
+
+    const preview = buildPortalPreviewLayout(listing.spaceSnapshot, { width: 640, height: 460, padding: 40 });
+    const nodeLookup = new Map(preview.nodes.map(node => [node.id, node]));
 
     const handleFork = () => {
         if (!listing || !listing.spaceSnapshot) return;
@@ -111,11 +115,62 @@ const PortalPage = ({ brandSlug, portalSlug }: { brandSlug: string; portalSlug: 
                 </div>
             </div>
 
-            {/* Right: Preview (Read-Only Graph Placeholder) */}
-            <div className="flex-1 bg-[var(--semantic-color-bg-surface)] rounded-2xl border border-[var(--semantic-color-border-default)] p-8 flex items-center justify-center min-h-[500px]">
-                <div className="text-center opacity-50">
-                    <div className="text-4xl mb-4">🕸️</div>
-                    <div>Interactive Preview Coming Soon</div>
+            {/* Right: Read-only subgraph preview */}
+            <div className="flex-1 bg-[var(--semantic-color-bg-surface)] rounded-2xl border border-[var(--semantic-color-border-default)] p-5 min-h-[500px]">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                        <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-muted)]">Portal Preview</div>
+                        <div className="text-sm text-[var(--semantic-color-text-secondary)]">Read-only subgraph snapshot</div>
+                    </div>
+                    <div className="text-[11px] text-[var(--semantic-color-text-muted)]">
+                        Nodes {preview.nodes.length} · Links {preview.edges.length}
+                    </div>
+                </div>
+                {preview.nodes.length === 0 ? (
+                    <div className="h-[430px] rounded-xl border border-dashed border-[var(--semantic-color-border-default)] flex items-center justify-center text-sm text-[var(--semantic-color-text-muted)]">
+                        Listing has no snapshot data yet.
+                    </div>
+                ) : (
+                    <svg
+                        viewBox="0 0 640 460"
+                        className="w-full h-[430px] rounded-xl border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-app)]/25"
+                        aria-label="Read-only subgraph preview"
+                    >
+                        {preview.edges.map((edge) => {
+                            const source = nodeLookup.get(edge.source);
+                            const target = nodeLookup.get(edge.target);
+                            if (!source || !target) return null;
+                            return (
+                                <line
+                                    key={edge.id}
+                                    x1={source.x}
+                                    y1={source.y}
+                                    x2={target.x}
+                                    y2={target.y}
+                                    stroke="var(--semantic-color-border-default)"
+                                    strokeOpacity="0.75"
+                                    strokeWidth="1.2"
+                                />
+                            );
+                        })}
+                        {preview.nodes.map((node) => {
+                            const isCore = node.type === 'core';
+                            return (
+                                <circle
+                                    key={node.id}
+                                    cx={node.x}
+                                    cy={node.y}
+                                    r={isCore ? 12 : 8}
+                                    fill={isCore ? 'var(--semantic-color-action-primary)' : 'var(--semantic-color-bg-surface-hover)'}
+                                    stroke="var(--semantic-color-border-default)"
+                                    strokeWidth={isCore ? 2 : 1.2}
+                                />
+                            );
+                        })}
+                    </svg>
+                )}
+                <div className="mt-3 text-[11px] text-[var(--semantic-color-text-muted)]">
+                    Preview is view-only in MVP v0.5.
                 </div>
             </div>
 

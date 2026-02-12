@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { mockCloud } from '../../core/gateway/MockCloud';
+import { gatewayData } from '../../core/gateway/GatewayData';
 import type { Brand } from '../../core/types/gateway';
 
 const radiusByCount = (count: number): number => Math.max(120, 42 * Math.max(1, count));
@@ -15,7 +15,7 @@ const AtlasPage: React.FC = () => {
         let mounted = true;
         void (async () => {
             setLoading(true);
-            const list = await mockCloud.getAllBrands();
+            const list = await gatewayData.getAllBrands();
             if (!mounted) return;
             setBrands(list);
             setLoading(false);
