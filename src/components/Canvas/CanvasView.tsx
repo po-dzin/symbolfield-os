@@ -2452,7 +2452,7 @@ const CanvasView = () => {
                                 window.setTimeout(() => setZoomPulse(null), 180);
                                 fitToContent();
                             }}
-                            className={`w-6 h-6 rounded-[var(--primitive-radius-pill)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10 transition-colors ${zoomPulse === 'fit' ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : ''} -ml-1`}
+                            className={`w-6 h-6 rounded-[var(--primitive-radius-pill)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-interactive-hover-bg)] transition-colors ${zoomPulse === 'fit' ? 'bg-[var(--semantic-color-interactive-active-bg)] text-[var(--semantic-color-text-primary)] border border-[var(--semantic-color-interactive-active-border)]' : ''} -ml-1`}
                             aria-label="Fit to content"
                         >
                             <svg
@@ -2470,7 +2470,7 @@ const CanvasView = () => {
                         </button>
                         <button
                             onClick={() => handleZoomClick('out')}
-                            className={`w-6 h-6 rounded-[var(--primitive-radius-pill)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10 transition-colors ${zoomPulse === 'out' ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : ''}`}
+                            className={`w-6 h-6 rounded-[var(--primitive-radius-pill)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-interactive-hover-bg)] transition-colors ${zoomPulse === 'out' ? 'bg-[var(--semantic-color-interactive-active-bg)] text-[var(--semantic-color-text-primary)] border border-[var(--semantic-color-interactive-active-border)]' : ''}`}
                             aria-label="Zoom out"
                         >
                             −
@@ -2484,7 +2484,7 @@ const CanvasView = () => {
                         </button>
                         <button
                             onClick={() => handleZoomClick('in')}
-                            className={`w-6 h-6 rounded-[var(--primitive-radius-pill)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10 transition-colors ${zoomPulse === 'in' ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : ''}`}
+                            className={`w-6 h-6 rounded-[var(--primitive-radius-pill)] flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-interactive-hover-bg)] transition-colors ${zoomPulse === 'in' ? 'bg-[var(--semantic-color-interactive-active-bg)] text-[var(--semantic-color-text-primary)] border border-[var(--semantic-color-interactive-active-border)]' : ''}`}
                             aria-label="Zoom in"
                         >
                             +
@@ -2492,7 +2492,7 @@ const CanvasView = () => {
                     </div>
                     {fieldScopeId && (
                         <div
-                            className="flex items-center gap-1 px-2 py-0.5 rounded-[var(--primitive-radius-pill)] bg-[var(--semantic-color-text-primary)]/5 border border-[var(--semantic-color-border-default)]"
+                            className="flex items-center gap-1 px-2 py-0.5 rounded-[var(--primitive-radius-pill)] bg-[var(--semantic-color-interactive-hover-bg)] border border-[var(--semantic-color-border-default)]"
                             onPointerDown={(e) => e.stopPropagation()}
                         >
                             {[1, 2, 3].map(level => (
@@ -2500,7 +2500,7 @@ const CanvasView = () => {
                                     key={level}
                                     type="button"
                                     onClick={() => setSubspaceLod(level as 1 | 2 | 3)}
-                                    className={`w-5 h-5 rounded-[var(--primitive-radius-pill)] text-[10px] font-semibold transition-colors ${subspaceLod === level ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                    className={`w-5 h-5 rounded-[var(--primitive-radius-pill)] text-[10px] font-semibold transition-colors ${subspaceLod === level ? 'bg-[var(--semantic-color-interactive-active-bg)] border border-[var(--semantic-color-interactive-active-border)] text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]'}`}
                                     title={`LOD ${level}`}
                                 >
                                     {level}

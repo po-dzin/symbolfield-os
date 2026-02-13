@@ -257,8 +257,8 @@ const OmniInputExpanded = () => {
                                 key={action.id}
                                 onClick={() => runCommand(action)}
                                 className={`flex items-center justify-between rounded-[8px] px-3 py-2 text-sm text-left transition-colors ${index === selectedIndex
-                                        ? 'bg-[var(--semantic-color-text-primary)]/10 text-[var(--semantic-color-text-primary)]'
-                                        : 'text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/5'
+                                        ? 'bg-[var(--semantic-color-interactive-active-bg)] border border-[var(--semantic-color-interactive-active-border)] text-[var(--semantic-color-text-primary)]'
+                                        : 'text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]'
                                     }`}
                             >
                                 <div className="flex items-center gap-2">

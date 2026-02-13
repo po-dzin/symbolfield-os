@@ -165,7 +165,7 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
             : 'Space Scope';
 
     return (
-        <div className="fixed inset-0 z-[var(--component-z-modal)] bg-black/20 backdrop-blur-md animate-fade-in flex items-center justify-center p-8" onClick={onClose}>
+        <div className="fixed inset-0 z-[var(--component-z-modal)] bg-[var(--semantic-color-overlay-backdrop)] backdrop-blur-md animate-fade-in flex items-center justify-center p-8" onClick={onClose}>
             <div
                 className="w-full max-w-5xl h-[600px] glass-panel shadow-2xl overflow-hidden animate-scale-in flex"
                 onClick={(event) => event.stopPropagation()}

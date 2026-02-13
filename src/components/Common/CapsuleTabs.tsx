@@ -58,7 +58,7 @@ const CapsuleTabs: React.FC<CapsuleTabsProps> = ({
             tabIndex={0}
             onKeyDown={onKeyDown}
             title={title}
-            className={`flex items-center ui-shape-pill bg-[var(--semantic-color-bg-app)]/85 border border-[var(--semantic-color-border-default)] font-mono uppercase tracking-[0.14em] text-[var(--semantic-color-text-secondary)] ${sizeClasses.container} ${className || ''}`}
+            className={`flex items-center ui-shape-pill overflow-hidden bg-[var(--semantic-color-bg-app)]/85 border border-[var(--semantic-color-border-default)] font-mono uppercase tracking-[0.14em] text-[var(--semantic-color-text-secondary)] ${sizeClasses.container} ${className || ''}`}
         >
             {visibleItems.map((item, index) => {
                 const isActive = item.id === activeId;

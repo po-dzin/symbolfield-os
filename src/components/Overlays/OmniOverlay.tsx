@@ -200,7 +200,7 @@ const OmniOverlay: React.FC = () => {
 
     return (
         <div className="fixed inset-0 z-[var(--component-z-omni)] flex items-start justify-center pt-[15vh]">
-            <div className="absolute inset-0 bg-black/50" onClick={closePalette} />
+            <div className="absolute inset-0 bg-[var(--semantic-color-overlay-backdrop)]" onClick={closePalette} />
             <div className="w-[var(--component-omni-width)] flex flex-col gap-2 animate-scale-in origin-top relative z-10">
 
                 {/* Main Input Box */}

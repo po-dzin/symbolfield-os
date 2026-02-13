@@ -18,9 +18,9 @@ const LogDrawer = () => {
         <div className="absolute bottom-0 left-0 right-0 h-[30vh] z-[var(--component-z-drawer)] animate-slide-up pointer-events-auto">
             <div className="glass-panel w-full h-full rounded-b-none border-b-0 flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between p-2 border-b border-white/10 bg-black/20">
+                <div className="flex items-center justify-between p-2 border-b border-[var(--semantic-color-border-subtle)] bg-[var(--semantic-color-bg-surface-hover)]/40">
                     <span className="text-xs uppercase tracking-widest text-text-secondary">Temporal Log</span>
-                    <button onClick={() => setDrawerOpen('right', false)} className="hover:text-white">✕</button>
+                    <button onClick={() => setDrawerOpen('right', false)} className="ui-selectable h-7 w-7 rounded-full flex items-center justify-center">✕</button>
                 </div>
 
                 {/* Content Placeholder */}
@@ -28,8 +28,8 @@ const LogDrawer = () => {
                     <div className="text-sm text-text-meta font-mono">
                         {/* Mock Timeline */}
                         <div className="mb-2 opacity-50">Today</div>
-                        <div className="pl-2 border-l border-white/10 flex flex-col gap-2">
-                            <div>10:42 <span className="text-white">Node Created</span></div>
+                        <div className="pl-2 border-l border-[var(--semantic-color-border-subtle)] flex flex-col gap-2">
+                            <div>10:42 <span className="text-[var(--semantic-color-text-primary)]">Node Created</span></div>
                             <div>09:15 <span className="text-emerald-400">Ritual Complete</span></div>
                         </div>
                     </div>

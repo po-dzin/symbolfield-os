@@ -75,7 +75,7 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onDismiss }) => {
                         {/* Primary: Start in Playground */}
                         <button
                             onClick={handleStartPlayground}
-                            className="group w-full px-6 py-4 rounded-[var(--primitive-radius-card)] bg-[var(--semantic-color-text-primary)]/10 border border-[var(--semantic-color-text-primary)]/20 hover:bg-[var(--semantic-color-text-primary)]/15 hover:border-[var(--semantic-color-text-primary)]/30 focus-visible:ring-2 focus-visible:ring-[var(--semantic-color-text-primary)]/50 focus-visible:outline-none transition-all duration-300"
+                            className="group w-full px-6 py-4 rounded-[var(--primitive-radius-card)] bg-[var(--semantic-color-interactive-active-bg)] border border-[var(--semantic-color-interactive-active-border)] hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:border-[var(--semantic-color-interactive-hover-border)] focus-visible:ring-2 focus-visible:ring-[var(--semantic-color-interactive-focus-ring)] focus-visible:outline-none transition-all duration-300"
                         >
                             <div className="flex items-center justify-between">
                                 <div className="text-left">
@@ -89,7 +89,7 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onDismiss }) => {
                         {/* Secondary: Create Space */}
                         <button
                             onClick={handleCreateSpace}
-                            className="group w-full px-6 py-3 rounded-[var(--primitive-radius-card)] bg-transparent border border-[var(--semantic-color-border-default)] hover:bg-[var(--semantic-color-text-primary)]/5 hover:border-[var(--semantic-color-text-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--semantic-color-text-secondary)]/30 focus-visible:outline-none transition-all"
+                            className="group w-full px-6 py-3 rounded-[var(--primitive-radius-card)] bg-transparent border border-[var(--semantic-color-border-default)] hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:border-[var(--semantic-color-interactive-hover-border)] focus-visible:ring-2 focus-visible:ring-[var(--semantic-color-interactive-focus-ring)] focus-visible:outline-none transition-all"
                         >
                             <div className="text-[var(--semantic-color-text-secondary)] group-hover:text-[var(--semantic-color-text-primary)] text-sm transition-colors">
                                 Create My First Space

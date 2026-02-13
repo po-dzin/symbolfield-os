@@ -7,6 +7,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { NODE_SIZES } from '../../utils/layoutMetrics';
 import { GLOBAL_ZOOM_HOTKEY_EVENT, type ZoomHotkeyDetail } from '../../core/hotkeys/zoomHotkeys';
 import CapsuleTabs, { type CapsuleTabItem } from '../Common/CapsuleTabs';
+import { adaptLegacyGraphColor } from '../../core/ui/graphColorAdapt';
 
 type DetailLevel = 0 | 1 | 2;
 type DomEventListener = (event: Event) => void;
@@ -158,7 +159,7 @@ const loadRawAreas = (spaceId: string) => {
     }
 };
 
-const buildClusters = (includePlayground: boolean): SpaceCluster[] => {
+const buildClusters = (includePlayground: boolean, adaptLegacy: boolean): SpaceCluster[] => {
     const spaces = spaceManager
         .getSpacesWithOptions({ includePlayground })
         .slice()
@@ -338,7 +339,7 @@ const buildClusters = (includePlayground: boolean): SpaceCluster[] => {
         const resolveNodeColor = (node: NodeBase) => {
             const body = typeof node.data?.color_body === 'string' ? node.data.color_body.trim() : '';
             const base = typeof node.data?.color === 'string' ? node.data.color.trim() : '';
-            return body || base || 'var(--semantic-color-graph-node-stroke)';
+            return adaptLegacyGraphColor(body || base, 'var(--semantic-color-graph-node-stroke)', adaptLegacy);
         };
 
         const normalize = (targetNodes: NodeBase[]) => (
@@ -379,8 +380,16 @@ const buildClusters = (includePlayground: boolean): SpaceCluster[] => {
             .map((area: any) => {
                 const anchorType = area?.anchor?.type;
                 const anchorNode = anchorType === 'node' ? nodePointMap.get(String(area?.anchor?.nodeId ?? '')) : null;
-                const color = String(area?.color ?? 'var(--semantic-color-graph-node-fill)');
-                const borderColor = String(area?.borderColor ?? 'var(--semantic-color-graph-node-stroke)');
+                const color = adaptLegacyGraphColor(
+                    typeof area?.color === 'string' ? area.color : '',
+                    'var(--semantic-color-graph-node-fill)',
+                    adaptLegacy
+                );
+                const borderColor = adaptLegacyGraphColor(
+                    typeof area?.borderColor === 'string' ? area.borderColor : '',
+                    'var(--semantic-color-graph-node-stroke)',
+                    adaptLegacy
+                );
                 const opacity = Number.isFinite(area?.opacity) ? Number(area.opacity) : 0.45;
 
                 if (area?.shape === 'circle' && area?.circle && Number.isFinite(area.circle.r)) {
@@ -513,6 +522,8 @@ const GlobalGraphOverview = ({
     selectedSpaceId?: string | null;
     onSelectSpace?: (metrics: SpaceMetrics | null) => void;
 }) => {
+    const appMode = useAppStore(state => state.appMode);
+    const adaptLegacyGraph = appMode === 'luma';
     const showGrid = useAppStore(state => state.showGrid);
     const showEdges = useAppStore(state => state.showEdges);
     const drawerRightOpen = useAppStore(state => state.drawerRightOpen);
@@ -521,7 +532,7 @@ const GlobalGraphOverview = ({
     const showPlaygroundOnStation = useAppStore(state => state.showPlaygroundOnStation);
     const [detailLevel, setDetailLevel] = React.useState<DetailLevel>(1);
     const [layoutOffsets, setLayoutOffsets] = React.useState<StationLayout>(() => stationStorage.loadStationLayout());
-    const [clusters, setClusters] = React.useState<SpaceCluster[]>(() => buildClusters(showPlaygroundOnStation));
+    const [clusters, setClusters] = React.useState<SpaceCluster[]>(() => buildClusters(showPlaygroundOnStation, adaptLegacyGraph));
     const playgroundId = spaceManager.getPlaygroundSpace()?.id ?? null;
     const selectedMetrics = React.useMemo(() => {
         if (!selectedSpaceId) return null;
@@ -628,7 +639,7 @@ const GlobalGraphOverview = ({
     }>(null);
 
     React.useEffect(() => {
-        const refresh = () => setClusters(buildClusters(showPlaygroundOnStation));
+        const refresh = () => setClusters(buildClusters(showPlaygroundOnStation, adaptLegacyGraph));
         const unsub = [
             eventBus.on(EVENTS.SPACE_CREATED, refresh),
             eventBus.on(EVENTS.SPACE_RENAMED, refresh),
@@ -641,7 +652,7 @@ const GlobalGraphOverview = ({
             unsub.forEach(fn => fn());
             unsubHover();
         };
-    }, [showPlaygroundOnStation]);
+    }, [adaptLegacyGraph, showPlaygroundOnStation]);
 
     React.useEffect(() => {
         stationZoomRef.current = stationZoom;
@@ -802,6 +813,8 @@ const GlobalGraphOverview = ({
             y: (clientY - rect.top) * scaleY + current.y
         };
     };
+
+    const [viewBox, setViewBox] = React.useState(DEFAULT_VIEWBOX);
 
     const zoomAroundPoint = React.useCallback((nextZoomInput: number, clientX: number, clientY: number) => {
         const nextZoom = clampStationZoom(nextZoomInput);
@@ -1045,8 +1058,6 @@ const GlobalGraphOverview = ({
         setStationPan(nextPan);
         setStationZoom(nextZoom);
     }, [buildTargetViewBox, visibleClusters]);
-
-    const [viewBox, setViewBox] = React.useState(DEFAULT_VIEWBOX);
 
     React.useEffect(() => {
         viewBoxRef.current = { ...targetViewBox };

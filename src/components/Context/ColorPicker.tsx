@@ -51,7 +51,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ onSelect, onClose, currentCol
             <button
                 key={`${role}-${color}`}
                 onClick={() => onSelect(role, color)}
-                className={`w-4 h-4 rounded-full border ${isActive ? 'border-white/60' : 'border-white/8'}`}
+                className={`w-4 h-4 rounded-full border ${isActive ? 'border-[var(--semantic-color-interactive-active-border)]' : 'border-[var(--semantic-color-border-default)]'}`}
                 style={{ backgroundColor: color }}
                 aria-label="Pick color"
             />
@@ -60,12 +60,12 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ onSelect, onClose, currentCol
 
     return (
         <div
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[380px] bg-black/90 border border-white/20 rounded-xl overflow-hidden shadow-2xl backdrop-blur-md flex flex-col z-[200]"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[380px] glass-panel rounded-[var(--primitive-radius-card)] overflow-hidden shadow-2xl flex flex-col z-[200]"
             onClick={(e) => e.stopPropagation()}
             data-context-menu
         >
-            <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-                <div className="text-[10px] uppercase tracking-[0.25em] text-white/50 font-bold">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--semantic-color-border-subtle)]">
+                <div className="text-[10px] uppercase tracking-[0.25em] text-[var(--semantic-color-text-muted)] font-bold">
                     Colors
                 </div>
                 <div className="flex items-center gap-2">
@@ -76,7 +76,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ onSelect, onClose, currentCol
                             });
                             setActivePickerRole(null);
                         }}
-                        className="w-6 h-6 rounded-full border border-white/10 flex items-center justify-center text-white/50"
+                        className="ui-selectable w-6 h-6 rounded-full flex items-center justify-center text-[var(--semantic-color-text-muted)]"
                         title="Reset colors"
                         aria-label="Reset colors"
                     >
@@ -87,7 +87,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ onSelect, onClose, currentCol
                     </button>
                     <button
                         onClick={onClose}
-                        className="text-[9px] uppercase tracking-wider text-white/50"
+                        className="ui-selectable px-2 py-1 rounded-[var(--primitive-radius-pill)] text-[9px] uppercase tracking-wider text-[var(--semantic-color-text-muted)]"
                     >
                         Close
                     </button>
@@ -99,14 +99,14 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ onSelect, onClose, currentCol
                     const role = row.id as ColorRole;
                     return (
                         <div key={row.id} className="flex items-center gap-3">
-                            <div className="text-[9px] uppercase tracking-[0.2em] text-white/40 w-[78px] flex-shrink-0">
+                            <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-muted)] w-[78px] flex-shrink-0">
                                 {row.label}
                             </div>
                             <div className="grid grid-cols-12 gap-2">
                                 {COLOR_OPTIONS.map(color => renderSwatch(role, color))}
                                 <button
                                     onClick={() => setActivePickerRole(activePickerRole === role ? null : role)}
-                                    className="w-4 h-4 rounded-full border border-white/30 shadow-[0_0_8px_rgba(255,255,255,0.15)]"
+                                    className="w-4 h-4 rounded-full border border-[var(--semantic-color-border-default)] shadow-[0_0_8px_rgba(0,0,0,0.18)]"
                                     style={{
                                         background: 'conic-gradient(#ff4d4d, #ffd24d, #6eff8a, #55b8ff, #8b5bff, #ff4da6, #ff4d4d)'
                                     }}
@@ -119,15 +119,15 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ onSelect, onClose, currentCol
                 })}
             </div>
             {activePickerRole && (
-                <div className="absolute left-full top-10 ml-2 w-44 bg-black/90 border border-white/20 rounded-xl shadow-2xl backdrop-blur-md p-3 z-[210]" data-context-menu>
-                    <div className="text-[9px] uppercase tracking-[0.2em] text-white/50 mb-2">
+                <div className="absolute left-full top-10 ml-2 w-44 glass-panel border border-[var(--semantic-color-border-default)] rounded-[var(--primitive-radius-card)] shadow-2xl p-3 z-[210]" data-context-menu>
+                    <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-muted)] mb-2">
                         Spectrum
                     </div>
                     <input
                         type="color"
                         value={currentColors[activePickerRole]}
                         onChange={(e) => onSelect(activePickerRole, e.target.value)}
-                        className="w-full h-10 rounded-md border border-white/20 bg-transparent"
+                        className="w-full h-10 rounded-md border border-[var(--semantic-color-border-default)] bg-transparent"
                     />
                 </div>
             )}

@@ -53,6 +53,8 @@ a:hover {
     background-color: color-mix(in srgb, var(--semantic-color-bg-surface), transparent calc(100% - var(--theme-glass-opacity, 0.8) * 100%));
     backdrop-filter: blur(var(--theme-blur-radius, 12px));
     border: 1px solid var(--semantic-color-border-default);
+    overflow: hidden;
+    isolation: isolate;
 }
 
 /* Noise overlay for glass panels */
@@ -81,6 +83,8 @@ a:hover {
     background-color: color-mix(in srgb, var(--semantic-color-bg-surface), transparent calc(100% - var(--theme-glass-opacity, 0.8) * 100%));
     backdrop-filter: blur(var(--theme-blur-radius, 12px));
     border: 1px solid var(--semantic-color-border-default);
+    overflow: hidden;
+    isolation: isolate;
 }
 
 .glass-panel::after {
@@ -94,6 +98,27 @@ a:hover {
     border-radius: inherit;
     z-index: 1;
     /* Overlay on top of background color */
+}
+
+.glass-panel-subtle {
+    @apply rounded-[var(--primitive-radius-panel)];
+    position: relative;
+    background-color: color-mix(in srgb, var(--semantic-color-bg-surface), transparent calc(100% - (var(--theme-glass-opacity, 0.8) * 0.58) * 100%));
+    border: 1px solid color-mix(in srgb, var(--semantic-color-border-default), transparent 8%);
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.glass-panel-subtle::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--noise-url);
+    opacity: calc(var(--theme-noise-opacity, 0.04) * 0.65);
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 1;
 }
 
 /* Ensure content inside clicks through or is above. 
@@ -128,18 +153,21 @@ a:hover {
 
 .ui-selectable:hover {
     color: var(--semantic-color-text-primary);
-    background-color: color-mix(in srgb, var(--semantic-color-text-primary), transparent 95%);
-    /* 5% opacity */
+    background-color: var(--semantic-color-interactive-hover-bg);
+    border-color: var(--semantic-color-interactive-hover-border);
 }
 
 .ui-selectable[aria-pressed="true"],
 .ui-selectable[data-state="active"],
 .ui-selectable.is-active {
     color: var(--semantic-color-text-primary);
-    background-color: color-mix(in srgb, var(--semantic-color-text-primary), transparent 85%);
-    /* 15% opacity */
-    border-color: color-mix(in srgb, var(--semantic-color-text-primary), transparent 70%);
-    /* 30% opacity */
+    background-color: var(--semantic-color-interactive-active-bg);
+    border-color: var(--semantic-color-interactive-active-border);
+}
+
+.ui-selectable:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px var(--semantic-color-interactive-focus-ring);
 }
 
 /* Shape + capsule sizing system
@@ -164,15 +192,21 @@ a:hover {
 
 .ui-drawer-row:hover {
     color: var(--semantic-color-text-primary);
-    background-color: color-mix(in srgb, var(--semantic-color-text-primary), transparent 95%);
+    background-color: var(--semantic-color-interactive-hover-bg);
+    border-color: var(--semantic-color-interactive-hover-border);
 }
 
 .ui-drawer-row[aria-pressed="true"],
 .ui-drawer-row[data-state="active"],
 .ui-drawer-row.is-active {
     color: var(--semantic-color-text-primary);
-    background-color: color-mix(in srgb, var(--semantic-color-text-primary), transparent 85%);
-    border-color: color-mix(in srgb, var(--semantic-color-text-primary), transparent 70%);
+    background-color: var(--semantic-color-interactive-active-bg);
+    border-color: var(--semantic-color-interactive-active-border);
+}
+
+.ui-drawer-row:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px var(--semantic-color-interactive-focus-ring);
 }
 
 .ui-field-soft {

@@ -109,7 +109,10 @@ const Shell = () => {
     const uiThemeValue = useAppStore(state => state.uiThemeValue);
 
     useEffect(() => {
-        const harmonyMode = themeModeSource === 'auto' ? appMode : themeModeOverride;
+        const resolvedTheme = resolveUiTheme(uiThemeSource, uiThemeValue, appMode);
+        const selectedHarmonyMode = themeModeSource === 'auto' ? appMode : themeModeOverride;
+        // Keep graph tokens readable in light UI, even if mode override was set while in dark.
+        const harmonyMode = resolvedTheme === 'light' ? 'luma' : selectedHarmonyMode;
         const profile = buildHarmonyProfile({
             mode: harmonyMode,
             preset: themePreset,
@@ -123,7 +126,6 @@ const Shell = () => {
         applyHarmonyProfileToRoot(profile);
 
         const root = document.documentElement;
-        const resolvedTheme = resolveUiTheme(uiThemeSource, uiThemeValue, appMode);
         root.setAttribute('data-theme', resolvedTheme);
     }, [appMode, themePreset, themeAccent, themeDensity, themeMotion, themeSpeed, themeTexture, themeIntensity, themeModeSource, themeModeOverride, uiThemeSource, uiThemeValue]);
 

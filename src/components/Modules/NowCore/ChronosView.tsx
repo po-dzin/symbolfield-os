@@ -84,7 +84,7 @@ export const ChronosView: React.FC = () => {
                             <div className="space-y-6">
                                 {group.events.map((event) => (
                                     <div key={event.id} className="relative pl-8 group">
-                                        <div className="absolute left-2 top-1.5 w-2 h-2 rounded-full border border-[var(--semantic-color-border-default)] bg-black z-10 group-hover:bg-[var(--semantic-color-text-primary)] transition-colors" />
+                                        <div className="absolute left-2 top-1.5 w-2 h-2 rounded-full border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)] z-10 group-hover:bg-[var(--semantic-color-text-primary)] transition-colors" />
                                         <div className="flex items-start gap-3">
                                             <span className="text-[11px] font-mono text-[var(--semantic-color-text-muted)] opacity-60 mt-0.5">{formatTimeLabel(event.timestamp)}</span>
                                             <div className="flex-1">

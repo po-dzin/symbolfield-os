@@ -102,6 +102,7 @@ const NodeView = () => {
 
     const [titleDraft, setTitleDraft] = React.useState('Untitled Node');
     const [tagsDraft, setTagsDraft] = React.useState('');
+    const [infoCollapsed, setInfoCollapsed] = React.useState(true);
     const [isImporting, setIsImporting] = React.useState(false);
     const [importStatus, setImportStatus] = React.useState('');
     const importInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -299,11 +300,9 @@ const NodeView = () => {
 
     return (
         <div className="relative w-full h-full flex flex-col bg-[var(--semantic-color-bg-canvas)]" data-view="node">
-            <div className="flex-1 overflow-auto p-[var(--primitive-space-panel-padding)] pt-[var(--component-topbar-height)] max-w-5xl mx-auto w-full mt-12">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                    <div className="text-sm text-[var(--semantic-color-text-muted)]">
-                        Node dimension: isolated editor state with BlockSuite tools. Changes save automatically.
-                    </div>
+            <div className="flex-1 overflow-auto p-[var(--primitive-space-panel-padding)] pt-[calc(var(--component-topbar-height)+20px)] max-w-5xl mx-auto w-full">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                    <div />
                     <div className="flex items-center gap-2 shrink-0">
                         <input
                             ref={importInputRef}
@@ -317,97 +316,108 @@ const NodeView = () => {
                             type="button"
                             onClick={() => importInputRef.current?.click()}
                             disabled={isImporting}
-                            className="h-8 px-3 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)] text-[11px] uppercase tracking-[0.14em] text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-colors disabled:opacity-50"
+                            className="ui-selectable ui-shape-pill h-8 px-3 border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/65 text-[11px] uppercase tracking-[0.14em] text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-colors disabled:opacity-50"
                         >
                             {isImporting ? 'Importing...' : 'Import'}
                         </button>
                         <button
                             type="button"
                             onClick={exitNode}
-                            className="h-8 px-3 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)] text-[11px] uppercase tracking-[0.14em] text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-colors"
+                            className="ui-selectable ui-shape-pill h-8 px-3 border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/65 text-[11px] uppercase tracking-[0.14em] text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-colors"
                         >
                             Space
                         </button>
                     </div>
                 </div>
+
+                <div className="mb-6 flex items-center gap-2">
+                    <button
+                        type="button"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/55 text-sm text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-colors"
+                        onClick={handleIconToggle}
+                        title={nodeIcon.trim() ? 'Remove icon' : 'Add icon'}
+                    >
+                        {nodeIcon.trim() || '◌'}
+                    </button>
+                    <span className="text-sm text-[var(--semantic-color-text-secondary)]">
+                        {nodeIcon.trim() ? 'Icon set' : 'Add icon'}
+                    </span>
+                </div>
+
+                <div className="mb-6">
+                    <input
+                        id="node-title-input"
+                        value={titleDraft}
+                        onChange={(event) => setTitleDraft(event.target.value)}
+                        onBlur={commitTitle}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                (event.currentTarget as HTMLInputElement).blur();
+                            }
+                        }}
+                        className="w-full bg-transparent text-[clamp(2.2rem,5.2vw,4rem)] leading-[1.02] font-semibold text-[var(--semantic-color-text-primary)] outline-none border-0 border-b border-[var(--semantic-color-border-default)]/65 focus:border-[var(--semantic-color-interactive-active-border)] pb-4"
+                        placeholder="Untitled Node"
+                        aria-label="Node title"
+                    />
+                </div>
+
                 {importStatus && (
                     <div className="mb-3 text-[11px] uppercase tracking-[0.12em] text-[var(--semantic-color-text-muted)]">
                         {importStatus}
                     </div>
                 )}
-                <div className="mb-4 rounded-[var(--primitive-radius-card)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/45 p-4">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                        <button
-                            type="button"
-                            className="inline-flex items-center gap-2 text-sm text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-colors"
-                            onClick={handleIconToggle}
+                <div className="mb-6 border-y border-[var(--semantic-color-border-default)]/70 py-2">
+                    <button
+                        type="button"
+                        onClick={() => setInfoCollapsed(prev => !prev)}
+                        className="ui-selectable w-full flex items-center justify-between px-2 py-2 rounded-[var(--primitive-radius-input)]"
+                        aria-expanded={!infoCollapsed}
+                    >
+                        <span className="text-[10px] uppercase tracking-[0.16em] text-[var(--semantic-color-text-muted)]">Info</span>
+                        <span
+                            className={`text-xs text-[var(--semantic-color-text-secondary)] transition-transform ${infoCollapsed ? '' : 'rotate-180'}`}
+                            aria-hidden="true"
                         >
-                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-app)]/60 text-xs">
-                                {nodeIcon.trim() || '◌'}
-                            </span>
-                            <span>{nodeIcon.trim() ? 'Remove icon' : 'Add icon'}</span>
-                        </button>
-                        <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--semantic-color-text-muted)]">
-                            Node Properties
+                            ▾
+                        </span>
+                    </button>
+                    {!infoCollapsed && (
+                        <div className="pt-2 pb-2">
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-[180px_1fr]">
+                                <div className="text-sm text-[var(--semantic-color-text-secondary)]">Tags</div>
+                                <input
+                                    id="node-tags-input"
+                                    value={tagsDraft}
+                                    onChange={(event) => setTagsDraft(event.target.value)}
+                                    onBlur={commitTags}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter') {
+                                            event.preventDefault();
+                                            (event.currentTarget as HTMLInputElement).blur();
+                                        }
+                                    }}
+                                    className="w-full rounded-[var(--primitive-radius-input)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/50 px-3 py-2 text-sm text-[var(--semantic-color-text-primary)] outline-none focus:border-[var(--semantic-color-interactive-active-border)]"
+                                    placeholder="Empty"
+                                    aria-label="Node tags"
+                                />
+                            </div>
+                            <div className="mt-4 space-y-2 text-sm">
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-[180px_1fr]">
+                                    <div className="text-[var(--semantic-color-text-secondary)]">Created</div>
+                                    <div className="text-[var(--semantic-color-text-primary)]">{createdAt}</div>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-[180px_1fr]">
+                                    <div className="text-[var(--semantic-color-text-secondary)]">Updated</div>
+                                    <div className="text-[var(--semantic-color-text-primary)]">{updatedAt}</div>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-[180px_1fr]">
+                                    <div className="text-[var(--semantic-color-text-secondary)]">Owner</div>
+                                    <div className="text-[var(--semantic-color-text-primary)]">{ownerName}</div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-
-                    <div className="mb-3">
-                        <label className="text-[10px] uppercase tracking-[0.16em] text-[var(--semantic-color-text-muted)]" htmlFor="node-title-input">
-                            Title
-                        </label>
-                        <input
-                            id="node-title-input"
-                            value={titleDraft}
-                            onChange={(event) => setTitleDraft(event.target.value)}
-                            onBlur={commitTitle}
-                            onKeyDown={(event) => {
-                                if (event.key === 'Enter') {
-                                    event.preventDefault();
-                                    (event.currentTarget as HTMLInputElement).blur();
-                                }
-                            }}
-                            className="mt-1 w-full rounded-[var(--primitive-radius-input)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-app)]/55 px-3 py-2 text-sm text-[var(--semantic-color-text-primary)] outline-none focus:border-[var(--semantic-color-border-subtle)]"
-                            placeholder="Untitled Node"
-                            aria-label="Node title"
-                        />
-                    </div>
-
-                    <div className="mb-3">
-                        <label className="text-[10px] uppercase tracking-[0.16em] text-[var(--semantic-color-text-muted)]" htmlFor="node-tags-input">
-                            Tags
-                        </label>
-                        <input
-                            id="node-tags-input"
-                            value={tagsDraft}
-                            onChange={(event) => setTagsDraft(event.target.value)}
-                            onBlur={commitTags}
-                            onKeyDown={(event) => {
-                                if (event.key === 'Enter') {
-                                    event.preventDefault();
-                                    (event.currentTarget as HTMLInputElement).blur();
-                                }
-                            }}
-                            className="mt-1 w-full rounded-[var(--primitive-radius-input)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-app)]/55 px-3 py-2 text-sm text-[var(--semantic-color-text-primary)] outline-none focus:border-[var(--semantic-color-border-subtle)]"
-                            placeholder="alpha, beta"
-                            aria-label="Node tags"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-2 text-xs text-[var(--semantic-color-text-secondary)] sm:grid-cols-3">
-                        <div className="rounded-[var(--primitive-radius-input)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-app)]/55 px-3 py-2">
-                            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--semantic-color-text-muted)]">Created</div>
-                            <div className="mt-1">{createdAt}</div>
-                        </div>
-                        <div className="rounded-[var(--primitive-radius-input)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-app)]/55 px-3 py-2">
-                            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--semantic-color-text-muted)]">Updated</div>
-                            <div className="mt-1">{updatedAt}</div>
-                        </div>
-                        <div className="rounded-[var(--primitive-radius-input)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-app)]/55 px-3 py-2">
-                            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--semantic-color-text-muted)]">Owner</div>
-                            <div className="mt-1">{ownerName}</div>
-                        </div>
-                    </div>
+                    )}
                 </div>
                 <NodeBuilder
                     ref={builderRef}

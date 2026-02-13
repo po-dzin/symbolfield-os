@@ -108,7 +108,7 @@ export const CyclesView: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => navigate(-1)}
-                            className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 text-xs"
+                            className="w-6 h-6 rounded-full flex items-center justify-center ui-selectable text-xs"
                         >
                             {'<'}
                         </button>
@@ -122,7 +122,7 @@ export const CyclesView: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => navigate(1)}
-                            className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 text-xs"
+                            className="w-6 h-6 rounded-full flex items-center justify-center ui-selectable text-xs"
                         >
                             {'>'}
                         </button>
@@ -149,7 +149,7 @@ export const CyclesView: React.FC = () => {
                                 className={`relative h-10 rounded-lg flex flex-col items-center justify-center text-xs transition-all border ${isToday
                                     ? 'bg-[var(--semantic-color-action-primary)]/20 text-[var(--semantic-color-action-primary)] font-bold border-[var(--semantic-color-action-primary)]/30'
                                     : activityCount > 0
-                                        ? 'border-transparent hover:bg-white/5 text-[var(--semantic-color-text-secondary)]'
+                                        ? 'border-transparent hover:bg-[var(--semantic-color-interactive-hover-bg)] text-[var(--semantic-color-text-secondary)]'
                                         : 'border-transparent text-[var(--semantic-color-text-muted)] opacity-40 hover:opacity-100'
                                     }`}
                             >
@@ -190,7 +190,7 @@ export const CyclesView: React.FC = () => {
                         </div>
                     )}
                     {recentActivity.map((item) => (
-                        <div key={item.id} className="flex items-center gap-4 group cursor-pointer hover:bg-white/5 p-2 -mx-2 rounded-lg transition-all">
+                        <div key={item.id} className="flex items-center gap-4 group cursor-pointer hover:bg-[var(--semantic-color-interactive-hover-bg)] p-2 -mx-2 rounded-lg transition-all">
                             <div className="w-8 h-8 rounded-lg bg-[var(--semantic-color-text-primary)]/5 flex items-center justify-center text-[var(--semantic-color-text-muted)] group-hover:text-[var(--semantic-color-text-primary)]">
                                 {item.type === 'Session' ? '◉' : '⬡'}
                             </div>

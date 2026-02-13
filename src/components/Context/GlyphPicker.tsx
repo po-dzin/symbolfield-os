@@ -24,23 +24,23 @@ const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose: _onClose, 
     const glyphsByRing = useMemo(() => getGlyphRingPalette(categories), [categories]);
 
     const renderGlyph = (glyphId: string, size: number) => {
-        return <GlyphIcon id={glyphId} size={size} className="text-white" />;
+        return <GlyphIcon id={glyphId} size={size} className="text-[var(--semantic-color-text-primary)]" />;
     };
 
     return (
         <div
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[280px] bg-black/90 border border-white/20 rounded-xl overflow-hidden shadow-2xl backdrop-blur-md flex flex-col z-[200]"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[280px] glass-panel border border-[var(--semantic-color-border-default)] rounded-[var(--primitive-radius-card)] overflow-hidden shadow-2xl flex flex-col z-[200]"
             onClick={(e) => e.stopPropagation()}
             data-context-menu
         >
             {/* Header */}
-            <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-                <div className="text-[10px] uppercase tracking-[0.25em] text-white/50 font-bold">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--semantic-color-border-subtle)]">
+                <div className="text-[10px] uppercase tracking-[0.25em] text-[var(--semantic-color-text-muted)] font-bold">
                     Glyphs
                 </div>
                 <button
                     onClick={() => setViewMode(viewMode === 'matrix' ? 'palette' : 'matrix')}
-                    className="px-2 py-1 text-[9px] uppercase tracking-wider bg-white/5 rounded text-white/70"
+                    className="ui-selectable px-2 py-1 text-[9px] uppercase tracking-wider ui-shape-soft text-[var(--semantic-color-text-secondary)]"
                 >
                     {viewMode === 'matrix' ? '◎ Palette' : '⊞ Matrix'}
                 </button>
@@ -49,14 +49,16 @@ const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose: _onClose, 
             {viewMode === 'matrix' ? (
                 <>
                     {/* Category Tabs */}
-                    <div className="flex overflow-x-auto text-[10px] uppercase tracking-wider border-b border-white/10 scrollbar-hide">
+                    <div className="flex overflow-x-auto text-[10px] uppercase tracking-wider border-b border-[var(--semantic-color-border-subtle)] scrollbar-hide">
                         {categories.map(cat => (
                             <button
                                 key={cat.id}
                                 onClick={() => setActiveCategory(cat.id)}
-                            className={`
-                            px-3 py-2 whitespace-nowrap
-                            ${activeCategory === cat.id ? 'bg-white/20 text-white font-bold' : 'text-white/50'}
+                                className={`
+                            px-3 py-2 whitespace-nowrap transition-colors
+                            ${activeCategory === cat.id
+                                    ? 'bg-[var(--semantic-color-interactive-active-bg)] text-[var(--semantic-color-text-primary)] font-bold'
+                                    : 'text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-secondary)]'}
                         `}
                             >
                                 {cat.label}
@@ -65,12 +67,12 @@ const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose: _onClose, 
                     </div>
 
                     {/* Grid */}
-                    <div className="p-3 grid grid-cols-6 gap-2 bg-gradient-to-b from-black/50 to-transparent">
+                    <div className="p-3 grid grid-cols-6 gap-2 bg-gradient-to-b from-[var(--semantic-color-bg-surface-hover)] to-transparent">
                         {currentCat?.glyphs.map((glyphId) => (
                             <button
                                 key={glyphId}
                                 onClick={() => onSelect(glyphId)}
-                                className="aspect-square flex items-center justify-center rounded-lg bg-white/5 border border-white/5 text-white text-lg active:scale-95"
+                                className="aspect-square flex items-center justify-center rounded-lg border border-[var(--semantic-color-border-subtle)] bg-[var(--semantic-color-interactive-hover-bg)] text-[var(--semantic-color-text-primary)] active:scale-95 hover:bg-[var(--semantic-color-interactive-active-bg)] transition-colors"
                                 title={getGlyphDisplayLabel(glyphId)}
                             >
                                 {renderGlyph(glyphId, 18)}
@@ -80,9 +82,9 @@ const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose: _onClose, 
                 </>
             ) : (
                 /* Radial Palette View */
-                <div className="relative w-[280px] h-[320px] flex items-center justify-center bg-gradient-radial from-white/5 to-transparent overflow-hidden">
+                <div className="relative w-[280px] h-[320px] flex items-center justify-center bg-gradient-radial from-[var(--semantic-color-bg-surface-hover)] to-transparent overflow-hidden">
                     {/* Center indicator */}
-                    <div className="absolute w-12 h-12 rounded-full border border-dashed border-white/20" />
+                    <div className="absolute w-12 h-12 rounded-full border border-dashed border-[var(--semantic-color-border-default)]" />
 
                     {/* Ring 1: Primitives (complexity 1-2) */}
                     {glyphsByRing.ring1.map((glyphId, i) => {
@@ -95,7 +97,7 @@ const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose: _onClose, 
                             <button
                                 key={glyphId}
                                 onClick={() => onSelect(glyphId)}
-                                className="absolute w-9 h-9 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-white text-base leading-none"
+                                className="absolute w-9 h-9 flex items-center justify-center rounded-full bg-[var(--semantic-color-interactive-hover-bg)] border border-[var(--semantic-color-border-subtle)] text-[var(--semantic-color-text-primary)] text-base leading-none hover:bg-[var(--semantic-color-interactive-active-bg)] transition-colors"
                                 style={{ transform: `translate(${x}px, ${y}px)` }}
                                 title={getGlyphDisplayLabel(glyphId)}
                             >
@@ -115,7 +117,7 @@ const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose: _onClose, 
                             <button
                                 key={glyphId}
                                 onClick={() => onSelect(glyphId)}
-                                className="absolute w-9 h-9 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-white text-lg leading-none"
+                                className="absolute w-9 h-9 flex items-center justify-center rounded-full bg-[var(--semantic-color-interactive-hover-bg)] border border-[var(--semantic-color-border-subtle)] text-[var(--semantic-color-text-primary)] text-lg leading-none hover:bg-[var(--semantic-color-interactive-active-bg)] transition-colors"
                                 style={{ transform: `translate(${x}px, ${y}px)` }}
                                 title={getGlyphDisplayLabel(glyphId)}
                             >
@@ -135,7 +137,7 @@ const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose: _onClose, 
                             <button
                                 key={glyphId}
                                 onClick={() => onSelect(glyphId)}
-                                className="absolute w-9 h-9 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-white text-xl leading-none"
+                                className="absolute w-9 h-9 flex items-center justify-center rounded-full bg-[var(--semantic-color-interactive-hover-bg)] border border-[var(--semantic-color-border-subtle)] text-[var(--semantic-color-text-primary)] text-xl leading-none hover:bg-[var(--semantic-color-interactive-active-bg)] transition-colors"
                                 style={{ transform: `translate(${x}px, ${y}px)` }}
                                 title={getGlyphDisplayLabel(glyphId)}
                             >
@@ -147,14 +149,14 @@ const GlyphPicker: React.FC<GlyphPickerProps> = ({ onSelect, onClose: _onClose, 
             )}
 
             {/* Footer */}
-            <div className="flex justify-between p-2 border-t border-white/10 bg-white/5">
+            <div className="flex justify-between p-2 border-t border-[var(--semantic-color-border-subtle)] bg-[var(--semantic-color-interactive-hover-bg)]">
                 <button
                     onClick={() => onSelect('')}
-                    className="px-2 py-1 text-[9px] uppercase tracking-widest text-red-400/80 rounded"
+                    className="ui-selectable px-2 py-1 text-[9px] uppercase tracking-widest text-[var(--semantic-color-status-error)] rounded-[var(--primitive-radius-pill)]"
                 >
                     Clear
                 </button>
-                <div className="text-[9px] uppercase tracking-widest text-white/30 px-2 py-1">
+                <div className="text-[9px] uppercase tracking-widest text-[var(--semantic-color-text-muted)] px-2 py-1">
                     {viewMode === 'matrix' ? 'Browse' : 'Explore'}
                 </div>
             </div>

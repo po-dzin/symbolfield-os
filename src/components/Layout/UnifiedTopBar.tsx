@@ -5,6 +5,7 @@ import TopbarActionMenu from './TopbarActionMenu';
 // import BreadcrumbCapsule from './BreadcrumbCapsule';
 import NowChip from '../HUD/NowChip';
 import RightDrawerCapsule from './RightDrawerCapsule';
+import TopbarShareButton from './TopbarShareButton';
 import { useAppStore } from '../../store/useAppStore';
 
 interface UnifiedTopBarProps {
@@ -25,7 +26,9 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     className
 }) => {
     const viewContext = useAppStore(state => state.viewContext);
-    const showGlobalRightCluster = viewContext !== 'node';
+    const showNowCluster = viewContext !== 'node';
+    const showShare = viewContext === 'space' || viewContext === 'cluster' || viewContext === 'node';
+    const showGlobalRightCluster = showNowCluster || showShare;
 
     return (
         <div className={`topbar-shell justify-between ${className || ''}`}>
@@ -47,8 +50,11 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
 
             {showGlobalRightCluster && (
                 <div className="relative z-[2] flex items-center gap-3 shrink-0 ml-4">
-                    <NowChip />
-                    <RightDrawerCapsule />
+                    {showNowCluster && (
+                        <NowChip />
+                    )}
+                    {showShare && <TopbarShareButton />}
+                    {showNowCluster && <RightDrawerCapsule />}
                 </div>
             )}
         </div>

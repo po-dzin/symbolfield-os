@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { eventBus, EVENTS } from '../core/events/EventBus';
 import { stateEngine } from '../core/state/StateEngine';
 import type { Area, AreaRect } from '../core/types';
+import { adaptLegacyGraphColor } from '../core/ui/graphColorAdapt';
 
 const STORAGE_PREFIX = 'sf_areas_';
 
@@ -38,6 +39,11 @@ const normalizeArea = (area: Area & { bounds?: { x: number; y: number; width: nu
     if (next.shape === 'rect' && !next.rect && next.circle) {
         next = { ...next, shape: 'circle' };
     }
+    next = {
+        ...next,
+        color: adaptLegacyGraphColor(next.color, 'var(--semantic-color-graph-node-fill)', true),
+        borderColor: adaptLegacyGraphColor(next.borderColor, 'var(--semantic-color-graph-node-stroke)', true)
+    };
     return next as Area;
 };
 
@@ -131,8 +137,8 @@ export const useAreaStore = create<AreaStoreState>((set, get) => {
                 shape: 'rect',
                 rect,
                 anchor: { type: 'canvas' },
-                color: 'rgba(255,255,255,0.06)',
-                borderColor: 'rgba(255,255,255,0.25)',
+                color: 'var(--semantic-color-graph-node-fill)',
+                borderColor: 'var(--semantic-color-graph-node-stroke)',
                 opacity: 0.5,
                 border: { width: 1.5, style: 'solid' },
                 zIndex,
@@ -155,8 +161,8 @@ export const useAreaStore = create<AreaStoreState>((set, get) => {
                 shape: 'circle',
                 circle,
                 anchor: { type: 'canvas' },
-                color: 'rgba(255,255,255,0.06)',
-                borderColor: 'rgba(255,255,255,0.25)',
+                color: 'var(--semantic-color-graph-node-fill)',
+                borderColor: 'var(--semantic-color-graph-node-stroke)',
                 opacity: 0.5,
                 border: { width: 1.5, style: 'solid' },
                 zIndex: 0,

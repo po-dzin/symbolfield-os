@@ -70,24 +70,24 @@ const AtlasPage: React.FC = () => {
                         <svg viewBox="0 0 840 520" className="w-full h-auto">
                             <defs>
                                 <radialGradient id="atlas-core" cx="50%" cy="50%" r="70%">
-                                    <stop offset="0%" stopColor="rgba(255,255,255,0.28)" />
-                                    <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
+                                    <stop offset="0%" stopColor="var(--semantic-color-graph-node-glow)" />
+                                    <stop offset="100%" stopColor="color-mix(in srgb, var(--semantic-color-graph-node-fill), transparent 78%)" />
                                 </radialGradient>
                             </defs>
-                            <circle cx="420" cy="260" r="52" fill="url(#atlas-core)" stroke="rgba(255,255,255,0.28)" />
-                            <text x="420" y="265" textAnchor="middle" className="fill-white/80 text-[11px] tracking-[0.25em] uppercase">Atlas</text>
+                            <circle cx="420" cy="260" r="52" fill="url(#atlas-core)" stroke="var(--semantic-color-graph-node-stroke)" />
+                            <text x="420" y="265" textAnchor="middle" className="text-[11px] tracking-[0.25em] uppercase" fill="var(--semantic-color-text-primary)">Atlas</text>
 
                             {nodes.map((node) => {
                                 const featured = node.brand.slug === 'symbolfield';
                                 return (
                                     <g key={node.brand.id}>
-                                        <line x1="420" y1="260" x2={node.x} y2={node.y} stroke="rgba(255,255,255,0.16)" strokeWidth={featured ? 1.8 : 1} />
+                                        <line x1="420" y1="260" x2={node.x} y2={node.y} stroke="var(--semantic-color-graph-edge)" strokeWidth={featured ? 1.8 : 1} />
                                         <circle
                                             cx={node.x}
                                             cy={node.y}
                                             r={featured ? 24 : 18}
-                                            fill={featured ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)'}
-                                            stroke={featured ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.24)'}
+                                            fill={featured ? 'var(--semantic-color-graph-node-glow)' : 'var(--semantic-color-graph-node-fill)'}
+                                            stroke={featured ? 'var(--semantic-color-graph-node-active-stroke)' : 'var(--semantic-color-graph-node-stroke)'}
                                             className="cursor-pointer transition-opacity hover:opacity-80"
                                             onClick={() => {
                                                 setGatewayRoute({ type: 'brand', slug: node.brand.slug });
@@ -98,7 +98,8 @@ const AtlasPage: React.FC = () => {
                                             x={node.x}
                                             y={node.y + 42}
                                             textAnchor="middle"
-                                            className="fill-white/70 text-[10px] tracking-[0.18em] uppercase"
+                                            className="text-[10px] tracking-[0.18em] uppercase"
+                                            fill="var(--semantic-color-text-secondary)"
                                         >
                                             {node.brand.name}
                                         </text>

@@ -115,7 +115,7 @@ const StationAnalyticsDrawer = ({ open, metrics, onClose }: { open: boolean; met
                     <div className="text-xs uppercase tracking-[0.3em] text-[var(--semantic-color-text-muted)] opacity-60">Analytics</div>
                     <button
                         onClick={onClose}
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-text-primary)]/10 transition-colors"
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-interactive-hover-bg)] transition-colors"
                         aria-label="Close analytics"
                     >
                         ×

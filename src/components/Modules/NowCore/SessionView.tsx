@@ -82,8 +82,8 @@ export const SessionView: React.FC = () => {
                             <button
                                 onClick={() => session.isActive ? stopFocusSession() : startFocusSession('New Session')}
                                 className={`h-9 px-4 rounded-full text-[10px] uppercase tracking-widest font-bold transition-colors border ${session.isActive
-                                    ? 'bg-[var(--semantic-color-status-warning)]/10 text-[var(--semantic-color-status-warning)] border-[var(--semantic-color-status-warning)]/20 hover:bg-[var(--semantic-color-status-warning)]/15'
-                                    : 'bg-[var(--semantic-color-action-primary)]/15 text-[var(--semantic-color-action-primary)] border-[var(--semantic-color-action-primary)]/30 hover:bg-[var(--semantic-color-action-primary)]/20'
+                                    ? 'bg-[var(--semantic-color-status-warning)]/75 text-[var(--semantic-color-action-on-primary)] border-[var(--semantic-color-status-warning)] hover:bg-[var(--semantic-color-status-warning)]/85'
+                                    : 'bg-[var(--semantic-color-action-primary)] text-[var(--semantic-color-action-on-primary)] border-[var(--semantic-color-action-primary)] hover:brightness-105'
                                     }`}
                             >
                                 {session.isActive ? 'Stop' : 'Start'}
@@ -133,9 +133,9 @@ export const SessionView: React.FC = () => {
                             </div>
                         )}
                         {records.map((record) => (
-                            <div key={record.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors group cursor-pointer border border-transparent hover:border-white/5">
+                            <div key={record.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--semantic-color-bg-surface-hover)] transition-colors group cursor-pointer border border-transparent hover:border-[var(--semantic-color-border-default)]">
                                 <div className="min-w-0 flex-1 pr-4">
-                                    <div className="text-[13px] text-[var(--semantic-color-text-primary)] font-medium truncate group-hover:text-white">{record.label}</div>
+                                    <div className="text-[13px] text-[var(--semantic-color-text-primary)] font-medium truncate">{record.label}</div>
                                     <div className="text-[9px] uppercase tracking-tight text-[var(--semantic-color-text-muted)] mt-0.5">{record.date}</div>
                                 </div>
                                 <div className="text-right">

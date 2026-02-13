@@ -120,8 +120,18 @@ export class BlockSuiteEngine {
             height: '100%',
             width: '100%',
             background: 'transparent',
+            color: 'var(--semantic-color-text-primary)',
             '--affine-font-family': 'var(--font-body)',
             '--affine-font-code': 'var(--font-mono)',
+            '--affine-brand-color': 'var(--semantic-color-action-primary)',
+            '--affine-background-primary-color': 'transparent',
+            '--affine-background-secondary-color': 'color-mix(in srgb, var(--semantic-color-bg-surface), var(--semantic-color-text-primary) 3%)',
+            '--affine-border-color': 'var(--semantic-color-border-default)',
+            '--affine-text-primary-color': 'var(--semantic-color-text-primary)',
+            '--affine-text-secondary-color': 'var(--semantic-color-text-secondary)',
+            '--affine-placeholder-color': 'var(--semantic-color-text-muted)',
+            '--affine-hover-color': 'var(--semantic-color-interactive-hover-bg)',
+            '--affine-selection-color': 'color-mix(in srgb, var(--semantic-color-action-primary), transparent 72%)'
         });
 
         this.container.replaceChildren(this.editor);

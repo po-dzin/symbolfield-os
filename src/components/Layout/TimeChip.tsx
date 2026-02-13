@@ -21,21 +21,21 @@ const TimeChip = () => {
             <div className="glass-panel flex items-center p-1 gap-1 rounded-[var(--primitive-radius-input)]">
                 <button
                     onClick={() => navigate(-1)}
-                    className="w-[var(--component-button-height-sm)] h-[var(--component-button-height-sm)] rounded-[var(--primitive-radius-input)] hover:bg-[var(--semantic-color-text-primary)]/10 flex items-center justify-center text-[var(--semantic-color-text-secondary)]"
+                    className="ui-selectable w-[var(--component-button-height-sm)] h-[var(--component-button-height-sm)] rounded-[var(--primitive-radius-input)] flex items-center justify-center text-[var(--semantic-color-text-secondary)]"
                 >
                     ‹
                 </button>
 
                 <button
                     onClick={jumpToToday}
-                    className="px-3 h-[var(--component-button-height-sm)] rounded-[var(--primitive-radius-input)] hover:bg-[var(--semantic-color-text-primary)]/10 flex items-center justify-center text-[var(--primitive-type-small-size)] font-medium tracking-wide uppercase text-[var(--semantic-color-text-primary)]"
+                    className="ui-selectable px-3 h-[var(--component-button-height-sm)] rounded-[var(--primitive-radius-input)] flex items-center justify-center text-[var(--primitive-type-small-size)] font-medium tracking-wide uppercase text-[var(--semantic-color-text-primary)]"
                 >
                     {display}
                 </button>
 
                 <button
                     onClick={() => navigate(1)}
-                    className="w-[var(--component-button-height-sm)] h-[var(--component-button-height-sm)] rounded-[var(--primitive-radius-input)] hover:bg-[var(--semantic-color-text-primary)]/10 flex items-center justify-center text-[var(--semantic-color-text-secondary)]"
+                    className="ui-selectable w-[var(--component-button-height-sm)] h-[var(--component-button-height-sm)] rounded-[var(--primitive-radius-input)] flex items-center justify-center text-[var(--semantic-color-text-secondary)]"
                 >
                     ›
                 </button>
@@ -50,7 +50,7 @@ const TimeChip = () => {
                         className={`
               px-2 h-[var(--component-button-height-sm)] rounded-[var(--primitive-radius-input)] text-[10px] uppercase tracking-wider
               transition-colors
-              ${scale === s ? 'bg-[var(--semantic-color-text-primary)]/20 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)]'}
+              ${scale === s ? 'bg-[var(--semantic-color-interactive-active-bg)] border border-[var(--semantic-color-interactive-active-border)] text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)]'}
             `}
                     >
                         {s[0]}

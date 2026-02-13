@@ -153,10 +153,10 @@ const ContextToolbar = () => {
         : [];
     const canAnchorToNode = !!primaryArea && (primaryArea.anchor.type === 'node' || selectedIds.length === 1);
     const canDetachAreasFromNode = selectedIds.length === 1 && !hasAreas && !hasEdges && anchoredAreasForNode.length > 0;
-    const nodeBodyColor = primaryNodeData?.color_body ?? primaryNodeData?.color ?? 'rgba(255,255,255,0.06)';
-    const nodeStrokeColor = primaryNodeData?.color_stroke ?? primaryNodeData?.color ?? 'rgba(255,255,255,0.4)';
+    const nodeBodyColor = primaryNodeData?.color_body ?? primaryNodeData?.color ?? 'var(--semantic-color-graph-node-fill)';
+    const nodeStrokeColor = primaryNodeData?.color_stroke ?? primaryNodeData?.color ?? 'var(--semantic-color-graph-node-stroke)';
     const nodeGlowColor = primaryNodeData?.color_glow ?? nodeStrokeColor;
-    const nodeGlyphColor = primaryNodeData?.color_glyph ?? 'rgba(255,255,255,0.9)';
+    const nodeGlyphColor = primaryNodeData?.color_glyph ?? 'var(--semantic-color-graph-node-glyph)';
     const nodeIconValueRaw = typeof primaryNodeData?.icon_value === 'string' ? primaryNodeData.icon_value.trim() : '';
     const nodeIconValue = nodeIconValueRaw === '•' ? '' : nodeIconValueRaw;
     const nodeIconSource = typeof primaryNodeData?.icon_source === 'string' ? primaryNodeData.icon_source : null;
@@ -914,7 +914,7 @@ const ContextToolbar = () => {
             radialItems.push({
                 key: 'link',
                 title: 'Create Link',
-                content: <GlyphIcon id="link-action" size={20} className={activeTool === 'link' ? 'text-color-os-dark' : 'text-[var(--semantic-color-text-secondary)]'} />,
+                content: <GlyphIcon id="link-action" size={20} className={activeTool === 'link' ? 'text-[var(--semantic-color-action-on-primary)]' : 'text-[var(--semantic-color-text-secondary)]'} />,
                 active: activeTool === 'link',
                 onClick: () => {
                     setTool('link');
@@ -927,7 +927,7 @@ const ContextToolbar = () => {
                 key: 'glyph',
                 title: 'Pick Glyph',
                 content: nodeGlyphResolved ? (
-                    <GlyphIcon id={nodeGlyphResolved.id} size={20} className={showGlyphPicker ? 'text-color-os-dark' : 'text-[var(--semantic-color-text-primary)]/90'} style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }} />
+                    <GlyphIcon id={nodeGlyphResolved.id} size={20} className={showGlyphPicker ? 'text-[var(--semantic-color-action-on-primary)]' : 'text-[var(--semantic-color-text-primary)]/90'} style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }} />
                 ) : (
                     <span className="text-[18px] leading-none" style={{ color: showGlyphPicker ? undefined : nodeGlyphColor }}>
                         {'○'}
@@ -944,7 +944,7 @@ const ContextToolbar = () => {
             radialItems.push({
                 key: 'color',
                 title: 'Colors',
-                content: <span className="w-3.5 h-3.5 rounded-full border border-white/30" style={{ backgroundColor: nodeBodyColor }} />,
+                content: <span className="w-3.5 h-3.5 rounded-full border border-[var(--semantic-color-border-default)]" style={{ backgroundColor: nodeBodyColor }} />,
                 active: showColorPicker,
                 onClick: () => {
                     exitLinkMode();
@@ -971,7 +971,7 @@ const ContextToolbar = () => {
             radialItems.push({
                 key: 'style',
                 title: 'Style',
-                content: <span className="w-3 h-3 rounded-full border border-white/30" style={{ backgroundColor: primaryArea.color ?? 'rgba(255,255,255,0.06)' }} />,
+                content: <span className="w-3 h-3 rounded-full border border-[var(--semantic-color-border-default)]" style={{ backgroundColor: primaryArea.color ?? 'var(--semantic-color-graph-node-fill)' }} />,
                 active: showAreaStyle,
                 onClick: () => {
                     exitLinkMode();
@@ -1107,7 +1107,7 @@ const ContextToolbar = () => {
                                 <button
                                     ref={item.isMenu ? actionMenuAnchorRef : undefined}
                                     onClick={item.onClick}
-                                    className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all border border-[var(--semantic-color-border-default)] shadow-[0_0_12px_rgba(255,255,255,0.08)] ${isActive ? 'glass-panel text-[var(--semantic-color-text-primary)]/95 shadow-[0_0_16px_rgba(255,255,255,0.35)]' : 'glass-panel text-[var(--semantic-color-text-primary)]/85 hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                    className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all border border-[var(--semantic-color-border-default)] shadow-[0_8px_20px_rgba(0,0,0,0.18)] ${isActive ? 'glass-panel text-[var(--semantic-color-text-primary)]/95 border-[var(--semantic-color-interactive-active-border)] shadow-[0_10px_24px_rgba(0,0,0,0.24)]' : 'glass-panel text-[var(--semantic-color-text-primary)]/85 hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:border-[var(--semantic-color-interactive-hover-border)]'}`}
                                     title={item.title}
                                     data-context-menu
                                 >
@@ -1134,7 +1134,7 @@ const ContextToolbar = () => {
                                 )}
                                 {item.key === 'style' && showAreaStyle && primaryArea && (
                                     <div
-                                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[280px] bg-black/90 rounded-xl overflow-hidden shadow-2xl backdrop-blur-md flex flex-col z-[200]"
+                                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[280px] glass-panel rounded-xl overflow-hidden shadow-2xl backdrop-blur-md flex flex-col z-[200]"
                                         onClick={(e) => e.stopPropagation()}
                                         data-context-menu
                                     >
@@ -1161,7 +1161,7 @@ const ContextToolbar = () => {
                                                             <button
                                                                 key={palette.fill}
                                                                 onClick={() => handleAreaStyleSelect(palette.fill, palette.stroke)}
-                                                                className={`w-4 h-4 rounded-full border ${isActive ? 'border-white' : 'border-transparent'}`}
+                                                                className={`w-4 h-4 rounded-full border ${isActive ? 'border-[var(--semantic-color-interactive-active-border)]' : 'border-transparent'}`}
                                                                 style={{ backgroundColor: palette.fill }}
                                                             />
                                                         );
@@ -1181,7 +1181,7 @@ const ContextToolbar = () => {
                         const y = ringSize / 2 + Math.sin(angle) * titleRadius + 6;
                         return (
                             <div
-                                className={`absolute ${radialInteractive ? 'pointer-events-auto hover:border-white/30 hover:bg-[var(--semantic-color-text-primary)]/10' : 'pointer-events-none'} glass-panel text-[10px] text-[var(--semantic-color-text-secondary)] uppercase tracking-[0.25em] font-medium px-4 py-1.5 rounded-full min-w-[120px] max-w-[160px] text-center shadow-[0_0_16px_rgba(255,255,255,0.08)]`}
+                                className={`absolute ${radialInteractive ? 'pointer-events-auto hover:border-[var(--semantic-color-border-default)] hover:bg-[var(--semantic-color-interactive-hover-bg)]' : 'pointer-events-none'} glass-panel text-[10px] text-[var(--semantic-color-text-secondary)] uppercase tracking-[0.25em] font-medium px-4 py-1.5 rounded-full min-w-[120px] max-w-[160px] text-center shadow-[0_8px_20px_rgba(0,0,0,0.18)]`}
                                 style={{ left: x, top: y, transform: 'translate(-50%, -50%)' }}
                                 title={primaryNode ? 'Double-click to rename' : undefined}
                                 onClick={() => {
@@ -1255,7 +1255,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleFoldToggle();
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                 >
                                     {isFolded ? 'Unfold Cluster' : 'Fold Cluster'}
                                 </button>
@@ -1264,11 +1264,11 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleUngroup();
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                 >
                                     Collapse Cluster
                                 </button>
-                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                                <div className="h-px bg-[var(--semantic-color-interactive-active-bg)] my-1" />
                             </>
                         )}
                         {canDetachAreasFromNode && (
@@ -1278,11 +1278,11 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleDetachAreasFromNode();
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                 >
                                     Detach areas
                                 </button>
-                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                                <div className="h-px bg-[var(--semantic-color-interactive-active-bg)] my-1" />
                             </>
                         )}
                         {primaryArea && hasAreas && !hasNodes && !hasEdges && (
@@ -1296,7 +1296,7 @@ const ContextToolbar = () => {
                                             exitLinkMode();
                                             handleAlignAreaToGrid();
                                         }}
-                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                     >
                                         Align to grid
                                     </button>
@@ -1307,7 +1307,7 @@ const ContextToolbar = () => {
                                             exitLinkMode();
                                             handleAnchorToNode();
                                         }}
-                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                     >
                                         {primaryArea.anchor.type === 'node' ? 'Detach from node' : 'Anchor to node'}
                                     </button>
@@ -1317,7 +1317,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         updateArea(primaryArea.id, { locked: !primaryArea.locked });
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                 >
                                     {primaryArea.locked ? 'Unlock area' : 'Lock area'}
                                 </button>
@@ -1328,7 +1328,7 @@ const ContextToolbar = () => {
                                                 exitLinkMode();
                                                 handleAddRing();
                                             }}
-                                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                         >
                                             Add ring
                                         </button>
@@ -1337,13 +1337,13 @@ const ContextToolbar = () => {
                                                 exitLinkMode();
                                                 handleRemoveRing();
                                             }}
-                                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                         >
                                             Remove ring
                                         </button>
                                     </>
                                 )}
-                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                                <div className="h-px bg-[var(--semantic-color-interactive-active-bg)] my-1" />
                             </>
                         )}
                         {connectedEdges.length > 0 && (
@@ -1353,7 +1353,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         setShowLinks(prev => !prev);
                                     }}
-                                    className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm ${showLinks ? 'bg-[var(--semantic-color-text-primary)]/10 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5'}`}
+                                    className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm ${showLinks ? 'bg-[var(--semantic-color-interactive-active-bg)] text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]'}`}
                                 >
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
                                         <circle cx="6.5" cy="7" r="1.6" fill="currentColor" stroke="none" />
@@ -1363,7 +1363,7 @@ const ContextToolbar = () => {
                                     </svg>
                                     Links
                                 </button>
-                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                                <div className="h-px bg-[var(--semantic-color-interactive-active-bg)] my-1" />
                             </>
                         )}
                         <button
@@ -1387,7 +1387,7 @@ const ContextToolbar = () => {
                                         const otherNode = nodes.find(n => n.id === otherId);
                                         const label = typeof otherNode?.data?.label === 'string' ? otherNode.data.label : otherId;
                                         return (
-                                            <div key={edge.id} className="flex items-center justify-between gap-2 px-1 py-1 rounded hover:bg-[var(--semantic-color-text-primary)]/5">
+                                            <div key={edge.id} className="flex items-center justify-between gap-2 px-1 py-1 rounded hover:bg-[var(--semantic-color-interactive-hover-bg)]">
                                                 <span className="text-xs text-[var(--semantic-color-text-secondary)] truncate">
                                                     {label}
                                                 </span>
@@ -1577,7 +1577,7 @@ const ContextToolbar = () => {
                                     title="Colors"
                                     data-context-menu
                                 >
-                                    <span className="w-3.5 h-3.5 rounded-full border border-white/30" style={{ backgroundColor: nodeBodyColor }} />
+                                    <span className="w-3.5 h-3.5 rounded-full border border-[var(--semantic-color-border-default)]" style={{ backgroundColor: nodeBodyColor }} />
                                 </button>
                                 {showColorPicker && (
                                     <ColorPicker
@@ -1598,7 +1598,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleDetachAreasFromNode();
                                     }}
-                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 rounded-full text-lg leading-none transition-colors text-[var(--semantic-color-text-secondary)]"
+                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-interactive-hover-bg)] rounded-full text-lg leading-none transition-colors text-[var(--semantic-color-text-secondary)]"
                                     title="Detach areas from node"
                                 >
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -1613,7 +1613,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleFoldToggle();
                                     }}
-                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full text-base leading-none transition-all text-[var(--semantic-color-text-secondary)]"
+                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:scale-110 rounded-full text-base leading-none transition-all text-[var(--semantic-color-text-secondary)]"
                                     title={isFolded ? 'Unfold Cluster' : 'Fold Cluster'}
                                 >
                                     <svg width="20" height="20" viewBox="0 0 28 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -1641,7 +1641,7 @@ const ContextToolbar = () => {
                                     exitLinkMode();
                                     handleFocusArea();
                                 }}
-                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
+                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
                                 title={focusedAreaId === primaryArea?.id ? 'Exit focus' : 'Focus area'}
                             >
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -1656,17 +1656,17 @@ const ContextToolbar = () => {
                                     closeAllMenus();
                                     setShowAreaStyle(next);
                                 }}
-                                className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors relative border border-transparent focus:outline-none ${showAreaStyle ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors relative border border-transparent focus:outline-none ${showAreaStyle ? 'bg-[var(--semantic-color-interactive-active-bg)] border-[var(--semantic-color-interactive-active-border)] text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:border-[var(--semantic-color-interactive-hover-border)]'}`}
                                 title="Style"
                                 data-context-menu
                             >
                                 <span
-                                    className="w-3 h-3 rounded-full border border-white/30"
-                                    style={{ backgroundColor: primaryArea?.color ?? 'rgba(255,255,255,0.06)' }}
+                                    className="w-3 h-3 rounded-full border border-[var(--semantic-color-border-default)]"
+                                    style={{ backgroundColor: primaryArea?.color ?? 'var(--semantic-color-graph-node-fill)' }}
                                 />
                                 {showAreaStyle && primaryArea && (
                                     <div
-                                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[280px] bg-black/90 rounded-xl overflow-hidden shadow-2xl backdrop-blur-md flex flex-col z-[200]"
+                                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[280px] glass-panel rounded-xl overflow-hidden shadow-2xl backdrop-blur-md flex flex-col z-[200]"
                                         onClick={(e) => e.stopPropagation()}
                                         data-context-menu
                                     >
@@ -1692,7 +1692,7 @@ const ContextToolbar = () => {
                                                         return (
                                                             <button
                                                                 key={palette.fill}
-                                                                className={`w-4 h-4 rounded-full ${isActive ? 'ring-1 ring-white/70' : 'border border-[var(--semantic-color-border-default)]'}`}
+                                                                className={`w-4 h-4 rounded-full ${isActive ? 'ring-1 ring-[var(--semantic-color-interactive-active-border)]' : 'border border-[var(--semantic-color-border-default)]'}`}
                                                                 style={{ backgroundColor: palette.fill }}
                                                                 onClick={() => handleAreaStyleSelect(palette.fill, palette.stroke)}
                                                                 title="Fill + border"
@@ -1722,7 +1722,7 @@ const ContextToolbar = () => {
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={() => updateArea(primaryArea.id, { border: { ...(primaryArea.border ?? { width: 1.5, style: 'solid' }), style: 'solid' } })}
-                                                        className={`w-7 h-7 rounded-lg flex items-center justify-center ${primaryArea.border?.style !== 'dashed' ? 'bg-white/15 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-muted)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                                        className={`w-7 h-7 rounded-lg flex items-center justify-center ${primaryArea.border?.style !== 'dashed' ? 'bg-[var(--semantic-color-interactive-active-bg)] text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-muted)] hover:bg-[var(--semantic-color-interactive-hover-bg)]'}`}
                                                         title="Solid"
                                                     >
                                                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -1731,7 +1731,7 @@ const ContextToolbar = () => {
                                                     </button>
                                                     <button
                                                         onClick={() => updateArea(primaryArea.id, { border: { ...(primaryArea.border ?? { width: 1.5, style: 'solid' }), style: 'dashed' } })}
-                                                        className={`w-7 h-7 rounded-lg flex items-center justify-center ${primaryArea.border?.style === 'dashed' ? 'bg-white/15 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-muted)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                                        className={`w-7 h-7 rounded-lg flex items-center justify-center ${primaryArea.border?.style === 'dashed' ? 'bg-[var(--semantic-color-interactive-active-bg)] text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-muted)] hover:bg-[var(--semantic-color-interactive-hover-bg)]'}`}
                                                         title="Dashed"
                                                     >
                                                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2.2 2.2">
@@ -1741,7 +1741,7 @@ const ContextToolbar = () => {
                                                 </div>
                                                 <div className="flex-1">
                                                     <div className="relative h-6 flex items-center">
-                                                        <div className="absolute left-0 right-0 h-[1px] bg-white/20" />
+                                                        <div className="absolute left-0 right-0 h-[1px] bg-[var(--semantic-color-border-subtle)]" />
                                                         <div className="relative flex w-full items-center justify-between">
                                                             {areaBorderWidths.map(width => {
                                                                 const isActive = (primaryArea.border?.width ?? 1.5) === width;
@@ -1749,7 +1749,7 @@ const ContextToolbar = () => {
                                                                     <button
                                                                         key={width}
                                                                         onClick={() => updateArea(primaryArea.id, { border: { ...(primaryArea.border ?? { width: 1.5, style: 'solid' }), width } })}
-                                                                        className={`w-3 h-3 rounded-full ${isActive ? 'bg-white/80' : 'bg-white/20 hover:bg-white/40'}`}
+                                                                        className={`w-3 h-3 rounded-full ${isActive ? 'bg-[var(--semantic-color-text-primary)]' : 'bg-[var(--semantic-color-bg-surface-hover)] hover:bg-[var(--semantic-color-interactive-active-bg)]'}`}
                                                                         title={`Border ${width}`}
                                                                     />
                                                                 );
@@ -1769,7 +1769,7 @@ const ContextToolbar = () => {
                                             exitLinkMode();
                                             handleAlignAreaToGrid();
                                         }}
-                                        className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
+                                        className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
                                         title="Align to grid"
                                     >
                                         <svg width="20" height="20" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
@@ -1784,7 +1784,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleAnchorToNode();
                                     }}
-                                    className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${primaryArea?.anchor.type === 'node' ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                    className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors border border-transparent ${primaryArea?.anchor.type === 'node' ? 'bg-[var(--semantic-color-interactive-active-bg)] border-[var(--semantic-color-interactive-active-border)] text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:border-[var(--semantic-color-interactive-hover-border)]'}`}
                                     title={primaryArea?.anchor.type === 'node' ? 'Detach area from node' : 'Anchor area to node'}
                                 >
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -1798,7 +1798,7 @@ const ContextToolbar = () => {
                                     exitLinkMode();
                                     updateArea(primaryArea.id, { locked: !primaryArea.locked });
                                 }}
-                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
+                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
                                 title={primaryArea.locked ? 'Unlock area' : 'Lock area'}
                             >
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -1822,7 +1822,7 @@ const ContextToolbar = () => {
                                             exitLinkMode();
                                             handleAddRing();
                                         }}
-                                        className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
+                                        className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
                                         title="Add ring"
                                     >
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -1835,7 +1835,7 @@ const ContextToolbar = () => {
                                             exitLinkMode();
                                             handleRemoveRing();
                                         }}
-                                        className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
+                                        className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:scale-110 rounded-full transition-all text-[var(--semantic-color-text-secondary)]"
                                         title="Remove ring"
                                     >
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -1854,7 +1854,7 @@ const ContextToolbar = () => {
                                     exitLinkMode();
                                     handleAreaFromSelection();
                                 }}
-                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full text-lg leading-none transition-all text-[var(--semantic-color-text-secondary)]"
+                                className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:scale-110 rounded-full text-lg leading-none transition-all text-[var(--semantic-color-text-secondary)]"
                                 title="Area from selection"
                             >
                                 <GlyphIcon id="area" size={20} className="text-[var(--semantic-color-text-secondary)]" />
@@ -1865,7 +1865,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleAnchorToNode();
                                     }}
-                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full text-lg leading-none transition-all text-[var(--semantic-color-text-secondary)]"
+                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:scale-110 rounded-full text-lg leading-none transition-all text-[var(--semantic-color-text-secondary)]"
                                     title={primaryArea?.anchor.type === 'node' ? 'Detach area from node' : 'Anchor area to node'}
                                 >
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -1880,7 +1880,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleGroup();
                                     }}
-                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-text-primary)]/10 hover:scale-110 rounded-full text-lg leading-none transition-all text-[var(--semantic-color-text-secondary)]"
+                                    className="w-10 h-10 flex items-center justify-center hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:scale-110 rounded-full text-lg leading-none transition-all text-[var(--semantic-color-text-secondary)]"
                                     title="Group Selection"
                                 >
                                     <GlyphIcon id="cluster" size={20} className="text-[var(--semantic-color-text-secondary)]" />
@@ -1901,7 +1901,7 @@ const ContextToolbar = () => {
                                     }
                                     setShowActionMenu(next);
                                 }}
-                                className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors border border-transparent focus:outline-none ${showActionMenu ? 'bg-text-primary text-color-os-dark shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/10'}`}
+                                className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors border border-transparent focus:outline-none ${showActionMenu ? 'bg-[var(--semantic-color-interactive-active-bg)] border-[var(--semantic-color-interactive-active-border)] text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)] hover:border-[var(--semantic-color-interactive-hover-border)]'}`}
                                 title="Actions"
                                 data-context-menu
                             >
@@ -1939,7 +1939,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleFoldToggle();
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                 >
                                     {isFolded ? 'Unfold Cluster' : 'Fold Cluster'}
                                 </button>
@@ -1948,11 +1948,11 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleUngroup();
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                 >
                                     Collapse Cluster
                                 </button>
-                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                                <div className="h-px bg-[var(--semantic-color-interactive-active-bg)] my-1" />
                             </>
                         )}
                         {canDetachAreasFromNode && (
@@ -1962,11 +1962,11 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleDetachAreasFromNode();
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                 >
                                     Detach areas
                                 </button>
-                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                                <div className="h-px bg-[var(--semantic-color-interactive-active-bg)] my-1" />
                             </>
                         )}
                         {primaryArea && hasAreas && !hasNodes && !hasEdges && (
@@ -1980,7 +1980,7 @@ const ContextToolbar = () => {
                                             exitLinkMode();
                                             handleAlignAreaToGrid();
                                         }}
-                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                     >
                                         Align to grid
                                     </button>
@@ -1991,7 +1991,7 @@ const ContextToolbar = () => {
                                             exitLinkMode();
                                             handleAnchorToNode();
                                         }}
-                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                     >
                                         {primaryArea.anchor.type === 'node' ? 'Detach from node' : 'Anchor to node'}
                                     </button>
@@ -2001,7 +2001,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         updateArea(primaryArea.id, { locked: !primaryArea.locked });
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                 >
                                     {primaryArea.locked ? 'Unlock area' : 'Lock area'}
                                 </button>
@@ -2012,7 +2012,7 @@ const ContextToolbar = () => {
                                                 exitLinkMode();
                                                 handleAddRing();
                                             }}
-                                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                         >
                                             Add ring
                                         </button>
@@ -2021,13 +2021,13 @@ const ContextToolbar = () => {
                                                 exitLinkMode();
                                                 handleRemoveRing();
                                             }}
-                                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                         >
                                             Remove ring
                                         </button>
                                     </>
                                 )}
-                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                                <div className="h-px bg-[var(--semantic-color-interactive-active-bg)] my-1" />
                             </>
                         )}
                         {connectedEdges.length > 0 && (
@@ -2037,7 +2037,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         setShowLinks(prev => !prev);
                                     }}
-                                    className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm ${showLinks ? 'bg-[var(--semantic-color-text-primary)]/10 text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5'}`}
+                                    className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm ${showLinks ? 'bg-[var(--semantic-color-interactive-active-bg)] text-[var(--semantic-color-text-primary)]' : 'text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]'}`}
                                 >
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
                                         <circle cx="6.5" cy="7" r="1.6" fill="currentColor" stroke="none" />
@@ -2047,7 +2047,7 @@ const ContextToolbar = () => {
                                     </svg>
                                     Links
                                 </button>
-                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                                <div className="h-px bg-[var(--semantic-color-interactive-active-bg)] my-1" />
                             </>
                         )}
                         {primaryArea && hasAreas && !hasNodes && !hasEdges && (
@@ -2060,7 +2060,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleBringAreaToFront();
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                 >
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M6 6h12" />
@@ -2073,7 +2073,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleBringAreaForward();
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                 >
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M6 16l6-6l6 6" />
@@ -2085,7 +2085,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleSendAreaBackward();
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                 >
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M6 8l6 6l6-6" />
@@ -2097,7 +2097,7 @@ const ContextToolbar = () => {
                                         exitLinkMode();
                                         handleSendAreaToBack();
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-text-primary)]/5"
+                                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-sm text-[var(--semantic-color-text-secondary)] hover:bg-[var(--semantic-color-interactive-hover-bg)]"
                                 >
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M6 18h12" />
@@ -2105,7 +2105,7 @@ const ContextToolbar = () => {
                                     </svg>
                                     Send to back
                                 </button>
-                                <div className="h-px bg-[var(--semantic-color-text-primary)]/10 my-1" />
+                                <div className="h-px bg-[var(--semantic-color-interactive-active-bg)] my-1" />
                             </>
                         )}
                         <button
@@ -2129,7 +2129,7 @@ const ContextToolbar = () => {
                                         const otherNode = nodes.find(n => n.id === otherId);
                                         const label = typeof otherNode?.data?.label === 'string' ? otherNode.data.label : otherId;
                                         return (
-                                            <div key={edge.id} className="flex items-center justify-between gap-2 px-1 py-1 rounded hover:bg-[var(--semantic-color-text-primary)]/5">
+                                            <div key={edge.id} className="flex items-center justify-between gap-2 px-1 py-1 rounded hover:bg-[var(--semantic-color-interactive-hover-bg)]">
                                                 <span className="text-xs text-[var(--semantic-color-text-secondary)] truncate">
                                                     {label}
                                                 </span>

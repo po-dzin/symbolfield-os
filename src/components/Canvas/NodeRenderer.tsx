@@ -7,16 +7,19 @@
 import React, { useState } from 'react';
 import { useSelectionStore } from '../../store/useSelectionStore';
 import { useGraphStore } from '../../store/useGraphStore';
+import { useAppStore } from '../../store/useAppStore';
 import GlyphIcon from '../Icon/GlyphIcon';
 import { NODE_SIZES } from '../../utils/layoutMetrics';
 import { resolveNodeGlyph } from '../../utils/sfGlyphLayer';
 import type { NodeBase, NodeData } from '../../core/types';
+import { adaptLegacyGraphColor } from '../../core/ui/graphColorAdapt';
 
 interface NodeRendererProps {
     node: NodeBase;
 }
 
 const NodeRenderer = ({ node }: NodeRendererProps) => {
+    const appMode = useAppStore(state => state.appMode);
     const isSelected = useSelectionStore(state => state.selectedIds.includes(node.id));
     const updateNode = useGraphStore(state => state.updateNode);
     const allNodes = useGraphStore(state => state.nodes);
@@ -39,11 +42,12 @@ const NodeRenderer = ({ node }: NodeRendererProps) => {
     const isParentFolded = Boolean(parentCluster?.meta?.isFolded);
     const isHidden = Boolean(node.meta?.isHidden || (node.meta?.focusHidden && !isFocusGhost) || isParentFolded);
     const [isHover, setIsHover] = useState(false);
-    const bodyColor = nodeData?.color_body ?? nodeData?.color ?? 'var(--semantic-color-graph-node-fill)';
-    const strokeColor = nodeData?.color_stroke ?? nodeData?.color ?? 'var(--semantic-color-graph-node-stroke)';
-    const glowColor = nodeData?.color_glow ?? 'var(--semantic-color-graph-node-glow)';
-    const hoverStrokeColor = nodeData?.color_glow ?? 'var(--semantic-color-graph-edge-strong)';
-    const glyphColor = nodeData?.color_glyph ?? 'var(--semantic-color-graph-node-glyph)';
+    const isLuma = appMode === 'luma';
+    const bodyColor = adaptLegacyGraphColor(nodeData?.color_body ?? nodeData?.color, 'var(--semantic-color-graph-node-fill)', isLuma);
+    const strokeColor = adaptLegacyGraphColor(nodeData?.color_stroke ?? nodeData?.color, 'var(--semantic-color-graph-node-stroke)', isLuma);
+    const glowColor = adaptLegacyGraphColor(nodeData?.color_glow, 'var(--semantic-color-graph-node-glow)', isLuma);
+    const hoverStrokeColor = adaptLegacyGraphColor(nodeData?.color_glow, 'var(--semantic-color-graph-edge-strong)', isLuma);
+    const glyphColor = adaptLegacyGraphColor(nodeData?.color_glyph, 'var(--semantic-color-graph-node-glyph)', isLuma);
     // TODO: add glyph symmetry checks for non-centered unicode glyphs (builder backlog).
     const glyphScale = nodeData?.glyph_scale ?? 1;
     const glyphOffsetX = nodeData?.glyph_offset_x ?? 0;

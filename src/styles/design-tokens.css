@@ -114,6 +114,12 @@
   --semantic-color-bg-app: var(--primitive-color-n1-bg);
   --semantic-color-bg-surface: var(--primitive-color-n2-surface);
   --semantic-color-bg-surface-hover: color-mix(in srgb, var(--semantic-color-bg-surface), var(--semantic-color-text-primary) 6%);
+  --semantic-color-interactive-hover-bg: color-mix(in srgb, var(--semantic-color-text-primary), transparent 95%);
+  --semantic-color-interactive-hover-border: color-mix(in srgb, var(--semantic-color-text-primary), transparent 78%);
+  --semantic-color-interactive-active-bg: color-mix(in srgb, var(--semantic-color-text-primary), transparent 86%);
+  --semantic-color-interactive-active-border: color-mix(in srgb, var(--semantic-color-text-primary), transparent 66%);
+  --semantic-color-interactive-focus-ring: color-mix(in srgb, var(--semantic-color-action-primary), transparent 56%);
+  --semantic-color-overlay-backdrop: rgba(0, 0, 0, 0.52);
 
   /* Borders */
   /* Borders */
@@ -240,9 +246,19 @@
 
 /* Light Mode Override (v0.1 Baseline) */
 :root[data-theme="light"] {
+  --primitive-radius-panel: 30px;
+  --primitive-radius-card: 18px;
+  --primitive-radius-input: 14px;
+
   --semantic-color-bg-app: #F1EDE4;
   --semantic-color-bg-surface: #FBF7F0;
   --semantic-color-bg-surface-hover: #EFE7DB;
+  --semantic-color-interactive-hover-bg: #E9E0D3;
+  --semantic-color-interactive-hover-border: #C9B9A6;
+  --semantic-color-interactive-active-bg: #DDD0C0;
+  --semantic-color-interactive-active-border: #B8A48E;
+  --semantic-color-interactive-focus-ring: rgba(183, 154, 125, 0.42);
+  --semantic-color-overlay-backdrop: rgba(32, 28, 23, 0.26);
   --semantic-color-border-default: #D8CCBC;
   --semantic-color-border-subtle: rgba(34, 29, 24, 0.12);
 
