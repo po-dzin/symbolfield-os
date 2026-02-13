@@ -9,7 +9,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { eventBus, EVENTS } from '../../core/events/EventBus';
 import { stationStorage } from '../../core/storage/StationStorage';
-import { EntitlementLimitError } from '../../core/access/EntitlementsService';
+import { EntitlementLimitError, entitlementsService } from '../../core/access/EntitlementsService';
 import type { ExternalGraphLink } from '../../core/types/gateway';
 
 type OmniScope = 'all' | 'atlas' | 'portal' | 'station' | 'space' | 'cluster' | 'node' | 'external';
@@ -119,6 +119,11 @@ const OmniOverlay: React.FC = () => {
             scope: 'any',
             action: async () => {
                 try {
+                    const activeUserSpaceCount = spaceManager
+                        .getSpacesWithOptions({ includePlayground: false })
+                        .filter(space => (space.kind ?? 'user') === 'user')
+                        .length;
+                    await entitlementsService.ensureCanCreateSpace(activeUserSpaceCount);
                     const id = spaceManager.createSpace('New Space');
                     await spaceManager.loadSpace(id);
                 } catch (error) {
@@ -182,8 +187,19 @@ const OmniOverlay: React.FC = () => {
             keywords: ['portal', 'builder', 'brand', 'private'],
             scope: 'portal',
             action: () => {
-                setGatewayRoute({ type: 'portal-builder', slug: 'symbolfield' });
-                setViewContext('gateway');
+                void (async () => {
+                    try {
+                        await entitlementsService.ensureCanUsePortalBuilder();
+                        setGatewayRoute({ type: 'portal-builder', slug: 'symbolfield' });
+                        setViewContext('gateway');
+                    } catch (error) {
+                        if (error instanceof EntitlementLimitError) {
+                            window.alert(error.message);
+                            return;
+                        }
+                        window.alert('Portal builder is unavailable right now.');
+                    }
+                })();
             }
         },
         ...(gatewayRoute ? [{

@@ -298,6 +298,11 @@ export const shareService = {
         const links = loadShareLinks();
         return links.find(link => link.token === normalizedToken) ?? null;
     },
+    createShareLinkAsync: async (input: CreateShareLinkInput): Promise<ShareLinkSnapshot | null> => {
+        const currentLinks = shareService.loadShareLinks();
+        await entitlementsService.ensureCanCreateShareLink(currentLinks.length);
+        return shareService.createShareLink(input);
+    },
     createShareLink: (input: CreateShareLinkInput): ShareLinkSnapshot | null => {
         const title = normalizeString(input.title) || 'Shared Graph';
         const spaceId = normalizeString(input.spaceId);

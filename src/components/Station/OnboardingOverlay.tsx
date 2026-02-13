@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { completeOnboarding, markWelcomeSeen } from '../../core/state/onboardingState';
-import { EntitlementLimitError } from '../../core/access/EntitlementsService';
+import { EntitlementLimitError, entitlementsService } from '../../core/access/EntitlementsService';
 
 interface OnboardingOverlayProps {
     onDismiss: () => void;
@@ -25,10 +25,15 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onDismiss }) => {
     };
 
     const handleCreateSpace = () => {
-        import('../../core/state/SpaceManager').then(({ spaceManager }) => {
+        import('../../core/state/SpaceManager').then(async ({ spaceManager }) => {
             try {
+                const activeUserSpaceCount = spaceManager
+                    .getSpacesWithOptions({ includePlayground: false })
+                    .filter(space => (space.kind ?? 'user') === 'user')
+                    .length;
+                await entitlementsService.ensureCanCreateSpace(activeUserSpaceCount);
                 const id = spaceManager.createSpace(); // Untitled
-                void spaceManager.loadSpace(id);
+                await spaceManager.loadSpace(id);
                 markWelcomeSeen();
                 onDismiss();
             } catch (error) {

@@ -1,6 +1,7 @@
 import { asEdgeId, asNodeId, type Edge, type NodeBase } from '../types';
 import type { SpaceData } from '../state/SpaceManager';
 import { spaceManager } from '../state/SpaceManager';
+import { entitlementsService } from '../access/EntitlementsService';
 
 export type ImportKind = 'markdown' | 'document' | 'pdf' | 'canvas' | 'unsupported';
 
@@ -273,6 +274,7 @@ const readFileText = async (file: File, kind: ImportKind): Promise<string> => {
 };
 
 export const importFilesToStation = async (files: File[]): Promise<ImportResult> => {
+    await entitlementsService.ensureCanImport();
     const warnings: string[] = [];
     const ignoredFiles: string[] = [];
     const importedDocs: ImportedDocument[] = [];

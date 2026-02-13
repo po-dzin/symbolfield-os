@@ -230,12 +230,12 @@ const normalizeEntitlementsPayload = (payload: unknown): EntitlementsSnapshot | 
 };
 
 export class EntitlementLimitError extends Error {
-    code: 'spaces_max_reached' | 'share_disabled' | 'share_max_reached';
+    code: 'spaces_max_reached' | 'share_disabled' | 'share_max_reached' | 'import_disabled' | 'portal_builder_disabled';
     limit?: number;
     used?: number;
 
     constructor(
-        code: 'spaces_max_reached' | 'share_disabled' | 'share_max_reached',
+        code: 'spaces_max_reached' | 'share_disabled' | 'share_max_reached' | 'import_disabled' | 'portal_builder_disabled',
         message: string,
         details?: { limit?: number; used?: number }
     ) {
@@ -278,6 +278,8 @@ const requestRemoteEntitlements = async (): Promise<EntitlementsSnapshot | null>
 };
 
 let snapshot: EntitlementsSnapshot = readPersistedSnapshot();
+let lastRemoteRefreshAt = 0;
+const REMOTE_REFRESH_TTL_MS = 20_000;
 type EntitlementsSnapshotOverride =
     Partial<Omit<EntitlementsSnapshot, 'features' | 'limits'>>
     & {
@@ -289,10 +291,19 @@ export const entitlementsService = {
     getSnapshot: (): EntitlementsSnapshot => snapshot,
     refreshRemote: async (): Promise<EntitlementsSnapshot> => {
         const remoteSnapshot = await requestRemoteEntitlements();
-        if (!remoteSnapshot) return snapshot;
-        snapshot = remoteSnapshot;
-        persistSnapshot(snapshot);
+        if (remoteSnapshot) {
+            snapshot = remoteSnapshot;
+            persistSnapshot(snapshot);
+        }
+        lastRemoteRefreshAt = Date.now();
         return snapshot;
+    },
+    ensureFreshRemote: async (maxAgeMs = REMOTE_REFRESH_TTL_MS): Promise<EntitlementsSnapshot> => {
+        if (!remoteConfig.enabled) return snapshot;
+        if (lastRemoteRefreshAt > 0 && Date.now() - lastRemoteRefreshAt <= maxAgeMs) {
+            return snapshot;
+        }
+        return entitlementsService.refreshRemote();
     },
     assertCanCreateSpace: (usedCount: number) => {
         const max = snapshot.limits.spacesMax;
@@ -320,6 +331,38 @@ export const entitlementsService = {
             );
         }
     },
+    assertCanImport: () => {
+        if (!snapshot.features.importEnabled) {
+            throw new EntitlementLimitError(
+                'import_disabled',
+                'Import is disabled for the current entitlement.'
+            );
+        }
+    },
+    assertCanUsePortalBuilder: () => {
+        if (!snapshot.features.portalBuilderEnabled) {
+            throw new EntitlementLimitError(
+                'portal_builder_disabled',
+                'Portal builder is disabled for the current entitlement.'
+            );
+        }
+    },
+    ensureCanCreateSpace: async (usedCount: number) => {
+        await entitlementsService.ensureFreshRemote();
+        entitlementsService.assertCanCreateSpace(usedCount);
+    },
+    ensureCanCreateShareLink: async (usedCount: number) => {
+        await entitlementsService.ensureFreshRemote();
+        entitlementsService.assertCanCreateShareLink(usedCount);
+    },
+    ensureCanImport: async () => {
+        await entitlementsService.ensureFreshRemote();
+        entitlementsService.assertCanImport();
+    },
+    ensureCanUsePortalBuilder: async () => {
+        await entitlementsService.ensureFreshRemote();
+        entitlementsService.assertCanUsePortalBuilder();
+    },
     __setSnapshotForTests: (next: EntitlementsSnapshotOverride) => {
         snapshot = {
             ...snapshot,
@@ -336,6 +379,7 @@ export const entitlementsService = {
     },
     __resetForTests: () => {
         snapshot = DEFAULT_ENTITLEMENTS;
+        lastRemoteRefreshAt = 0;
         persistSnapshot(snapshot);
     }
 };

@@ -7,7 +7,7 @@ import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { eventBus } from '../../core/events/EventBus';
-import { EntitlementLimitError } from '../../core/access/EntitlementsService';
+import { EntitlementLimitError, entitlementsService } from '../../core/access/EntitlementsService';
 
 const OmniInputExpanded = () => {
     const paletteOpen = useAppStore(state => state.paletteOpen);
@@ -55,6 +55,11 @@ const OmniInputExpanded = () => {
                 scope: 'any',
                 action: async () => {
                     try {
+                        const activeUserSpaceCount = spaceManager
+                            .getSpacesWithOptions({ includePlayground: false })
+                            .filter(space => (space.kind ?? 'user') === 'user')
+                            .length;
+                        await entitlementsService.ensureCanCreateSpace(activeUserSpaceCount);
                         const id = spaceManager.createSpace('New Space');
                         await spaceManager.loadSpace(id);
                     } catch (error) {

@@ -6,7 +6,7 @@ import { spaceManager } from '../../core/state/SpaceManager';
 import { stateEngine } from '../../core/state/StateEngine';
 import { stationStorage } from '../../core/storage/StationStorage';
 import { buildPortalPreviewLayout } from '../../core/gateway/portalPreview';
-import { EntitlementLimitError } from '../../core/access/EntitlementsService';
+import { EntitlementLimitError, entitlementsService } from '../../core/access/EntitlementsService';
 
 const PortalPage = ({ brandSlug, portalSlug }: { brandSlug: string; portalSlug: string }) => {
     const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
@@ -32,10 +32,16 @@ const PortalPage = ({ brandSlug, portalSlug }: { brandSlug: string; portalSlug: 
     const preview = buildPortalPreviewLayout(listing.spaceSnapshot, { width: 640, height: 460, padding: 40 });
     const nodeLookup = new Map(preview.nodes.map(node => [node.id, node]));
 
-    const handleFork = () => {
+    const handleFork = async () => {
         if (!listing || !listing.spaceSnapshot) return;
 
         try {
+            const activeUserSpaceCount = spaceManager
+                .getSpacesWithOptions({ includePlayground: false })
+                .filter(space => (space.kind ?? 'user') === 'user')
+                .length;
+            await entitlementsService.ensureCanCreateSpace(activeUserSpaceCount);
+
             // 1. Fork the space
             const newSpaceId = spaceManager.forkSpace(listing.spaceSnapshot, listing.title);
 
@@ -85,7 +91,7 @@ const PortalPage = ({ brandSlug, portalSlug }: { brandSlug: string; portalSlug: 
 
                 <div className="flex gap-4">
                     <button
-                        onClick={handleFork}
+                        onClick={() => { void handleFork(); }}
                         className="flex-1 py-3 px-6 rounded-lg bg-[var(--semantic-color-action-primary)] text-[var(--semantic-color-action-on-primary)] font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                     >
                         <span>Fork Space</span>

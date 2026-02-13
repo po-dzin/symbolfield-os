@@ -1,11 +1,26 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import coreGlyph from '../../assets/core-glyph.svg';
+import { EntitlementLimitError, entitlementsService } from '../../core/access/EntitlementsService';
 
 const GatewayLayout = ({ children }: { children: React.ReactNode }) => {
     const setViewContext = useAppStore(state => state.setViewContext);
     const gatewayRoute = useAppStore(state => state.gatewayRoute);
     const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
+
+    const handleOpenBuilder = async () => {
+        try {
+            await entitlementsService.ensureCanUsePortalBuilder();
+            setGatewayRoute({ type: 'portal-builder', slug: 'symbolfield' });
+            setViewContext('gateway');
+        } catch (error) {
+            if (error instanceof EntitlementLimitError) {
+                window.alert(error.message);
+                return;
+            }
+            window.alert('Portal builder is unavailable right now.');
+        }
+    };
 
     const activeNav = gatewayRoute?.type === 'symbolverse'
         ? 'symbolverse'
@@ -74,10 +89,7 @@ const GatewayLayout = ({ children }: { children: React.ReactNode }) => {
                     </button>
                     <button
                         type="button"
-                        onClick={() => {
-                            setGatewayRoute({ type: 'portal-builder', slug: 'symbolfield' });
-                            setViewContext('gateway');
-                        }}
+                        onClick={() => { void handleOpenBuilder(); }}
                         data-state={activeNav === 'builder' ? 'active' : 'inactive'}
                         className="ui-selectable px-3 py-1.5 rounded-[var(--primitive-radius-pill)] text-[var(--semantic-color-text-secondary)]"
                     >

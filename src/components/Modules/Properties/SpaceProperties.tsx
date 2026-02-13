@@ -53,7 +53,7 @@ const SpaceProperties = () => {
         if (!inspectedSpaceId || !meta) return;
         let shareUrl = '';
         try {
-            const link = shareService.createShareLink({
+            const link = await shareService.createShareLinkAsync({
                 title: meta.name,
                 scopeType: 'space',
                 spaceId: inspectedSpaceId,

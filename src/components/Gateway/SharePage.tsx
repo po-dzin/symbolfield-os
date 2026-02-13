@@ -4,7 +4,7 @@ import { stateEngine } from '../../core/state/StateEngine';
 import { buildPortalPreviewLayout } from '../../core/gateway/portalPreview';
 import { buildShareUrl, shareService, type ShareLinkSnapshot } from '../../core/share/ShareService';
 import { useAppStore } from '../../store/useAppStore';
-import { EntitlementLimitError } from '../../core/access/EntitlementsService';
+import { EntitlementLimitError, entitlementsService } from '../../core/access/EntitlementsService';
 
 const SharePage = ({ token }: { token: string }) => {
     const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
@@ -54,9 +54,14 @@ const SharePage = ({ token }: { token: string }) => {
         }
     };
 
-    const handleFork = () => {
+    const handleFork = async () => {
         if (!shareLink) return;
         try {
+            const activeUserSpaceCount = spaceManager
+                .getSpacesWithOptions({ includePlayground: false })
+                .filter(space => (space.kind ?? 'user') === 'user')
+                .length;
+            await entitlementsService.ensureCanCreateSpace(activeUserSpaceCount);
             const forkId = spaceManager.forkSpace(
                 { nodes: shareLink.nodes, edges: shareLink.edges },
                 `${shareLink.title} (Shared)`
@@ -151,7 +156,7 @@ const SharePage = ({ token }: { token: string }) => {
                     </button>
                     <button
                         type="button"
-                        onClick={handleFork}
+                        onClick={() => { void handleFork(); }}
                         className="ui-selectable ui-shape-pill px-4 py-2 text-sm"
                     >
                         Fork to Station

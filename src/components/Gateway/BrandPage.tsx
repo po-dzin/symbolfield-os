@@ -3,6 +3,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { gatewayData } from '../../core/gateway/GatewayData';
 import type { Brand, Listing } from '../../core/types/gateway';
 import { stationStorage } from '../../core/storage/StationStorage';
+import { EntitlementLimitError, entitlementsService } from '../../core/access/EntitlementsService';
 
 const BrandPage = ({ brandSlug }: { brandSlug: string }) => {
     const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
@@ -22,6 +23,19 @@ const BrandPage = ({ brandSlug }: { brandSlug: string }) => {
         };
         load();
     }, [brandSlug]);
+
+    const handleOpenBuilder = async () => {
+        try {
+            await entitlementsService.ensureCanUsePortalBuilder();
+            setGatewayRoute({ type: 'portal-builder', slug: brandSlug });
+        } catch (error) {
+            if (error instanceof EntitlementLimitError) {
+                window.alert(error.message);
+                return;
+            }
+            window.alert('Portal builder is unavailable right now.');
+        }
+    };
 
     if (loading) return <div className="p-10 text-center opacity-50">Loading showroom...</div>;
     if (!brand) return <div className="p-10 text-center">Brand not found</div>;
@@ -73,7 +87,7 @@ const BrandPage = ({ brandSlug }: { brandSlug: string }) => {
                     </button>
                     <button
                         type="button"
-                        onClick={() => setGatewayRoute({ type: 'portal-builder', slug: brandSlug })}
+                        onClick={() => { void handleOpenBuilder(); }}
                         className="px-4 py-2 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] text-sm text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:bg-[var(--semantic-color-bg-surface-hover)] transition-colors"
                     >
                         Open Builder Module

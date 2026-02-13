@@ -1,6 +1,6 @@
 import React from 'react';
 import { spaceManager } from '../../core/state/SpaceManager';
-import { EntitlementLimitError } from '../../core/access/EntitlementsService';
+import { EntitlementLimitError, entitlementsService } from '../../core/access/EntitlementsService';
 
 const showActionError = (error: unknown) => {
     if (error instanceof EntitlementLimitError) {
@@ -9,6 +9,13 @@ const showActionError = (error: unknown) => {
     }
     window.alert('Unable to create space right now.');
 };
+
+const getActiveUserSpaceCount = (): number => (
+    spaceManager
+        .getSpacesWithOptions({ includePlayground: false })
+        .filter(space => (space.kind ?? 'user') === 'user')
+        .length
+);
 const TemplatesRow = () => {
     const templates = [
         { id: 't1', title: 'Default Space', icon: '◇' },
@@ -22,12 +29,15 @@ const TemplatesRow = () => {
                     <button
                         key={t.id}
                         onClick={() => {
-                            try {
-                                const id = spaceManager.createSpace(t.title);
-                                void spaceManager.loadSpace(id);
-                            } catch (error) {
-                                showActionError(error);
-                            }
+                            void (async () => {
+                                try {
+                                    await entitlementsService.ensureCanCreateSpace(getActiveUserSpaceCount());
+                                    const id = spaceManager.createSpace(t.title);
+                                    await spaceManager.loadSpace(id);
+                                } catch (error) {
+                                    showActionError(error);
+                                }
+                            })();
                         }}
                         className="ui-drawer-row group flex items-center gap-3 w-full text-left focus-visible:outline-none px-2 py-1.5"
                     >

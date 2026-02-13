@@ -2,7 +2,7 @@ import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { importFilesToStation } from '../../core/import/ImportService';
-import { EntitlementLimitError } from '../../core/access/EntitlementsService';
+import { EntitlementLimitError, entitlementsService } from '../../core/access/EntitlementsService';
 
 const showActionError = (error: unknown) => {
     if (error instanceof EntitlementLimitError) {
@@ -11,6 +11,13 @@ const showActionError = (error: unknown) => {
     }
     window.alert('Action is unavailable right now. Please retry.');
 };
+
+const getActiveUserSpaceCount = (): number => (
+    spaceManager
+        .getSpacesWithOptions({ includePlayground: false })
+        .filter(space => (space.kind ?? 'user') === 'user')
+        .length
+);
 
 const StartGates = () => {
     const setViewContext = useAppStore(state => state.setViewContext);
@@ -21,6 +28,26 @@ const StartGates = () => {
     const iconClassName = 'w-5 h-5 flex items-center justify-center text-[var(--semantic-color-text-secondary)] group-hover:text-[var(--semantic-color-text-primary)] transition-colors';
     const labelClassName = 'text-[var(--semantic-color-text-secondary)] text-sm font-medium group-hover:text-[var(--semantic-color-text-primary)] transition-colors';
 
+    const handleCreateSpace = React.useCallback(async () => {
+        try {
+            await entitlementsService.ensureCanCreateSpace(getActiveUserSpaceCount());
+            const id = spaceManager.createSpace();
+            await spaceManager.loadSpace(id);
+        } catch (error) {
+            showActionError(error);
+        }
+    }, []);
+
+    const handleOpenPortalBuilder = React.useCallback(async () => {
+        try {
+            await entitlementsService.ensureCanUsePortalBuilder();
+            setGatewayRoute({ type: 'portal-builder', slug: 'symbolfield' });
+            setViewContext('gateway');
+        } catch (error) {
+            showActionError(error);
+        }
+    }, [setGatewayRoute, setViewContext]);
+
     const handleImportSelection = React.useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
         const list = event.target.files;
         if (!list || list.length === 0) return;
@@ -28,6 +55,7 @@ const StartGates = () => {
         const files = Array.from(list);
         setIsImporting(true);
         try {
+            await entitlementsService.ensureCanImport();
             const result = await importFilesToStation(files);
             await spaceManager.loadSpace(result.spaceId);
             setViewContext('space');
@@ -50,14 +78,7 @@ const StartGates = () => {
                 onChange={handleImportSelection}
             />
             <button
-                onClick={() => {
-                    try {
-                        const id = spaceManager.createSpace();
-                        void spaceManager.loadSpace(id);
-                    } catch (error) {
-                        showActionError(error);
-                    }
-                }}
+                onClick={() => { void handleCreateSpace(); }}
                 className={gateClassName}
             >
                 <span className={iconClassName}>+</span>
@@ -65,10 +86,7 @@ const StartGates = () => {
             </button>
 
             <button
-                onClick={() => {
-                    setGatewayRoute({ type: 'portal-builder', slug: 'symbolfield' });
-                    setViewContext('gateway');
-                }}
+                onClick={() => { void handleOpenPortalBuilder(); }}
                 className={gateClassName}
             >
                 <span className={iconClassName}>◎</span>
@@ -96,10 +114,7 @@ const StartGates = () => {
             </button>
 
             <button
-                onClick={() => {
-                    setGatewayRoute({ type: 'portal-builder', slug: 'symbolfield' });
-                    setViewContext('gateway');
-                }}
+                onClick={() => { void handleOpenPortalBuilder(); }}
                 className={gateClassName}
             >
                 <span className={iconClassName}>◈</span>

@@ -6,6 +6,7 @@ const NowChip = () => {
     const appMode = useAppStore(state => state.appMode);
     const setAppMode = useAppStore(state => state.setAppMode);
     const session = useAppStore(state => state.session);
+    const sessionRecords = useAppStore(state => state.sessionRecords);
     const drawerRightOpen = useAppStore(state => state.drawerRightOpen);
     const drawerRightTab = useAppStore(state => state.drawerRightTab);
     const setDrawerRightTab = useAppStore(state => state.setDrawerRightTab);
@@ -23,12 +24,25 @@ const NowChip = () => {
         if (session.isActive && session.startTime) {
             return formatElapsedMinutes(now - session.startTime);
         }
+        const dayStart = new Date(now);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayStartMs = dayStart.getTime();
+        const dayEndMs = dayStartMs + 24 * 60 * 60 * 1000;
+        const todayDurationMs = sessionRecords.reduce((sum, record) => {
+            const start = Math.max(record.startedAt, dayStartMs);
+            const end = Math.min(record.endedAt, dayEndMs);
+            if (end <= start) return sum;
+            return sum + (end - start);
+        }, 0);
+        if (todayDurationMs > 0) {
+            return `${Math.floor(todayDurationMs / 60000)}m`;
+        }
         return new Date(now).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',
             hour12: false
         });
-    }, [now, session.isActive, session.startTime]);
+    }, [now, session.isActive, session.startTime, sessionRecords]);
 
     const getModeIcon = (mode: string) => {
         switch (mode) {

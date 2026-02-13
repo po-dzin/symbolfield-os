@@ -30,7 +30,7 @@ const NodeProperties = () => {
         const scopeType = node.type === 'cluster' ? 'cluster' : 'node';
         let shareUrl = '';
         try {
-            const link = shareService.createShareLink({
+            const link = await shareService.createShareLinkAsync({
                 title: displayLabel,
                 scopeType,
                 spaceId: currentSpaceId,
