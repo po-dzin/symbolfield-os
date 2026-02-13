@@ -3,8 +3,8 @@ import type { DocSnapshot } from '@blocksuite/store';
 import { useAppStore } from '../../store/useAppStore';
 import { useGraphStore } from '../../store/useGraphStore';
 import { NodeBuilder } from './NodeBuilder';
-import { isSfContentRemoteEnabled, listSfDocs, upsertSfDoc } from '../../core/data/sfContentRemote';
-import { buildNodeDocRecord, pickNodeDocRecord } from '../../core/data/sfContentNodeSync';
+import { getSfDocById, isSfContentRemoteEnabled, listSfDocs, upsertSfDoc } from '../../core/data/sfContentRemote';
+import { buildNodeDocId, buildNodeDocRecord, pickNodeDocRecord } from '../../core/data/sfContentNodeSync';
 
 const serializeSnapshot = (snapshot: unknown): string => {
     try {
@@ -102,21 +102,56 @@ const NodeView = () => {
 
     const lastSavedSnapshotRef = React.useRef('');
     const remoteSaveTimerRef = React.useRef<number | null>(null);
+    const lastRemoteUpsertSignatureRef = React.useRef('');
 
     React.useEffect(() => {
         lastSavedSnapshotRef.current = serializeSnapshot(initialSnapshot);
     }, [node?.id, initialSnapshot]);
 
     React.useEffect(() => {
+        lastRemoteUpsertSignatureRef.current = '';
+    }, [node?.id]);
+
+    const queueRemoteDocUpsert = React.useCallback(
+        (snapshot: unknown, title: string, delayMs = 700) => {
+            if (!node) return;
+            if (!isSfContentRemoteEnabled()) return;
+
+            const normalizedTitle = title.trim() || 'Untitled Node';
+            const signature = `${serializeSnapshot(snapshot)}::${normalizedTitle}`;
+            if (signature === lastRemoteUpsertSignatureRef.current) return;
+            lastRemoteUpsertSignatureRef.current = signature;
+
+            if (remoteSaveTimerRef.current !== null) {
+                window.clearTimeout(remoteSaveTimerRef.current);
+            }
+            const nodeId = node.id;
+            remoteSaveTimerRef.current = window.setTimeout(() => {
+                const record = buildNodeDocRecord({
+                    spaceId: currentSpaceId,
+                    nodeId,
+                    title: normalizedTitle,
+                    snapshotJson: snapshot
+                });
+                void upsertSfDoc(record);
+            }, delayMs);
+        },
+        [node, currentSpaceId]
+    );
+
+    React.useEffect(() => {
         if (!isNodeView || !node) return;
         if (!isSfContentRemoteEnabled()) return;
-        if (node.data?.docSnapshot) return;
+        if (node.data?.docSnapshot) {
+            queueRemoteDocUpsert(node.data.docSnapshot, nodeLabel, 240);
+            return;
+        }
 
         let cancelled = false;
         void (async () => {
-            const records = await listSfDocs();
+            const remoteById = await getSfDocById(buildNodeDocId(currentSpaceId, node.id));
             if (cancelled) return;
-            const remoteDoc = pickNodeDocRecord(records, currentSpaceId, node.id);
+            const remoteDoc = remoteById ?? pickNodeDocRecord(await listSfDocs(), currentSpaceId, node.id);
             if (!remoteDoc) return;
             updateNode(node.id, {
                 data: {
@@ -130,7 +165,7 @@ const NodeView = () => {
         return () => {
             cancelled = true;
         };
-    }, [isNodeView, node?.id, node?.data?.docSnapshot, currentSpaceId, updateNode, node]);
+    }, [isNodeView, node, node?.id, node?.data?.docSnapshot, currentSpaceId, updateNode, queueRemoteDocUpsert, nodeLabel]);
 
     React.useEffect(() => {
         return () => {
@@ -162,23 +197,10 @@ const NodeView = () => {
             }
         });
 
-        if (isSfContentRemoteEnabled()) {
-            if (remoteSaveTimerRef.current !== null) {
-                window.clearTimeout(remoteSaveTimerRef.current);
-            }
-            remoteSaveTimerRef.current = window.setTimeout(() => {
-                const record = buildNodeDocRecord({
-                    spaceId: currentSpaceId,
-                    nodeId: node.id,
-                    title: nodeLabel,
-                    snapshotJson: snapshot
-                });
-                void upsertSfDoc(record);
-            }, 700);
-        }
+        queueRemoteDocUpsert(snapshot, nodeLabel);
 
         lastSavedSnapshotRef.current = serialized;
-    }, [isNodeView, node, updateNode, currentSpaceId, nodeLabel]);
+    }, [isNodeView, node, updateNode, nodeLabel, queueRemoteDocUpsert]);
 
     const commitTitle = React.useCallback(() => {
         if (!node) return;
@@ -192,8 +214,11 @@ const NodeView = () => {
                 label: nextTitle
             }
         });
+        if (node.data?.docSnapshot) {
+            queueRemoteDocUpsert(node.data.docSnapshot, nextTitle, 240);
+        }
         setTitleDraft(nextTitle);
-    }, [node, nodeLabel, titleDraft, updateNode]);
+    }, [node, nodeLabel, titleDraft, updateNode, queueRemoteDocUpsert]);
 
     const commitTags = React.useCallback(() => {
         if (!node) return;

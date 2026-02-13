@@ -64,6 +64,15 @@ const buildHeaders = (): Record<string, string> => {
     return headers;
 };
 
+const unwrapPayload = (input: unknown): unknown => {
+    if (!input || typeof input !== 'object') return input;
+    const raw = input as Record<string, unknown>;
+    if ('payload' in raw) return raw.payload;
+    if ('data' in raw) return raw.data;
+    if ('state' in raw) return raw.state;
+    return input;
+};
+
 const request = async <T>(
     method: 'GET' | 'PUT' | 'POST' | 'DELETE',
     path: string,
@@ -95,8 +104,18 @@ const request = async <T>(
 };
 
 export const listSfDocs = async (): Promise<SfDocRecord[]> => {
-    const payload = await request<SfDocRecord[]>('GET', '/sf/docs');
-    return Array.isArray(payload) ? payload : [];
+    const payload = await request<unknown>('GET', '/sf/docs');
+    const unwrapped = unwrapPayload(payload);
+    return Array.isArray(unwrapped) ? (unwrapped as SfDocRecord[]) : [];
+};
+
+export const getSfDocById = async (docId: string): Promise<SfDocRecord | null> => {
+    const normalizedId = docId.trim();
+    if (!normalizedId) return null;
+    const payload = await request<unknown>('GET', `/sf/docs/${encodeURIComponent(normalizedId)}`);
+    const unwrapped = unwrapPayload(payload);
+    if (!unwrapped || typeof unwrapped !== 'object') return null;
+    return unwrapped as SfDocRecord;
 };
 
 export const upsertSfDoc = async (record: SfDocRecord): Promise<boolean> => {
@@ -105,8 +124,9 @@ export const upsertSfDoc = async (record: SfDocRecord): Promise<boolean> => {
 };
 
 export const listSfDocVersions = async (docId: string): Promise<SfDocVersionRecord[]> => {
-    const payload = await request<SfDocVersionRecord[]>('GET', `/sf/doc-versions/${docId}`);
-    return Array.isArray(payload) ? payload : [];
+    const payload = await request<unknown>('GET', `/sf/doc-versions/${docId}`);
+    const unwrapped = unwrapPayload(payload);
+    return Array.isArray(unwrapped) ? (unwrapped as SfDocVersionRecord[]) : [];
 };
 
 export const createSfDocVersion = async (record: SfDocVersionRecord): Promise<boolean> => {
@@ -115,8 +135,9 @@ export const createSfDocVersion = async (record: SfDocVersionRecord): Promise<bo
 };
 
 export const listSfLinks = async (): Promise<SfLinkRecord[]> => {
-    const payload = await request<SfLinkRecord[]>('GET', '/sf/links');
-    return Array.isArray(payload) ? payload : [];
+    const payload = await request<unknown>('GET', '/sf/links');
+    const unwrapped = unwrapPayload(payload);
+    return Array.isArray(unwrapped) ? (unwrapped as SfLinkRecord[]) : [];
 };
 
 export const upsertSfLink = async (record: SfLinkRecord): Promise<boolean> => {
