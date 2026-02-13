@@ -13,6 +13,7 @@ import {
     writeRemoteUiStateKey
 } from '../data/uiStateRemote';
 import { entitlementsService } from '../access/EntitlementsService';
+import { isSfContentRemoteEnabled, listSfDocs } from '../data/sfContentRemote';
 
 export interface SpaceMeta {
     id: string;
@@ -599,6 +600,44 @@ class SpaceManager {
 
         if (indexChanged) {
             this.saveIndex();
+        }
+
+        if (isSfContentRemoteEnabled() && Array.isArray(data.nodes) && data.nodes.length > 0) {
+            try {
+                const remoteDocs = await listSfDocs();
+                const docsByNodeId = new Map<string, { snapshotJson: unknown; updatedAt: number }>();
+                remoteDocs.forEach((record) => {
+                    if (record.spaceId !== id || !record.nodeId) return;
+                    const key = String(record.nodeId);
+                    const prev = docsByNodeId.get(key);
+                    if (!prev || record.updatedAt >= prev.updatedAt) {
+                        docsByNodeId.set(key, { snapshotJson: record.snapshotJson, updatedAt: record.updatedAt });
+                    }
+                });
+
+                if (docsByNodeId.size > 0) {
+                    let nodesChanged = false;
+                    const nextNodes = data.nodes.map((node) => {
+                        const match = docsByNodeId.get(String(node.id));
+                        if (!match || node.data?.docSnapshot) return node;
+                        nodesChanged = true;
+                        return {
+                            ...node,
+                            data: {
+                                ...node.data,
+                                docSnapshot: match.snapshotJson,
+                                contentFormat: 'blocksuite.page.v1'
+                            }
+                        };
+                    });
+                    if (nodesChanged) {
+                        data = { ...data, nodes: nextNodes };
+                        localStorage.setItem(STORAGE_KEYS.SPACE_PREFIX + id, JSON.stringify(data));
+                    }
+                }
+            } catch {
+                // Remote content hydration should not block local space loading.
+            }
         }
 
         graphEngine.importData({ nodes: (data.nodes ?? []) as any, edges: (data.edges ?? []) as any });
