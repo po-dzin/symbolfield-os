@@ -251,6 +251,43 @@ export const publishedSpacesStorage = {
         saveLocalRecords(next);
         return nextRecord;
     },
+    updateVisibilityBySpaceId: (
+        spaceId: string,
+        visibility: ExternalGraphLinkVisibility
+    ): { updatedCount: number; records: PublishedSpaceRecord[] } => {
+        const normalizedSpaceId = spaceId.trim();
+        if (!normalizedSpaceId) {
+            return { updatedCount: 0, records: [] };
+        }
+        const normalizedVisibility = toVisibility(visibility);
+        const current = loadLocalRecords();
+        if (current.length === 0) {
+            return { updatedCount: 0, records: [] };
+        }
+
+        const now = Date.now();
+        let updatedCount = 0;
+        const next = current.map((record) => {
+            if (record.spaceId !== normalizedSpaceId || record.visibility === normalizedVisibility) {
+                return record;
+            }
+            updatedCount += 1;
+            return {
+                ...record,
+                visibility: normalizedVisibility,
+                updatedAt: now
+            };
+        });
+
+        if (updatedCount > 0) {
+            saveLocalRecords(next);
+        }
+
+        return {
+            updatedCount,
+            records: sortRecords(next).filter(record => record.spaceId === normalizedSpaceId)
+        };
+    },
     getPublishedListingsByBrandSlug: async (
         brandSlug: string,
         options: { includePrivate?: boolean } = {}
@@ -306,4 +343,3 @@ export const publishedSpacesStorage = {
         }
     }
 };
-

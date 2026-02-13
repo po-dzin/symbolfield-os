@@ -189,6 +189,27 @@ const SpaceProperties = () => {
                                 if (!inspectedSpaceId) return;
                                 spaceManager.setSpaceAccessLevel(inspectedSpaceId, level);
                                 setAccessLevelDraft(level);
+
+                                const shareSync = shareService.updateShareVisibilityBySpace(inspectedSpaceId, level);
+                                shareSync.links.forEach((link) => {
+                                    stationStorage.upsertExternalGraphLink(
+                                        { type: 'share', token: link.token },
+                                        { label: `${link.title} (Shared)`, visibility: level }
+                                    );
+                                });
+
+                                const publishSync = publishedSpacesStorage.updateVisibilityBySpaceId(inspectedSpaceId, level);
+                                publishSync.records.forEach((record) => {
+                                    stationStorage.upsertExternalGraphLink(
+                                        { type: 'portal', brandSlug: record.brandSlug, portalSlug: record.portalSlug },
+                                        { label: `${record.title} Portal`, visibility: level }
+                                    );
+                                });
+
+                                if (shareSync.updatedCount > 0 || publishSync.updatedCount > 0) {
+                                    const syncedItems = shareSync.updatedCount + publishSync.updatedCount;
+                                    setPublishStatus(`Access synced (${syncedItems})`);
+                                }
                             }}
                             data-state={accessLevelDraft === level ? 'active' : 'inactive'}
                             className="ui-selectable ui-shape-pill px-3 py-1.5 text-[11px] uppercase tracking-[0.14em]"

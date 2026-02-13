@@ -339,5 +339,43 @@ export const shareService = {
         const nextLinks = sortShareLinks([nextLink, ...currentLinks]);
         persistShareLinks(nextLinks);
         return nextLink;
+    },
+    updateShareVisibilityBySpace: (
+        spaceId: string,
+        visibility: ExternalGraphLinkVisibility
+    ): { updatedCount: number; links: ShareLinkSnapshot[] } => {
+        const normalizedSpaceId = normalizeString(spaceId);
+        if (!normalizedSpaceId) {
+            return { updatedCount: 0, links: [] };
+        }
+
+        const currentLinks = loadShareLinks();
+        if (currentLinks.length === 0) {
+            return { updatedCount: 0, links: [] };
+        }
+
+        const normalizedVisibility = normalizeVisibility(visibility);
+        let updatedCount = 0;
+        const now = Date.now();
+        const nextLinks = currentLinks.map((link) => {
+            if (link.spaceId !== normalizedSpaceId || link.visibility === normalizedVisibility) {
+                return link;
+            }
+            updatedCount += 1;
+            return {
+                ...link,
+                visibility: normalizedVisibility,
+                updatedAt: now
+            };
+        });
+
+        if (updatedCount > 0) {
+            persistShareLinks(nextLinks);
+        }
+
+        return {
+            updatedCount,
+            links: sortShareLinks(nextLinks).filter(link => link.spaceId === normalizedSpaceId)
+        };
     }
 };
