@@ -76,6 +76,12 @@ const toArrayOfStrings = (value: unknown): string[] => {
     return [];
 };
 
+const normalizeVisibility = (value: unknown): Listing['visibility'] => (
+    value === 'private' || value === 'shared' || value === 'public'
+        ? value
+        : undefined
+);
+
 const normalizePortalConfig = (value: unknown): Brand['portal'] | undefined => {
     const raw = toRecord(value);
     if (!raw) return undefined;
@@ -181,6 +187,7 @@ const normalizeListing = (value: unknown): Listing | null => {
     const snapshot = toRecord(snapshotValue)
         ? (snapshotValue as Listing['spaceSnapshot'])
         : null;
+    const visibility = normalizeVisibility(raw.visibility ?? raw.access);
 
     return {
         id: id || slug,
@@ -190,6 +197,7 @@ const normalizeListing = (value: unknown): Listing | null => {
         title: title || slug,
         description,
         tags,
+        ...(visibility ? { visibility } : {}),
         ...(hasStats
             ? {
                 stats: {

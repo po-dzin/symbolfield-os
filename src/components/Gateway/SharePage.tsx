@@ -103,6 +103,32 @@ const SharePage = ({ token }: { token: string }) => {
         );
     }
 
+    if (shareLink.visibility === 'private') {
+        return (
+            <div className="max-w-4xl mx-auto p-10 md:p-16">
+                <div className="rounded-2xl border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)] p-8 text-center">
+                    <div className="text-[10px] uppercase tracking-[0.22em] text-[var(--semantic-color-text-muted)] mb-3">
+                        Share Link
+                    </div>
+                    <h1 className="text-3xl font-light mb-3">Access Restricted</h1>
+                    <p className="text-sm text-[var(--semantic-color-text-muted)] mb-6">
+                        This shared graph is currently set to private.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setGatewayRoute({ type: 'atlas' });
+                            setViewContext('gateway');
+                        }}
+                        className="ui-selectable ui-shape-pill px-4 py-2 text-sm"
+                    >
+                        Open Atlas
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-6xl mx-auto p-6 md:p-12 animate-fade-in flex flex-col gap-8">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">

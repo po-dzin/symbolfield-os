@@ -1,6 +1,7 @@
 import type { SpaceData } from '../state/SpaceManager';
 
 export type ListingType = 'brand_base' | 'course' | 'template' | 'map';
+export type AccessVisibility = 'private' | 'shared' | 'public';
 
 export interface Brand {
     id: string;
@@ -46,6 +47,7 @@ export interface Listing {
         userId: string;
         role: 'owner' | 'editor' | 'viewer';
     }[];
+    visibility?: AccessVisibility;
 }
 
 export type ExternalGraphRoute =
@@ -56,7 +58,7 @@ export type ExternalGraphRoute =
     | { type: 'share'; token: string }
     | { type: 'portal'; brandSlug: string; portalSlug: string };
 
-export type ExternalGraphLinkVisibility = 'private' | 'shared' | 'public';
+export type ExternalGraphLinkVisibility = AccessVisibility;
 
 export interface ExternalGraphLink {
     id: string;

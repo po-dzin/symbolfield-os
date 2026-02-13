@@ -110,7 +110,9 @@ const BrandPage = ({ brandSlug }: { brandSlug: string }) => {
                                     <span>👁️ {listing.stats?.views}</span>
                                     <span>🍴 {listing.stats?.forks}</span>
                                 </div>
-                                <div className="uppercase tracking-wider opacity-70">Privately Visible</div>
+                                <div className="uppercase tracking-wider opacity-70">
+                                    {`${listing.visibility ?? 'public'} access`}
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -5,6 +5,7 @@ import { PLAYGROUND_EDGES, PLAYGROUND_NODES, PLAYGROUND_SPACE_ID } from '../defa
 import { asNodeId, type Edge, type NodeBase } from '../types';
 import { useCameraStore } from '../../store/useCameraStore';
 import { ARCHECORE_ID, getCoreId, getCoreLabel } from '../defaults/coreIds';
+import type { ExternalGraphLinkVisibility } from '../types/gateway';
 import {
     clearRemoteUiStateKey,
     isUiStateRemoteEnabled,
@@ -27,6 +28,9 @@ export interface SpaceMeta {
     trashed?: boolean;
     deletedAt?: number | null;
     description?: string;
+    accessLevel?: ExternalGraphLinkVisibility;
+    portalBrandSlug?: string;
+    portalSlug?: string;
 }
 
 export interface SpaceData {
@@ -85,6 +89,11 @@ const normalizeSpaceMetaList = (input: unknown): SpaceMeta[] => {
             meta.deletedAt = deletedAt;
         }
         if (typeof raw.description === 'string') meta.description = raw.description;
+        if (raw.accessLevel === 'private' || raw.accessLevel === 'shared' || raw.accessLevel === 'public') {
+            meta.accessLevel = raw.accessLevel;
+        }
+        if (typeof raw.portalBrandSlug === 'string') meta.portalBrandSlug = raw.portalBrandSlug;
+        if (typeof raw.portalSlug === 'string') meta.portalSlug = raw.portalSlug;
         next.push(meta);
     });
     return next;
@@ -285,7 +294,9 @@ class SpaceManager {
             parentSpaceId: parentId,
             kind,
             trashed: false,
-            deletedAt: null
+            deletedAt: null,
+            accessLevel: 'private',
+            portalBrandSlug: 'symbolfield'
         };
         this.spaces.set(id, space);
         this.saveIndex();
@@ -320,7 +331,9 @@ class SpaceManager {
             kind: 'user',
             trashed: false,
             deletedAt: null,
-            description: `Forked from Vitrine`
+            description: `Forked from Vitrine`,
+            accessLevel: 'private',
+            portalBrandSlug: 'symbolfield'
         };
 
         this.spaces.set(id, space);
@@ -361,6 +374,50 @@ class SpaceManager {
             return uniqueName;
         }
         return name;
+    }
+
+    setSpaceDescription(id: string, description: string) {
+        const meta = this.spaces.get(id);
+        if (!meta) return;
+        const nextDescription = description.trim();
+        if ((meta.description ?? '') === nextDescription) return;
+        meta.description = nextDescription;
+        meta.updatedAt = Date.now();
+        this.saveIndex();
+    }
+
+    setSpaceAccessLevel(id: string, accessLevel: ExternalGraphLinkVisibility) {
+        const meta = this.spaces.get(id);
+        if (!meta) return;
+        if (meta.accessLevel === accessLevel) return;
+        meta.accessLevel = accessLevel;
+        meta.updatedAt = Date.now();
+        this.saveIndex();
+    }
+
+    setSpacePortalTarget(
+        id: string,
+        target: { portalBrandSlug?: string; portalSlug?: string }
+    ) {
+        const meta = this.spaces.get(id);
+        if (!meta) return;
+        const nextBrand = typeof target.portalBrandSlug === 'string' ? target.portalBrandSlug.trim() : '';
+        const nextSlug = typeof target.portalSlug === 'string' ? target.portalSlug.trim() : '';
+        const brandChanged = (meta.portalBrandSlug ?? '') !== nextBrand;
+        const slugChanged = (meta.portalSlug ?? '') !== nextSlug;
+        if (!brandChanged && !slugChanged) return;
+        if (nextBrand) {
+            meta.portalBrandSlug = nextBrand;
+        } else {
+            delete meta.portalBrandSlug;
+        }
+        if (nextSlug) {
+            meta.portalSlug = nextSlug;
+        } else {
+            delete meta.portalSlug;
+        }
+        meta.updatedAt = Date.now();
+        this.saveIndex();
     }
 
     toggleFavorite(id: string) {

@@ -3,6 +3,7 @@ import { spaceManager, type SpaceData } from '../state/SpaceManager';
 import { stateEngine } from '../state/StateEngine';
 import { asNodeId, type Edge, type NodeBase, type NodeId } from '../types';
 import { entitlementsService } from '../access/EntitlementsService';
+import type { ExternalGraphLinkVisibility } from '../types/gateway';
 import {
     clearRemoteUiStateKey,
     isUiStateRemoteEnabled,
@@ -27,6 +28,7 @@ export interface ShareLinkSnapshot {
     edges: Edge[];
     createdAt: number;
     updatedAt: number;
+    visibility: ExternalGraphLinkVisibility;
 }
 
 export interface CreateShareLinkInput {
@@ -34,6 +36,7 @@ export interface CreateShareLinkInput {
     scopeType: ShareScopeType;
     spaceId: string;
     scopeNodeId?: NodeId | string | null;
+    visibility?: ExternalGraphLinkVisibility;
 }
 
 const normalizeString = (value: unknown): string => (
@@ -44,6 +47,12 @@ const normalizeScopeType = (value: unknown): ShareScopeType | null => (
     value === 'space' || value === 'cluster' || value === 'node'
         ? value
         : null
+);
+
+const normalizeVisibility = (value: unknown): ExternalGraphLinkVisibility => (
+    value === 'private' || value === 'public' || value === 'shared'
+        ? value
+        : 'shared'
 );
 
 const parseShareLinkSnapshot = (value: unknown): ShareLinkSnapshot | null => {
@@ -65,6 +74,7 @@ const parseShareLinkSnapshot = (value: unknown): ShareLinkSnapshot | null => {
         ? raw.updatedAt
         : createdAt;
     const scopeNodeId = normalizeString(raw.scopeNodeId) || null;
+    const visibility = normalizeVisibility(raw.visibility);
 
     return {
         id,
@@ -76,7 +86,8 @@ const parseShareLinkSnapshot = (value: unknown): ShareLinkSnapshot | null => {
         nodes,
         edges,
         createdAt,
-        updatedAt
+        updatedAt,
+        visibility
     };
 };
 
@@ -316,7 +327,8 @@ export const shareService = {
             nodes: scoped.nodes,
             edges: scoped.edges,
             createdAt: now,
-            updatedAt: now
+            updatedAt: now,
+            visibility: normalizeVisibility(input.visibility)
         };
 
         const nextLinks = sortShareLinks([nextLink, ...currentLinks]);
