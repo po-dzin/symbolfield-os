@@ -14,6 +14,7 @@ import { publishedSpacesStorage } from './PublishedSpacesStorage';
 import { gatewayBootstrap } from './GatewayBootstrap';
 
 const normalizeSlug = (value: string): string => value.trim().toLowerCase();
+const isPublicListing = (listing: Listing): boolean => listing.visibility !== 'private';
 
 const mergeBrandsBySlug = (primary: Brand[], secondary: Brand[]): Brand[] => {
     const map = new Map<string, Brand>();
@@ -123,9 +124,9 @@ export const gatewayData = {
         const remote = await fetchRemoteBrandListings(brandSlug);
         if (remote !== null) {
             gatewayCache.setBrandListingsBySlug(brandSlug, remote);
-            return mergeListingsBySlug(remote, published);
+            return mergeListingsBySlug(remote, published).filter(isPublicListing);
         }
-        return mergeListingsBySlug(await readFallbackBrandListings(brandSlug), published);
+        return mergeListingsBySlug(await readFallbackBrandListings(brandSlug), published).filter(isPublicListing);
     },
 
     getListingBySlug: async (brandSlug: string, listingSlug: string): Promise<Listing | null> => {
@@ -135,12 +136,13 @@ export const gatewayData = {
             const published = await publishedSpacesStorage.getPublishedListingBySlug(brandSlug, listingSlug);
             if (published) {
                 const [resolved] = mergeListingsBySlug([remote], [published]);
-                return resolved ?? remote;
+                const merged = resolved ?? remote;
+                return isPublicListing(merged) ? merged : null;
             }
-            return remote;
+            return isPublicListing(remote) ? remote : null;
         }
         const fallback = await readFallbackListing(brandSlug, listingSlug);
-        if (fallback) return fallback;
+        if (fallback) return isPublicListing(fallback) ? fallback : null;
         return publishedSpacesStorage.getPublishedListingBySlug(brandSlug, listingSlug);
     },
 
@@ -167,8 +169,8 @@ export const gatewayData = {
         const remote = await fetchRemoteFeaturedListings();
         if (remote !== null) {
             gatewayCache.setFeaturedListings(remote);
-            return mergeListingsBySlug(remote, publishedVisible);
+            return mergeListingsBySlug(remote, publishedVisible).filter(isPublicListing);
         }
-        return mergeListingsBySlug(await readFallbackFeaturedListings(), publishedVisible);
+        return mergeListingsBySlug(await readFallbackFeaturedListings(), publishedVisible).filter(isPublicListing);
     }
 };
