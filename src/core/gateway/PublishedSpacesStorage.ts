@@ -1,6 +1,7 @@
 import type { SpaceData } from '../state/SpaceManager';
 import type { Brand, ExternalGraphLinkVisibility, Listing, ListingType } from '../types/gateway';
 import { isUiStateRemoteEnabled, readRemoteUiStateKey, writeRemoteUiStateKey } from '../data/uiStateRemote';
+import { upsertRemotePublishedListing } from '../data/gatewayRemote';
 
 const STORAGE_KEY = 'sf_published_spaces.v0.5';
 const REMOTE_KEY = 'published-spaces';
@@ -197,6 +198,20 @@ const toBrand = (brandSlug: string): Brand => {
     };
 };
 
+const syncRecordToRemoteGateway = (record: PublishedSpaceRecord) => {
+    void upsertRemotePublishedListing({
+        spaceId: record.spaceId,
+        brandSlug: record.brandSlug,
+        portalSlug: record.portalSlug,
+        title: record.title,
+        description: record.description,
+        visibility: record.visibility,
+        type: record.type,
+        tags: record.tags,
+        spaceSnapshot: record.spaceSnapshot
+    });
+};
+
 export const publishedSpacesStorage = {
     hydrate: async () => {
         await hydrateFromRemote();
@@ -249,6 +264,7 @@ export const publishedSpacesStorage = {
             ...current.filter(record => record.id !== nextRecord.id)
         ]);
         saveLocalRecords(next);
+        syncRecordToRemoteGateway(nextRecord);
         return nextRecord;
     },
     updateVisibilityBySpaceId: (
@@ -281,6 +297,9 @@ export const publishedSpacesStorage = {
 
         if (updatedCount > 0) {
             saveLocalRecords(next);
+            next
+                .filter(record => record.spaceId === normalizedSpaceId)
+                .forEach(syncRecordToRemoteGateway);
         }
 
         return {

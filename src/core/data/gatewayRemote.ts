@@ -279,12 +279,43 @@ const request = async <T>(path: string): Promise<T | null> => {
     }
 };
 
+const requestWrite = async (
+    method: 'POST' | 'PUT',
+    path: string,
+    payload: unknown
+): Promise<boolean> => {
+    if (!config.enabled || typeof window === 'undefined') return false;
+    try {
+        const response = await fetch(`${config.baseUrl}${path}`, {
+            method,
+            headers: buildHeaders(),
+            credentials: 'include',
+            cache: 'no-store',
+            body: JSON.stringify(payload)
+        });
+        return response.ok;
+    } catch {
+        return false;
+    }
+};
+
 const requestFromPaths = async <T>(paths: string[]): Promise<T | null> => {
     for (const path of paths) {
         const payload = await request<T>(path);
         if (payload !== null) return payload;
     }
     return null;
+};
+
+const requestWriteFromPaths = async (
+    paths: Array<{ method: 'POST' | 'PUT'; path: string }>,
+    payload: unknown
+): Promise<boolean> => {
+    for (const entry of paths) {
+        const ok = await requestWrite(entry.method, entry.path, payload);
+        if (ok) return true;
+    }
+    return false;
 };
 
 export const isGatewayRemoteEnabled = (): boolean => config.enabled;
@@ -348,9 +379,61 @@ export const fetchRemoteFeaturedListings = async (): Promise<Listing[] | null> =
     return normalizeListingCollection(payload);
 };
 
+export interface RemotePublishedListingInput {
+    spaceId: string;
+    brandSlug: string;
+    portalSlug: string;
+    title: string;
+    description: string;
+    visibility: 'private' | 'shared' | 'public';
+    type: Listing['type'];
+    tags: string[];
+    spaceSnapshot: Listing['spaceSnapshot'];
+}
+
+const buildRemotePublishedListingPayload = (input: RemotePublishedListingInput): Record<string, unknown> => ({
+    listing: {
+        spaceId: input.spaceId,
+        space_id: input.spaceId,
+        brandSlug: input.brandSlug,
+        brand_slug: input.brandSlug,
+        slug: input.portalSlug,
+        portalSlug: input.portalSlug,
+        portal_slug: input.portalSlug,
+        title: input.title,
+        description: input.description,
+        visibility: input.visibility,
+        access: input.visibility,
+        type: input.type,
+        tags: [...input.tags],
+        spaceSnapshot: input.spaceSnapshot,
+        space_snapshot: input.spaceSnapshot
+    }
+});
+
+export const upsertRemotePublishedListing = async (input: RemotePublishedListingInput): Promise<boolean> => {
+    const brandSlug = input.brandSlug.trim();
+    const portalSlug = input.portalSlug.trim();
+    if (!brandSlug || !portalSlug) return false;
+    const payload = buildRemotePublishedListingPayload(input);
+    return requestWriteFromPaths([
+        { method: 'POST', path: '/gateway/publish/listing' },
+        { method: 'POST', path: '/publish/listing' },
+        {
+            method: 'PUT',
+            path: `/gateway/brands/${encodeURIComponent(brandSlug)}/listings/${encodeURIComponent(portalSlug)}`
+        },
+        {
+            method: 'PUT',
+            path: `/brands/${encodeURIComponent(brandSlug)}/listings/${encodeURIComponent(portalSlug)}`
+        }
+    ], payload);
+};
+
 export const __gatewayRemote = {
     normalizeBrand,
     normalizeListing,
     normalizeBrandCollection,
-    normalizeListingCollection
+    normalizeListingCollection,
+    buildRemotePublishedListingPayload
 };
