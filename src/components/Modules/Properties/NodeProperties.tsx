@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../../../store/useAppStore';
 import { useGraphStore } from '../../../store/useGraphStore';
+import { buildShareUrl, shareService } from '../../../core/share/ShareService';
+import { stationStorage } from '../../../core/storage/StationStorage';
 
 const NodeProperties = () => {
     const activeScope = useAppStore(state => state.activeScope);
+    const currentSpaceId = useAppStore(state => state.currentSpaceId);
     const nodes = useGraphStore(state => state.nodes);
+    const [copied, setCopied] = useState(false);
 
     // Find the active node
     const node = nodes.find(n => n.id === activeScope);
@@ -18,6 +22,32 @@ const NodeProperties = () => {
     }
 
     const { label, type } = node.data || {};
+    const displayLabel = typeof label === 'string' && label.trim() ? label.trim() : 'Node';
+
+    const handleCreateShare = async () => {
+        if (!currentSpaceId) return;
+        const scopeType = node.type === 'cluster' ? 'cluster' : 'node';
+        const link = shareService.createShareLink({
+            title: displayLabel,
+            scopeType,
+            spaceId: currentSpaceId,
+            scopeNodeId: node.id
+        });
+        if (!link) return;
+        stationStorage.upsertExternalGraphLink(
+            { type: 'share', token: link.token },
+            { label: `${displayLabel} (${scopeType})`, visibility: 'shared' }
+        );
+        const url = buildShareUrl(link.token);
+        if (!url) return;
+        try {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1400);
+        } catch {
+            window.prompt('Copy share link', url);
+        }
+    };
 
     return (
         <div className="flex flex-col gap-6">
@@ -69,6 +99,13 @@ const NodeProperties = () => {
 
             {/* Actions */}
             <div className="flex flex-col gap-2 pt-4 border-t border-[var(--semantic-color-border-default)]">
+                <button
+                    type="button"
+                    onClick={() => { void handleCreateShare(); }}
+                    className="ui-selectable ui-shape-soft w-full py-2 px-4 text-sm font-medium text-[var(--semantic-color-text-secondary)] flex items-center justify-center gap-2"
+                >
+                    <span>{copied ? 'Share Link Copied' : 'Create Share Link'}</span>
+                </button>
                 <button className="ui-selectable ui-shape-soft w-full py-2 px-4 text-sm font-medium text-[var(--semantic-color-text-secondary)] flex items-center justify-center gap-2">
                     <span>Convert Type...</span>
                 </button>

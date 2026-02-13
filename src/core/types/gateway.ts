@@ -53,6 +53,7 @@ export type ExternalGraphRoute =
     | { type: 'atlas' }
     | { type: 'brand'; slug: string }
     | { type: 'portal-builder'; slug: string }
+    | { type: 'share'; token: string }
     | { type: 'portal'; brandSlug: string; portalSlug: string };
 
 export type ExternalGraphLinkVisibility = 'private' | 'shared' | 'public';

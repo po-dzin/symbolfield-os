@@ -12,6 +12,7 @@ type GatewayRoute =
     | { type: 'atlas' }
     | { type: 'brand'; slug: string }
     | { type: 'portal-builder'; slug: string }
+    | { type: 'share'; token: string }
     | { type: 'portal'; brandSlug: string; portalSlug: string }
     | null;
 
@@ -175,6 +176,17 @@ const resolveExternalSegments = (input: PathProjectionInput): PathSegment[] => {
         segments.push({
             id: 'portal',
             label: `${brandLabel} / Builder`,
+            enabled: true,
+            group: 'external'
+        });
+        return segments;
+    }
+
+    if (input.gatewayRoute?.type === 'share') {
+        const shortToken = input.gatewayRoute.token.slice(0, 8).toUpperCase();
+        segments.push({
+            id: 'portal',
+            label: shortToken ? `Shared / ${shortToken}` : 'Shared',
             enabled: true,
             group: 'external'
         });

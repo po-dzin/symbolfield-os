@@ -192,7 +192,9 @@ const OmniOverlay: React.FC = () => {
                             ? `Brand: ${gatewayRoute.slug}`
                             : gatewayRoute.type === 'portal-builder'
                                 ? `Builder: ${gatewayRoute.slug}`
-                            : `Portal: ${gatewayRoute.brandSlug}/${gatewayRoute.portalSlug}`;
+                                : gatewayRoute.type === 'share'
+                                    ? `Share: ${gatewayRoute.token.slice(0, 8).toUpperCase()}`
+                                    : `Portal: ${gatewayRoute.brandSlug}/${gatewayRoute.portalSlug}`;
                 stationStorage.upsertExternalGraphLink(gatewayRoute, { label, visibility: 'private' });
             }
         }] : []),
@@ -207,7 +209,9 @@ const OmniOverlay: React.FC = () => {
                         ? `brand/${link.target.slug}`
                         : link.target.type === 'portal-builder'
                             ? `builder/${link.target.slug}`
-                        : `${link.target.brandSlug}/${link.target.portalSlug}`,
+                            : link.target.type === 'share'
+                                ? `share/${link.target.token.slice(0, 12)}`
+                                : `${link.target.brandSlug}/${link.target.portalSlug}`,
             keywords: ['external', 'graph', 'link', 'portal', 'brand'],
             scope: 'external' as const,
             action: () => openExternalLink(link)

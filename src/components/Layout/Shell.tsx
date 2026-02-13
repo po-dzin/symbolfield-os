@@ -23,6 +23,7 @@ import PortalPage from '../Gateway/PortalPage';
 import SymbolversePage from '../Gateway/SymbolversePage';
 import AtlasPage from '../Gateway/AtlasPage';
 import PortalBuilderPage from '../Gateway/PortalBuilderPage';
+import SharePage from '../Gateway/SharePage';
 import { emitZoomHotkeyFromKeyboard } from '../../core/hotkeys/zoomHotkeys';
 import { applyHarmonyProfileToRoot, buildHarmonyProfile } from '../../core/harmony/HarmonyEngine';
 import { resolveUiTheme } from '../../core/ui/themeResolution';
@@ -132,6 +133,8 @@ const Shell = () => {
             <GatewayLayout>
                 {gatewayRoute?.type === 'portal' ? (
                     <PortalPage brandSlug={gatewayRoute.brandSlug} portalSlug={gatewayRoute.portalSlug} />
+                ) : gatewayRoute?.type === 'share' ? (
+                    <SharePage token={gatewayRoute.token} />
                 ) : gatewayRoute?.type === 'portal-builder' ? (
                     <PortalBuilderPage brandSlug={gatewayRoute.slug} />
                 ) : gatewayRoute?.type === 'brand' ? (

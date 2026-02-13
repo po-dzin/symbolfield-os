@@ -53,6 +53,11 @@ const normalizeRoute = (input: unknown): ExternalGraphRoute | null => {
         if (!slug) return null;
         return { type: 'portal-builder', slug };
     }
+    if (raw.type === 'share') {
+        const token = typeof raw.token === 'string' ? raw.token.trim() : '';
+        if (!token) return null;
+        return { type: 'share', token };
+    }
     if (raw.type === 'portal') {
         const brandSlug = typeof raw.brandSlug === 'string' ? raw.brandSlug.trim() : '';
         const portalSlug = typeof raw.portalSlug === 'string' ? raw.portalSlug.trim() : '';
@@ -78,6 +83,9 @@ const buildDefaultLinkLabel = (target: ExternalGraphRoute): string => {
     }
     if (target.type === 'portal-builder') {
         return `Builder: ${target.slug}`;
+    }
+    if (target.type === 'share') {
+        return `Shared: ${target.token.slice(0, 8).toUpperCase()}`;
     }
     return `Portal: ${target.brandSlug}/${target.portalSlug}`;
 };
@@ -129,7 +137,9 @@ const routeKey = (target: ExternalGraphRoute): string => (
                 ? `brand:${target.slug.toLowerCase()}`
                 : target.type === 'portal-builder'
                     ? `builder:${target.slug.toLowerCase()}`
-                    : `portal:${target.brandSlug.toLowerCase()}/${target.portalSlug.toLowerCase()}`
+                    : target.type === 'share'
+                        ? `share:${target.token.toLowerCase()}`
+                        : `portal:${target.brandSlug.toLowerCase()}/${target.portalSlug.toLowerCase()}`
 );
 
 const loadLocalStationLayout = (): StationLayout => {

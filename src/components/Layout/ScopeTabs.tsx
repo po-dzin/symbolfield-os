@@ -72,6 +72,9 @@ const ScopeTabs: React.FC = () => {
             const brand = toDisplayLabel(gatewayRoute.slug) || DEFAULT_PORTAL_LABEL;
             return `${brand} / Builder`;
         }
+        if (gatewayRoute?.type === 'share') {
+            return `Shared / ${gatewayRoute.token.slice(0, 8).toUpperCase()}`;
+        }
         return DEFAULT_PORTAL_LABEL;
     }, [gatewayRoute]);
 
@@ -136,6 +139,14 @@ const ScopeTabs: React.FC = () => {
             setGatewayRoute({
                 type: 'portal-builder',
                 slug: gatewayRoute.slug
+            });
+            setViewContext('gateway');
+            return;
+        }
+        if (gatewayRoute?.type === 'share') {
+            setGatewayRoute({
+                type: 'share',
+                token: gatewayRoute.token
             });
             setViewContext('gateway');
             return;

@@ -13,10 +13,13 @@ import { eventBus } from './core/events/EventBus';
 import { initUndoManager } from './core/undo/UndoManager';
 import { initAudioBus } from './core/audio/AudioBus';
 import { initEventLog, eventLog } from './core/events/EventLog';
+import { readShareTokenFromLocation } from './core/share/ShareService';
 
 function App() {
     const addNode = useGraphStore(state => state.addNode);
     const addEdge = useGraphStore(state => state.addEdge);
+    const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
+    const setViewContext = useAppStore(state => state.setViewContext);
 
     // Seed some initial data for testing
     useEffect(() => {
@@ -46,6 +49,14 @@ function App() {
             if (stopEventLog) stopEventLog();
         };
     }, [addNode, addEdge]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const shareToken = readShareTokenFromLocation(window.location.href);
+        if (!shareToken) return;
+        setGatewayRoute({ type: 'share', token: shareToken });
+        setViewContext('gateway');
+    }, [setGatewayRoute, setViewContext]);
 
     return (
         <>

@@ -9,10 +9,12 @@ const buildSecondaryLabel = (link: ExternalGraphLink): string => (
         ? 'platform/symbolverse'
         : link.target.type === 'atlas'
             ? 'platform/atlas'
-            : link.target.type === 'brand'
-                ? `brand/${link.target.slug}`
-                : link.target.type === 'portal-builder'
-                    ? `builder/${link.target.slug}`
+        : link.target.type === 'brand'
+            ? `brand/${link.target.slug}`
+            : link.target.type === 'portal-builder'
+                ? `builder/${link.target.slug}`
+                : link.target.type === 'share'
+                    ? `share/${link.target.token.slice(0, 12)}`
                 : `${link.target.brandSlug}/${link.target.portalSlug}`
 );
 

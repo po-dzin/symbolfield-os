@@ -131,6 +131,7 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
         if (gatewayRoute.type === 'atlas') return 'Atlas';
         if (gatewayRoute.type === 'brand') return `Brand / ${gatewayRoute.slug}`;
         if (gatewayRoute.type === 'portal-builder') return `Builder / ${gatewayRoute.slug}`;
+        if (gatewayRoute.type === 'share') return `Share / ${gatewayRoute.token.slice(0, 8).toUpperCase()}`;
         return `Portal / ${gatewayRoute.brandSlug} / ${gatewayRoute.portalSlug}`;
     }, [gatewayRoute]);
 
@@ -536,7 +537,7 @@ const UniversalSettingsOverlay = ({ onClose }: UniversalSettingsOverlayProps) =>
                                                 setGatewayRoute({ type: 'brand', slug: 'symbolfield' });
                                                 setViewContext('gateway');
                                             }}
-                                            data-state={gatewayRoute?.type === 'brand' || gatewayRoute?.type === 'portal' || gatewayRoute?.type === 'portal-builder' ? 'active' : 'inactive'}
+                                            data-state={gatewayRoute?.type === 'brand' || gatewayRoute?.type === 'portal' || gatewayRoute?.type === 'portal-builder' || gatewayRoute?.type === 'share' ? 'active' : 'inactive'}
                                             className="ui-selectable ui-shape-pill ui-capsule-compact-item px-3 text-[11px] uppercase tracking-[0.14em]"
                                         >
                                             Brand Portal
