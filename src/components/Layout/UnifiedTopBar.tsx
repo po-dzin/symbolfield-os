@@ -1,6 +1,7 @@
 import React from 'react';
 import BrandChip from './BrandChip';
 import ScopeTabs from "./ScopeTabs";
+import TopbarActionMenu from './TopbarActionMenu';
 // import BreadcrumbCapsule from './BreadcrumbCapsule';
 import NowChip from '../HUD/NowChip';
 import RightDrawerCapsule from './RightDrawerCapsule';
@@ -32,6 +33,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                 {/* Left Cluster: Identity + Where */}
                 <BrandChip />
                 <ScopeTabs />
+                <TopbarActionMenu />
 
                 {titleComponent && (
                     <div className="ml-2">

@@ -10,13 +10,18 @@ type NodeBuilderProps = {
     onActivity?: () => void;
 };
 
-export const NodeBuilder: React.FC<NodeBuilderProps> = ({
+export interface NodeBuilderHandle {
+    appendMarkdown: (markdown: string) => Promise<void>;
+    focus: () => void;
+}
+
+export const NodeBuilder = React.forwardRef<NodeBuilderHandle, NodeBuilderProps>(({
     nodeLabel,
     initialSnapshot,
     legacyContent,
     onSnapshotChange,
     onActivity
-}) => {
+}, ref) => {
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const engineRef = React.useRef<BlockSuiteEngine | null>(null);
     const initialSnapshotRef = React.useRef(initialSnapshot);
@@ -82,6 +87,18 @@ export const NodeBuilder: React.FC<NodeBuilderProps> = ({
         }
     };
 
+    React.useImperativeHandle(ref, () => ({
+        appendMarkdown: async (markdown: string) => {
+            const engine = engineRef.current;
+            if (!engine) return;
+            await engine.appendMarkdown(markdown);
+            engine.focus();
+        },
+        focus: () => {
+            engineRef.current?.focus();
+        }
+    }), []);
+
     const buttonClass = 'h-8 px-3 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)] text-[11px] uppercase tracking-[0.12em] text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] hover:border-[var(--semantic-color-border-subtle)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
 
     return (
@@ -103,4 +120,6 @@ export const NodeBuilder: React.FC<NodeBuilderProps> = ({
             <div ref={containerRef} className="h-[65vh] overflow-hidden rounded-xl" />
         </div>
     );
-};
+});
+
+NodeBuilder.displayName = 'NodeBuilder';

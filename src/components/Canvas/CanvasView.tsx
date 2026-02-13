@@ -1755,7 +1755,7 @@ const CanvasView = () => {
                             while (cell * gridScale < minPx) gridScale *= 2;
                             while (cell * gridScale > maxPx) gridScale /= 2;
                             const dotPx = Math.max(1.1, GRID_METRICS.dotRadius * gridScale);
-                            return `radial-gradient(circle at 0% 0%, rgba(255,255,255,0.55) ${dotPx}px, transparent ${dotPx}px)`;
+                            return `radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--semantic-color-text-primary), transparent 45%) ${dotPx}px, transparent ${dotPx}px)`;
                         })(),
                         backgroundSize: (() => {
                             let gridScale = zoom;
@@ -1858,8 +1858,8 @@ const CanvasView = () => {
                                     <React.Fragment key={area.id}>
                                         {area.rings?.map(ring => {
                                             const basePct = Math.max(0, Math.min(100, (circle.r / ring.r) * 100));
-                                            const color = area.color ?? 'rgba(255,255,255,0.08)';
-                                            const colorStrong = color.replace('0.08', '0.18');
+                                            const color = area.color ?? 'var(--semantic-color-graph-node-fill)';
+                                            const colorStrong = `color-mix(in srgb, ${color}, var(--semantic-color-graph-node-glyph) 22%)`;
                                             const innerPct = Math.max(0, basePct - 16);
                                             const outerPct = Math.min(100, basePct + 36);
                                             return (
@@ -1873,7 +1873,7 @@ const CanvasView = () => {
                                                         height: ring.r * 2,
                                                         backgroundColor: 'transparent',
                                                         backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0) 0%, ${colorStrong} ${innerPct}%, ${color} ${basePct}%, rgba(0,0,0,0) ${outerPct}%, rgba(0,0,0,0) 100%)`,
-                                                        borderColor: area.borderColor ?? 'rgba(255,255,255,0.25)',
+                                                        borderColor: area.borderColor ?? 'var(--semantic-color-graph-node-stroke)',
                                                         borderStyle: ring.border?.style ?? area.border?.style ?? 'solid',
                                                         borderWidth: ring.border?.width ?? area.border?.width ?? 1.5,
                                                         filter: 'blur(0.6px)',
@@ -1961,17 +1961,17 @@ const CanvasView = () => {
                                                             top: baseBounds.y,
                                                             width: baseBounds.w,
                                                             height: baseBounds.h,
-                                                            backgroundColor: area.color ?? 'rgba(255,255,255,0.06)',
-                                                            backgroundImage: `radial-gradient(circle at center, ${area.color ?? 'rgba(255,255,255,0.08)'
+                                                            backgroundColor: area.color ?? 'var(--semantic-color-graph-node-fill)',
+                                                            backgroundImage: `radial-gradient(circle at center, ${area.color ?? 'var(--semantic-color-graph-node-fill)'
                                                                 } 0%, rgba(0,0,0,0) 70%)`,
                                                             opacity: (area.opacity ?? 0.5) * ghostOpacity,
-                                                            borderColor: area.borderColor ?? 'rgba(255,255,255,0.25)',
+                                                            borderColor: area.borderColor ?? 'var(--semantic-color-graph-node-stroke)',
                                                             borderStyle: area.border?.style ?? 'solid',
                                                             borderWidth: (area.border?.width ?? 1.5) * (isSelected ? 1.25 : isHovered ? 1.12 : 1),
                                                             boxShadow: isSelected
-                                                                ? '0 0 10px rgba(255,255,255,0.12)'
+                                                                ? '0 0 10px color-mix(in srgb, var(--semantic-color-graph-node-glyph), transparent 78%)'
                                                                 : isHovered
-                                                                    ? '0 0 8px rgba(255,255,255,0.1)'
+                                                                    ? '0 0 8px color-mix(in srgb, var(--semantic-color-graph-node-glyph), transparent 82%)'
                                                                     : undefined,
                                                             transition: anchorTransition
                                                         }}
@@ -1994,17 +1994,17 @@ const CanvasView = () => {
                                         top: rect.y,
                                         width: rect.w,
                                         height: rect.h,
-                                        backgroundColor: area.color ?? 'rgba(255,255,255,0.06)',
-                                        backgroundImage: `radial-gradient(ellipse at center, ${area.color ?? 'rgba(255,255,255,0.08)'
+                                        backgroundColor: area.color ?? 'var(--semantic-color-graph-node-fill)',
+                                        backgroundImage: `radial-gradient(ellipse at center, ${area.color ?? 'var(--semantic-color-graph-node-fill)'
                                             } 0%, rgba(0,0,0,0) 70%)`,
                                         opacity: (area.opacity ?? 0.5) * ghostOpacity,
-                                        borderColor: area.borderColor ?? 'rgba(255,255,255,0.25)',
+                                        borderColor: area.borderColor ?? 'var(--semantic-color-graph-node-stroke)',
                                         borderStyle: area.border?.style ?? 'solid',
                                         borderWidth: (area.border?.width ?? 1.5) * (isSelected ? 1.25 : isHovered ? 1.12 : 1),
                                         boxShadow: isSelected
-                                            ? '0 0 10px rgba(255,255,255,0.12)'
+                                            ? '0 0 10px color-mix(in srgb, var(--semantic-color-graph-node-glyph), transparent 78%)'
                                             : isHovered
-                                                ? '0 0 8px rgba(255,255,255,0.1)'
+                                                ? '0 0 8px color-mix(in srgb, var(--semantic-color-graph-node-glyph), transparent 82%)'
                                                 : undefined
                                     }}
                                 />
@@ -2273,7 +2273,7 @@ const CanvasView = () => {
                                                     if (e.key === 'Enter') commitRegionName();
                                                     if (e.key === 'Escape') setEditingRegionId(null);
                                                 }}
-                                                className="px-2 py-0.5 rounded-full bg-black/60 border border-white/20 text-[10px] uppercase tracking-[0.2em] text-white/70 outline-none w-32"
+                                                className="px-2 py-0.5 rounded-full bg-[var(--semantic-color-bg-surface)]/88 border border-[var(--semantic-color-border-default)] text-[10px] uppercase tracking-[0.2em] text-[var(--semantic-color-text-secondary)] outline-none w-32"
                                             />
                                         </div>
                                     )}

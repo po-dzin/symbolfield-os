@@ -6,10 +6,7 @@ import {
     fetchRemoteFeaturedListings,
     fetchRemoteListingBySlug
 } from '../data/gatewayRemote';
-import {
-    gatewayCache,
-    resolveCachedListingBySlug
-} from './GatewayCache';
+import { gatewayCache } from './GatewayCache';
 import { publishedSpacesStorage } from './PublishedSpacesStorage';
 import { gatewayBootstrap } from './GatewayBootstrap';
 
@@ -73,26 +70,6 @@ const mergeListingsBySlug = (primary: Listing[], secondary: Listing[]): Listing[
     );
 };
 
-const readFallbackBrands = async (): Promise<Brand[]> => {
-    return gatewayCache.getAllBrands();
-};
-
-const readFallbackBrand = async (slug: string): Promise<Brand | null> => {
-    return gatewayCache.getBrandBySlug(slug);
-};
-
-const readFallbackBrandListings = async (brandSlug: string): Promise<Listing[]> => {
-    return gatewayCache.getBrandListingsBySlug(brandSlug);
-};
-
-const readFallbackListing = async (brandSlug: string, listingSlug: string): Promise<Listing | null> => {
-    return resolveCachedListingBySlug(brandSlug, listingSlug, gatewayCache.getBrandListingsBySlug);
-};
-
-const readFallbackFeaturedListings = async (): Promise<Listing[]> => {
-    return gatewayCache.getFeaturedListings();
-};
-
 export const gatewayData = {
     getAllBrands: async (): Promise<Brand[]> => {
         const platformBrands = gatewayBootstrap.getPlatformBrands();
@@ -102,19 +79,18 @@ export const gatewayData = {
             gatewayCache.setAllBrands(remote);
             return mergeBrandsBySlug(mergeBrandsBySlug(remote, publishedBrands), platformBrands);
         }
-        return mergeBrandsBySlug(mergeBrandsBySlug(await readFallbackBrands(), publishedBrands), platformBrands);
+        return mergeBrandsBySlug(publishedBrands, platformBrands);
     },
 
     getBrandBySlug: async (slug: string): Promise<Brand | null> => {
+        const normalizedSlug = normalizeSlug(slug);
         const remote = await fetchRemoteBrandBySlug(slug);
         if (remote) {
             gatewayCache.upsertBrand(remote);
             return remote;
         }
-        const fallback = await readFallbackBrand(slug);
-        if (fallback) return fallback;
         const publishedBrands = await publishedSpacesStorage.getPublishedBrands();
-        const published = publishedBrands.find((brand) => normalizeSlug(brand.slug) === normalizeSlug(slug));
+        const published = publishedBrands.find((brand) => normalizeSlug(brand.slug) === normalizedSlug);
         if (published) return published;
         return gatewayBootstrap.getPlatformBrandBySlug(slug);
     },
@@ -126,7 +102,7 @@ export const gatewayData = {
             gatewayCache.setBrandListingsBySlug(brandSlug, remote);
             return mergeListingsBySlug(remote, published).filter(isPublicListing);
         }
-        return mergeListingsBySlug(await readFallbackBrandListings(brandSlug), published).filter(isPublicListing);
+        return mergeListingsBySlug([], published).filter(isPublicListing);
     },
 
     getListingBySlug: async (brandSlug: string, listingSlug: string): Promise<Listing | null> => {
@@ -141,9 +117,8 @@ export const gatewayData = {
             }
             return isPublicListing(remote) ? remote : null;
         }
-        const fallback = await readFallbackListing(brandSlug, listingSlug);
-        if (fallback) return isPublicListing(fallback) ? fallback : null;
-        return publishedSpacesStorage.getPublishedListingBySlug(brandSlug, listingSlug);
+        const published = await publishedSpacesStorage.getPublishedListingBySlug(brandSlug, listingSlug);
+        return published && isPublicListing(published) ? published : null;
     },
 
     getFeaturedListings: async (): Promise<Listing[]> => {
@@ -171,6 +146,6 @@ export const gatewayData = {
             gatewayCache.setFeaturedListings(remote);
             return mergeListingsBySlug(remote, publishedVisible).filter(isPublicListing);
         }
-        return mergeListingsBySlug(await readFallbackFeaturedListings(), publishedVisible).filter(isPublicListing);
+        return mergeListingsBySlug([], publishedVisible).filter(isPublicListing);
     }
 };

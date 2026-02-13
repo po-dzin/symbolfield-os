@@ -8,11 +8,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { eventBus, EVENTS } from '../../core/events/EventBus';
-import { stationStorage } from '../../core/storage/StationStorage';
 import { EntitlementLimitError, entitlementsService } from '../../core/access/EntitlementsService';
-import type { ExternalGraphLink } from '../../core/types/gateway';
 
-type OmniScope = 'all' | 'atlas' | 'portal' | 'station' | 'space' | 'cluster' | 'node' | 'external';
+type OmniScope = 'all' | 'station' | 'space' | 'node' | 'links';
 
 interface OmniCommand {
     id: string;
@@ -31,22 +29,15 @@ const OmniOverlay: React.FC = () => {
     const viewContext = useAppStore(state => state.viewContext);
     const setTool = useAppStore(state => state.setTool);
     const setViewContext = useAppStore(state => state.setViewContext);
-    const gatewayRoute = useAppStore(state => state.gatewayRoute);
-    const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
     const activeTool = useAppStore(state => state.activeTool);
     const toggleSettings = useAppStore(state => state.toggleSettings);
     const omniQuery = useAppStore(state => state.omniQuery);
     const setOmniQuery = useAppStore(state => state.setOmniQuery);
 
     const resolveScopeFromView = (ctx: string): OmniScope => {
-        if (ctx === 'gateway') {
-            if (!gatewayRoute || gatewayRoute.type === 'symbolverse' || gatewayRoute.type === 'atlas') {
-                return 'atlas';
-            }
-            return 'portal';
-        }
+        if (ctx === 'gateway') return 'station';
         if (ctx === 'home') return 'station';
-        if (ctx === 'cluster') return 'cluster';
+        if (ctx === 'cluster') return 'space';
         if (ctx === 'node') return 'node';
         if (ctx === 'space') return 'space';
         return 'station';
@@ -56,23 +47,19 @@ const OmniOverlay: React.FC = () => {
     const [scope, setScope] = useState<OmniScope>(
         resolveScopeFromView(viewContext)
     );
-    const [externalLinks, setExternalLinks] = useState<ExternalGraphLink[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const scopeItems = useMemo(() => ([
+    const scopeItems = useMemo<Array<{ id: OmniScope; label: string }>>(() => ([
         { id: 'station', label: 'Station' },
         { id: 'space', label: 'Space' },
-        { id: 'cluster', label: 'Cluster' },
         { id: 'node', label: 'Node' },
-        { id: 'links', label: 'Links' },
-        { id: 'atlas', label: 'Atlas' },
-        { id: 'portal', label: 'Portal' }
+        { id: 'links', label: 'Links' }
     ]), []);
 
     const cycleScope = (direction: 1 | -1 = 1) => {
         setScope(prev => {
-            const ids = scopeItems.map(item => (item.id === 'links' ? 'external' : item.id as OmniScope));
+            const ids = scopeItems.map(item => item.id);
             const index = Math.max(0, ids.indexOf(prev));
             const next = (index + direction + ids.length) % ids.length;
             return ids[next] ?? 'station';
@@ -80,7 +67,6 @@ const OmniOverlay: React.FC = () => {
     };
 
     const currentScopeLabel = useMemo(() => {
-        if (scope === 'external') return 'Links';
         const match = scopeItems.find(item => item.id === scope);
         return match?.label ?? 'Station';
     }, [scope, scopeItems]);
@@ -93,20 +79,7 @@ const OmniOverlay: React.FC = () => {
         } else {
             setOmniQuery(''); // Reset on close
         }
-    }, [paletteOpen, setOmniQuery, viewContext, gatewayRoute]);
-
-    useEffect(() => {
-        const refresh = () => setExternalLinks(stationStorage.loadExternalGraphLinks());
-        refresh();
-        const unsub = eventBus.on(EVENTS.EXTERNAL_GRAPH_LINKS_CHANGED, refresh);
-        return unsub;
-    }, []);
-
-    const openExternalLink = (link: ExternalGraphLink) => {
-        stationStorage.touchExternalGraphLink(link.id);
-        setGatewayRoute(link.target);
-        setViewContext('gateway');
-    };
+    }, [paletteOpen, setOmniQuery, viewContext]);
 
     // --- mock commands (migration from CommandPalette) ---
     const commands = useMemo<OmniCommand[]>(() => [
@@ -168,80 +141,8 @@ const OmniOverlay: React.FC = () => {
                 if (viewContext !== 'space' && viewContext !== 'cluster') return;
                 setTool(activeTool === 'link' ? 'pointer' : 'link');
             }
-        },
-        {
-            id: 'open-atlas',
-            label: 'Open Atlas',
-            hint: 'Jump to platform brand graph',
-            keywords: ['atlas', 'symbolverse', 'platform'],
-            scope: 'atlas',
-            action: () => {
-                setGatewayRoute({ type: 'atlas' });
-                setViewContext('gateway');
-            }
-        },
-        {
-            id: 'open-portal-builder',
-            label: 'Open Portal Builder',
-            hint: 'Private brand portal constructor',
-            keywords: ['portal', 'builder', 'brand', 'private'],
-            scope: 'portal',
-            action: () => {
-                void (async () => {
-                    try {
-                        await entitlementsService.ensureCanUsePortalBuilder();
-                        setGatewayRoute({ type: 'portal-builder', slug: 'symbolfield' });
-                        setViewContext('gateway');
-                    } catch (error) {
-                        if (error instanceof EntitlementLimitError) {
-                            window.alert(error.message);
-                            return;
-                        }
-                        window.alert('Portal builder is unavailable right now.');
-                    }
-                })();
-            }
-        },
-        ...(gatewayRoute ? [{
-            id: 'save-current-external-link',
-            label: 'Save Current Graph Link',
-            hint: 'Add current Atlas/Portal route to Station links',
-            keywords: ['save', 'link', 'portal', 'station'],
-            scope: 'external' as const,
-            action: () => {
-                const label = gatewayRoute.type === 'symbolverse'
-                    ? 'Symbolverse'
-                    : gatewayRoute.type === 'atlas'
-                        ? 'Atlas'
-                        : gatewayRoute.type === 'brand'
-                            ? `Brand: ${gatewayRoute.slug}`
-                            : gatewayRoute.type === 'portal-builder'
-                                ? `Builder: ${gatewayRoute.slug}`
-                                : gatewayRoute.type === 'share'
-                                    ? `Share: ${gatewayRoute.token.slice(0, 8).toUpperCase()}`
-                                    : `Portal: ${gatewayRoute.brandSlug}/${gatewayRoute.portalSlug}`;
-                stationStorage.upsertExternalGraphLink(gatewayRoute, { label, visibility: 'private' });
-            }
-        }] : []),
-        ...externalLinks.slice(0, 8).map((link) => ({
-            id: `open-external-link-${link.id}`,
-            label: `Open: ${link.label}`,
-            hint: link.target.type === 'symbolverse'
-                ? 'platform/symbolverse'
-                : link.target.type === 'atlas'
-                    ? 'platform/atlas'
-                    : link.target.type === 'brand'
-                        ? `brand/${link.target.slug}`
-                        : link.target.type === 'portal-builder'
-                            ? `builder/${link.target.slug}`
-                            : link.target.type === 'share'
-                                ? `share/${link.target.token.slice(0, 12)}`
-                                : `${link.target.brandSlug}/${link.target.portalSlug}`,
-            keywords: ['external', 'graph', 'link', 'portal', 'brand'],
-            scope: 'external' as const,
-            action: () => openExternalLink(link)
-        }))
-    ], [activeTool, toggleSettings, setTool, viewContext, setViewContext, gatewayRoute, externalLinks, setGatewayRoute]);
+        }
+    ], [activeTool, toggleSettings, setTool, viewContext]);
 
     // Filter Logic
     const filteredItems = useMemo(() => {
@@ -254,9 +155,6 @@ const OmniOverlay: React.FC = () => {
         const matchesScope = (commandScope: OmniCommand['scope']): boolean => {
             if (commandScope === 'any') return true;
             if (scope === 'all') return true;
-            if (scope === 'external') {
-                return commandScope === 'external' || commandScope === 'atlas' || commandScope === 'portal';
-            }
             return commandScope === scope;
         };
 
@@ -336,10 +234,10 @@ const OmniOverlay: React.FC = () => {
                             className="flex-1 bg-transparent border-none outline-none text-[var(--semantic-color-text-primary)] placeholder-[var(--semantic-color-text-muted)] text-lg"
                             placeholder={
                                 scope === 'station'
-                                        ? 'Search Station...'
-                                        : scope === 'atlas' || scope === 'portal' || scope === 'external'
-                                            ? 'Search Atlas / Portals...'
-                                            : 'Type /cmd or search...'
+                                    ? 'Search Station...'
+                                    : scope === 'links'
+                                        ? 'Search link actions...'
+                                        : 'Type /cmd or search...'
                             }
                             value={omniQuery}
                             onChange={e => {

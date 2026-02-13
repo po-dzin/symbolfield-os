@@ -113,7 +113,7 @@ const renderLink = (cx1: number, cy1: number, cx2: number, cy2: number, r1: numb
             {/* Glow */}
             <line
                 x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke="rgba(255,255,255,0.1)"
+                stroke="color-mix(in srgb, var(--semantic-color-graph-edge-strong), transparent 68%)"
                 strokeWidth={isInternal ? 2 : 4}
                 strokeLinecap="round"
                 style={{ filter: 'blur(2px)' }}
@@ -121,7 +121,7 @@ const renderLink = (cx1: number, cy1: number, cx2: number, cy2: number, r1: numb
             {/* Core */}
             <line
                 x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke="rgba(255,255,255,0.25)"
+                stroke={isInternal ? 'var(--semantic-color-graph-edge)' : 'var(--semantic-color-graph-edge-strong)'}
                 strokeWidth={isInternal ? 0.5 : 1}
                 strokeLinecap="round"
             />
@@ -133,14 +133,14 @@ const renderRawLink = (x1: number, y1: number, x2: number, y2: number, key: stri
     <g key={key} className="pointer-events-none">
         <line
             x1={x1} y1={y1} x2={x2} y2={y2}
-            stroke="rgba(255,255,255,0.1)"
+            stroke="color-mix(in srgb, var(--semantic-color-graph-edge), transparent 74%)"
             strokeWidth={2}
             strokeLinecap="round"
             style={{ filter: 'blur(1.5px)' }}
         />
         <line
             x1={x1} y1={y1} x2={x2} y2={y2}
-            stroke="rgba(255,255,255,0.24)"
+            stroke="var(--semantic-color-graph-edge)"
             strokeWidth={0.8}
             strokeLinecap="round"
         />
@@ -338,7 +338,7 @@ const buildClusters = (includePlayground: boolean): SpaceCluster[] => {
         const resolveNodeColor = (node: NodeBase) => {
             const body = typeof node.data?.color_body === 'string' ? node.data.color_body.trim() : '';
             const base = typeof node.data?.color === 'string' ? node.data.color.trim() : '';
-            return body || base || 'rgba(255,255,255,0.5)';
+            return body || base || 'var(--semantic-color-graph-node-stroke)';
         };
 
         const normalize = (targetNodes: NodeBase[]) => (
@@ -379,8 +379,8 @@ const buildClusters = (includePlayground: boolean): SpaceCluster[] => {
             .map((area: any) => {
                 const anchorType = area?.anchor?.type;
                 const anchorNode = anchorType === 'node' ? nodePointMap.get(String(area?.anchor?.nodeId ?? '')) : null;
-                const color = String(area?.color ?? 'rgba(255,255,255,0.08)');
-                const borderColor = String(area?.borderColor ?? 'rgba(255,255,255,0.25)');
+                const color = String(area?.color ?? 'var(--semantic-color-graph-node-fill)');
+                const borderColor = String(area?.borderColor ?? 'var(--semantic-color-graph-node-stroke)');
                 const opacity = Number.isFinite(area?.opacity) ? Number(area.opacity) : 0.45;
 
                 if (area?.shape === 'circle' && area?.circle && Number.isFinite(area.circle.r)) {
@@ -833,6 +833,9 @@ const GlobalGraphOverview = ({
 
         stationPanRef.current = nextPan;
         stationZoomRef.current = nextZoom;
+        const nextView = buildTargetViewBox(nextZoom, nextPan);
+        viewBoxRef.current = { ...nextView };
+        setViewBox({ ...nextView });
         setStationPan(nextPan);
         setStationZoom(nextZoom);
     }, [buildTargetViewBox]);
@@ -928,6 +931,9 @@ const GlobalGraphOverview = ({
                 y: panRef.current.basePan.y - dy * scaleY
             };
             stationPanRef.current = nextPan;
+            const nextView = buildTargetViewBox(stationZoomRef.current, nextPan);
+            viewBoxRef.current = { ...nextView };
+            setViewBox({ ...nextView });
             setStationPan(nextPan);
             return;
         }
@@ -1033,9 +1039,12 @@ const GlobalGraphOverview = ({
 
         stationPanRef.current = nextPan;
         stationZoomRef.current = nextZoom;
+        const nextView = buildTargetViewBox(nextZoom, nextPan);
+        viewBoxRef.current = { ...nextView };
+        setViewBox({ ...nextView });
         setStationPan(nextPan);
         setStationZoom(nextZoom);
-    }, [visibleClusters]);
+    }, [buildTargetViewBox, visibleClusters]);
 
     const [viewBox, setViewBox] = React.useState(DEFAULT_VIEWBOX);
 
@@ -1175,6 +1184,9 @@ const GlobalGraphOverview = ({
                 y: stationPanRef.current.y + normalized.dy * scaleY
             };
             stationPanRef.current = nextPan;
+            const nextView = buildTargetViewBox(stationZoomRef.current, nextPan);
+            viewBoxRef.current = { ...nextView };
+            setViewBox({ ...nextView });
             setStationPan(nextPan);
         };
 
@@ -1292,7 +1304,7 @@ const GlobalGraphOverview = ({
                 window.clearTimeout(gestureFallbackTimer);
             }
         };
-    }, [zoomAroundPoint]);
+    }, [buildTargetViewBox, zoomAroundPoint]);
 
     React.useEffect(() => {
         const onGlobalZoomHotkey = (event: Event) => {
@@ -1317,6 +1329,11 @@ const GlobalGraphOverview = ({
                 case 'zoom_reset':
                     stationPanRef.current = { x: 0, y: 0 };
                     stationZoomRef.current = 1;
+                    {
+                        const nextView = buildTargetViewBox(1, { x: 0, y: 0 });
+                        viewBoxRef.current = { ...nextView };
+                        setViewBox({ ...nextView });
+                    }
                     setStationPan({ x: 0, y: 0 });
                     setStationZoom(1);
                     break;
@@ -1328,7 +1345,7 @@ const GlobalGraphOverview = ({
 
         window.addEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as (event: Event) => void);
         return () => window.removeEventListener(GLOBAL_ZOOM_HOTKEY_EVENT, onGlobalZoomHotkey as (event: Event) => void);
-    }, [fitStationToContent, zoomAroundPoint]);
+    }, [buildTargetViewBox, fitStationToContent, zoomAroundPoint]);
 
     const renderOrbitalHud = (cluster: SpaceCluster) => {
         if (!selectedMetrics || selectedMetrics.id !== cluster.id) return null;
@@ -1342,7 +1359,7 @@ const GlobalGraphOverview = ({
                     cx={0}
                     cy={0}
                     fill="none"
-                    stroke="rgba(255,255,255,0.25)"
+                    stroke="color-mix(in srgb, var(--semantic-color-graph-node-stroke), transparent 42%)"
                     strokeWidth={1.4}
                 />
                 {detailLevel >= 1 && (
@@ -1351,7 +1368,7 @@ const GlobalGraphOverview = ({
                         cx={0}
                         cy={0}
                         fill="none"
-                        stroke="rgba(255,255,255,0.18)"
+                        stroke="color-mix(in srgb, var(--semantic-color-graph-node-stroke), transparent 56%)"
                         strokeWidth={1.2}
                     />
                 )}
@@ -1371,7 +1388,7 @@ const GlobalGraphOverview = ({
                                 cx={x}
                                 cy={y}
                                 r={1.3}
-                                fill="rgba(255,255,255,0.35)"
+                                fill="color-mix(in srgb, var(--semantic-color-graph-node-glyph), transparent 52%)"
                             />
                         );
                     });
@@ -1388,7 +1405,7 @@ const GlobalGraphOverview = ({
                 touchAction: 'none',
                 backgroundColor: 'var(--semantic-color-bg-app)',
                 backgroundImage: showGrid
-                    ? 'radial-gradient(circle at 0% 0%, rgba(255,255,255,0.15) 1px, transparent 1px)'
+                    ? 'radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--semantic-color-text-primary), transparent 82%) 1px, transparent 1px)'
                     : 'none',
                 backgroundSize: '32px 32px'
             }}
@@ -1408,8 +1425,8 @@ const GlobalGraphOverview = ({
             >
                 <defs>
                     <radialGradient id="gg-core" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stopColor="rgba(255,255,255,0.15)" />
-                        <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
+                        <stop offset="0%" stopColor="color-mix(in srgb, var(--semantic-color-graph-node-glyph), transparent 84%)" />
+                        <stop offset="100%" stopColor="color-mix(in srgb, var(--semantic-color-graph-node-glyph), transparent 97%)" />
                     </radialGradient>
                 </defs>
 
@@ -1440,16 +1457,16 @@ const GlobalGraphOverview = ({
                     }}
                 >
                     <title>ArcheCore (Double Click to Switch Essence)</title>
-                    <circle cx="0" cy="0" r="90" fill="url(#gg-core)" stroke="rgba(255,255,255,0.08)" />
-                    <circle cx="0" cy="0" r="45" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth={3} />
-                    <circle cx="0" cy="0" r="40" fill="none" stroke="rgba(255,255,255,0.78)" strokeWidth={3} />
-                    <circle cx="0" cy="0" r="28" fill="rgba(255,255,255,0.9)" />
+                    <circle cx="0" cy="0" r="90" fill="url(#gg-core)" stroke="color-mix(in srgb, var(--semantic-color-graph-node-stroke), transparent 78%)" />
+                    <circle cx="0" cy="0" r="45" fill="none" stroke="color-mix(in srgb, var(--semantic-color-graph-node-stroke), transparent 8%)" strokeWidth={3} />
+                    <circle cx="0" cy="0" r="40" fill="none" stroke="var(--semantic-color-graph-node-stroke)" strokeWidth={3} />
+                    <circle cx="0" cy="0" r="28" fill="color-mix(in srgb, var(--semantic-color-graph-node-glyph), white 8%)" />
                 </g>
                 {showStationLabels && (
                     <text
                         x="0"
                         y="106"
-                        fill="rgba(255,255,255,0.85)"
+                        fill="var(--semantic-color-text-secondary)"
                         fontSize="10"
                         textAnchor="middle"
                         className="font-mono uppercase tracking-[0.3em]"
@@ -1488,7 +1505,7 @@ const GlobalGraphOverview = ({
                                         cy={cluster.center.y}
                                         r={cluster.radius + 18}
                                         fill="none"
-                                        stroke="rgba(255,255,255,0.18)"
+                                        stroke="color-mix(in srgb, var(--semantic-color-graph-edge-strong), transparent 44%)"
                                         strokeWidth={1.2}
                                     >
                                         <animate attributeName="stroke-opacity" values="0.12;0.4;0.12" dur="4.8s" repeatCount="indefinite" />
@@ -1498,7 +1515,7 @@ const GlobalGraphOverview = ({
                                         cy={cluster.center.y}
                                         r={cluster.radius + 30}
                                         fill="none"
-                                        stroke="rgba(255,255,255,0.12)"
+                                        stroke="color-mix(in srgb, var(--semantic-color-graph-edge), transparent 56%)"
                                         strokeWidth={1}
                                         strokeDasharray="6 10"
                                     >
@@ -1544,9 +1561,9 @@ const GlobalGraphOverview = ({
                                 cx={cluster.center.x}
                                 cy={cluster.center.y}
                                 r={cluster.radius}
-                                fill="var(--semantic-color-text-primary)"
-                                fillOpacity={isActive ? 0.03 : 0.02}
-                                stroke={isActive ? 'var(--semantic-color-text-secondary)' : 'var(--semantic-color-border-default)'}
+                                fill="var(--semantic-color-graph-node-fill)"
+                                fillOpacity={isActive ? 0.8 : 0.56}
+                                stroke={isActive ? 'var(--semantic-color-graph-edge-strong)' : 'var(--semantic-color-graph-node-stroke)'}
                                 strokeWidth={isActive ? 1.6 : 1}
                             />
 
@@ -1599,15 +1616,15 @@ const GlobalGraphOverview = ({
                                         cx={coreAnchor.x}
                                         cy={coreAnchor.y}
                                         r={10}
-                                        fill="rgba(255,255,255,0.12)"
-                                        stroke="rgba(255,255,255,0.35)"
+                                        fill="var(--semantic-color-graph-node-fill)"
+                                        stroke="var(--semantic-color-graph-node-stroke)"
                                         strokeWidth={1}
                                     />
                                     <circle
                                         cx={coreAnchor.x}
                                         cy={coreAnchor.y}
                                         r={3}
-                                        fill="rgba(255,255,255,0.8)"
+                                        fill="var(--semantic-color-graph-node-glyph)"
                                     />
                                 </>
                             )}
@@ -1615,7 +1632,9 @@ const GlobalGraphOverview = ({
                                 <text
                                     x={cluster.center.x}
                                     y={cluster.center.y + cluster.radius + 16}
-                                    fill={isActive ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.35)'}
+                                    fill={isActive
+                                        ? 'color-mix(in srgb, var(--semantic-color-text-primary), transparent 18%)'
+                                        : 'color-mix(in srgb, var(--semantic-color-text-secondary), transparent 26%)'}
                                     fontSize="10"
                                     textAnchor="middle"
                                     className="font-mono uppercase tracking-[0.3em]"
@@ -1629,12 +1648,12 @@ const GlobalGraphOverview = ({
                                     <circle
                                         r={5}
                                         fill="none"
-                                        stroke="rgba(125,211,252,0.8)"
+                                        stroke="color-mix(in srgb, var(--semantic-color-action-primary), transparent 18%)"
                                         strokeWidth={1.5}
                                     />
                                     <circle
                                         r={2}
-                                        fill="rgba(125,211,252,0.6)"
+                                        fill="color-mix(in srgb, var(--semantic-color-action-primary), transparent 34%)"
                                     />
                                 </g>
                             ))}

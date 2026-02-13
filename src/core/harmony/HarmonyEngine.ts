@@ -248,22 +248,22 @@ export const buildHarmonyProfile = (rawInput: Partial<HarmonyMatrix>): HarmonyPr
     const soundGain = clamp(lerp(0.22, 0.52, t) * (matrix.motion === 'reduce' ? 0.75 : 1), 0.15, 0.55);
     const accentRgb = hexToRgb(accent.a1);
     const graphEdgeBase = matrix.mode === 'luma'
-        ? 'rgba(70, 59, 46, 0.22)'
+        ? 'rgba(70, 59, 46, 0.34)'
         : 'rgba(255, 255, 255, 0.34)';
     const graphEdgeStrong = matrix.mode === 'luma'
-        ? 'rgba(70, 59, 46, 0.34)'
+        ? 'rgba(70, 59, 46, 0.5)'
         : 'rgba(255, 255, 255, 0.52)';
     const graphNodeFill = matrix.mode === 'luma'
-        ? 'rgba(43, 34, 25, 0.09)'
+        ? 'rgba(58, 47, 34, 0.14)'
         : 'rgba(255, 255, 255, 0.06)';
     const graphNodeStroke = matrix.mode === 'luma'
-        ? 'rgba(61, 50, 38, 0.34)'
+        ? 'rgba(61, 50, 38, 0.52)'
         : 'rgba(255, 255, 255, 0.36)';
     const graphNodeGlow = matrix.mode === 'luma'
-        ? 'rgba(61, 50, 38, 0.16)'
+        ? 'rgba(61, 50, 38, 0.24)'
         : 'rgba(255, 255, 255, 0.12)';
     const graphGlyph = matrix.mode === 'luma'
-        ? 'rgba(43, 34, 25, 0.9)'
+        ? 'rgba(43, 34, 25, 0.94)'
         : 'rgba(255, 255, 255, 0.9)';
     const actionOnPrimary = readableTextOnAccent(accent.a1);
 

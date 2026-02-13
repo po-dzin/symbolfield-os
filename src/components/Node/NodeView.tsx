@@ -2,9 +2,12 @@ import React from 'react';
 import type { DocSnapshot } from '@blocksuite/store';
 import { useAppStore } from '../../store/useAppStore';
 import { useGraphStore } from '../../store/useGraphStore';
-import { NodeBuilder } from './NodeBuilder';
+import { NodeBuilder, type NodeBuilderHandle } from './NodeBuilder';
 import { getSfDocById, isSfContentRemoteEnabled, listSfDocs, upsertSfDoc } from '../../core/data/sfContentRemote';
 import { buildNodeDocId, buildNodeDocRecord, pickNodeDocRecord } from '../../core/data/sfContentNodeSync';
+import { importFilesToNode } from '../../core/import/ImportService';
+import { EntitlementLimitError } from '../../core/access/EntitlementsService';
+import { nodeBuilderBridge } from '../../core/node/NodeBuilderBridge';
 
 const serializeSnapshot = (snapshot: unknown): string => {
     try {
@@ -99,6 +102,10 @@ const NodeView = () => {
 
     const [titleDraft, setTitleDraft] = React.useState('Untitled Node');
     const [tagsDraft, setTagsDraft] = React.useState('');
+    const [isImporting, setIsImporting] = React.useState(false);
+    const [importStatus, setImportStatus] = React.useState('');
+    const importInputRef = React.useRef<HTMLInputElement | null>(null);
+    const builderRef = React.useRef<NodeBuilderHandle | null>(null);
 
     const lastSavedSnapshotRef = React.useRef('');
     const remoteSaveTimerRef = React.useRef<number | null>(null);
@@ -184,6 +191,15 @@ const NodeView = () => {
         setTagsDraft(storedTags);
     }, [node?.id, storedTags]);
 
+    React.useEffect(() => {
+        if (!isNodeView || !node || !builderRef.current) return;
+        const nodeId = String(node.id);
+        nodeBuilderBridge.register(nodeId, builderRef.current);
+        return () => {
+            nodeBuilderBridge.unregister(nodeId);
+        };
+    }, [isNodeView, node?.id]);
+
     const handleSnapshotChange = React.useCallback((snapshot: DocSnapshot) => {
         if (!isNodeView || !node) return;
 
@@ -245,6 +261,40 @@ const NodeView = () => {
         });
     }, [node, nodeIcon, updateNode]);
 
+    const handleNodeImport = React.useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const list = event.target.files;
+        if (!list || list.length === 0) return;
+
+        setIsImporting(true);
+        setImportStatus('');
+        try {
+            const files = Array.from(list);
+            const result = await importFilesToNode(files);
+            if (result.markdown.trim()) {
+                await builderRef.current?.appendMarkdown(result.markdown);
+                builderRef.current?.focus();
+            }
+
+            if (result.warnings.length > 0) {
+                window.alert(result.warnings.join('\n'));
+            }
+            setImportStatus(
+                result.importedCount > 0
+                    ? `Imported ${result.importedCount} file${result.importedCount === 1 ? '' : 's'}`
+                    : 'No supported files imported'
+            );
+        } catch (error) {
+            if (error instanceof EntitlementLimitError) {
+                window.alert(error.message);
+            } else {
+                window.alert('Unable to import files into this node right now.');
+            }
+        } finally {
+            setIsImporting(false);
+            event.target.value = '';
+        }
+    }, []);
+
     if (!isNodeView || !activeScope || !node) return null;
 
     return (
@@ -254,14 +304,37 @@ const NodeView = () => {
                     <div className="text-sm text-[var(--semantic-color-text-muted)]">
                         Node dimension: isolated editor state with BlockSuite tools. Changes save automatically.
                     </div>
-                    <button
-                        type="button"
-                        onClick={exitNode}
-                        className="h-8 px-3 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)] text-[11px] uppercase tracking-[0.14em] text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-colors shrink-0"
-                    >
-                        Space
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <input
+                            ref={importInputRef}
+                            type="file"
+                            className="hidden"
+                            multiple
+                            accept=".md,.markdown,.txt,.canvas,.pdf"
+                            onChange={handleNodeImport}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => importInputRef.current?.click()}
+                            disabled={isImporting}
+                            className="h-8 px-3 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)] text-[11px] uppercase tracking-[0.14em] text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-colors disabled:opacity-50"
+                        >
+                            {isImporting ? 'Importing...' : 'Import'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={exitNode}
+                            className="h-8 px-3 rounded-[var(--primitive-radius-pill)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)] text-[11px] uppercase tracking-[0.14em] text-[var(--semantic-color-text-secondary)] hover:text-[var(--semantic-color-text-primary)] transition-colors"
+                        >
+                            Space
+                        </button>
+                    </div>
                 </div>
+                {importStatus && (
+                    <div className="mb-3 text-[11px] uppercase tracking-[0.12em] text-[var(--semantic-color-text-muted)]">
+                        {importStatus}
+                    </div>
+                )}
                 <div className="mb-4 rounded-[var(--primitive-radius-card)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/45 p-4">
                     <div className="mb-4 flex items-center justify-between gap-3">
                         <button
@@ -337,6 +410,7 @@ const NodeView = () => {
                     </div>
                 </div>
                 <NodeBuilder
+                    ref={builderRef}
                     key={node.id}
                     nodeLabel={nodeLabel}
                     initialSnapshot={initialSnapshot}

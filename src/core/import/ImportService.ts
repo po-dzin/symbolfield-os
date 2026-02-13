@@ -23,6 +23,13 @@ export interface ImportResult {
     warnings: string[];
 }
 
+export interface NodeImportResult {
+    importedCount: number;
+    ignoredFiles: string[];
+    warnings: string[];
+    markdown: string;
+}
+
 const IMPORT_GRID_COLUMNS = 3;
 const IMPORT_CELL_GAP = 220;
 const MAX_LINKS_PER_DOC = 48;
@@ -243,6 +250,23 @@ const buildDocumentNodeContent = (doc: ImportedDocument): string => {
     ].join('\n');
 };
 
+const buildNodeImportMarkdown = (docs: ImportedDocument[]): string => {
+    if (!docs.length) return '';
+    return docs
+        .map((doc) => {
+            const body = buildDocumentNodeContent(doc).trim();
+            return [
+                `## ${doc.label}`,
+                '',
+                `Source: ${doc.name}`,
+                `Type: ${doc.kind}`,
+                '',
+                body
+            ].join('\n').trim();
+        })
+        .join('\n\n---\n\n');
+};
+
 export const buildImportedSpaceData = (docs: ImportedDocument[]): SpaceData => {
     const now = Date.now();
     const nodes: NodeBase[] = [];
@@ -319,7 +343,15 @@ export const buildImportedSpaceData = (docs: ImportedDocument[]): SpaceData => {
 
 const readFileText = async (file: File, kind: ImportKind): Promise<{ content: string; warning?: string }> => {
     if (kind === 'markdown' || kind === 'canvas') {
-        return { content: await file.text() };
+        if (typeof file.text === 'function') {
+            return { content: await file.text() };
+        }
+        if (typeof file.arrayBuffer === 'function') {
+            const raw = await file.arrayBuffer();
+            const decoder = new TextDecoder('utf-8');
+            return { content: decoder.decode(raw) };
+        }
+        return { content: '' };
     }
     if (kind === 'pdf') {
         const extracted = await extractPdfText(file);
@@ -334,8 +366,11 @@ const readFileText = async (file: File, kind: ImportKind): Promise<{ content: st
     return { content: '' };
 };
 
-export const importFilesToStation = async (files: File[]): Promise<ImportResult> => {
-    await entitlementsService.ensureCanImport();
+const parseImportedFiles = async (files: File[]): Promise<{
+    importedDocs: ImportedDocument[];
+    ignoredFiles: string[];
+    warnings: string[];
+}> => {
     const warnings: string[] = [];
     const ignoredFiles: string[] = [];
     const importedDocs: ImportedDocument[] = [];
@@ -398,6 +433,13 @@ export const importFilesToStation = async (files: File[]): Promise<ImportResult>
         });
     }
 
+    return { importedDocs, ignoredFiles, warnings };
+};
+
+export const importFilesToStation = async (files: File[]): Promise<ImportResult> => {
+    await entitlementsService.ensureCanImport();
+    const { importedDocs, ignoredFiles, warnings } = await parseImportedFiles(files);
+
     if (!importedDocs.length) {
         warnings.push('No supported files found. Use md/markdown/txt/canvas/pdf.');
         const id = spaceManager.createSpace('Imported Space');
@@ -422,5 +464,31 @@ export const importFilesToStation = async (files: File[]): Promise<ImportResult>
         importedCount: importedDocs.length,
         ignoredFiles,
         warnings
+    };
+};
+
+export const importFilesToNode = async (files: File[]): Promise<NodeImportResult> => {
+    await entitlementsService.ensureCanImport();
+    const { importedDocs, ignoredFiles, warnings } = await parseImportedFiles(files);
+
+    if (!importedDocs.length) {
+        return {
+            importedCount: 0,
+            ignoredFiles,
+            warnings: [...warnings, 'No supported files found. Use md/markdown/txt/canvas/pdf.'],
+            markdown: ''
+        };
+    }
+
+    const nextWarnings = [...warnings];
+    if (ignoredFiles.length > 0) {
+        nextWarnings.push(`Ignored unsupported files: ${ignoredFiles.join(', ')}`);
+    }
+
+    return {
+        importedCount: importedDocs.length,
+        ignoredFiles,
+        warnings: nextWarnings,
+        markdown: buildNodeImportMarkdown(importedDocs)
     };
 };

@@ -256,13 +256,13 @@
   --semantic-color-action-on-primary: #201C17;
   --semantic-color-link: #9D7F62;
 
-  --semantic-color-graph-node-fill: rgba(43, 34, 25, 0.09);
-  --semantic-color-graph-node-stroke: rgba(61, 50, 38, 0.34);
-  --semantic-color-graph-node-glow: rgba(61, 50, 38, 0.16);
-  --semantic-color-graph-node-glyph: rgba(43, 34, 25, 0.9);
+  --semantic-color-graph-node-fill: rgba(58, 47, 34, 0.14);
+  --semantic-color-graph-node-stroke: rgba(61, 50, 38, 0.52);
+  --semantic-color-graph-node-glow: rgba(61, 50, 38, 0.24);
+  --semantic-color-graph-node-glyph: rgba(43, 34, 25, 0.94);
   --semantic-color-graph-node-active-stroke: #A98A6C;
-  --semantic-color-graph-edge: rgba(70, 59, 46, 0.22);
-  --semantic-color-graph-edge-strong: rgba(70, 59, 46, 0.34);
+  --semantic-color-graph-edge: rgba(70, 59, 46, 0.34);
+  --semantic-color-graph-edge-strong: rgba(70, 59, 46, 0.5);
   --semantic-color-graph-edge-active: #A98A6C;
 
   --semantic-color-status-success: #7FA48D;

@@ -125,7 +125,9 @@ const EdgeRenderer = ({ edge }: EdgeRendererProps) => {
                 data-edge-id={edge.id}
                 x1={x1} y1={y1} x2={x2} y2={y2}
                 stroke={isGhostLink
-                    ? (ghostLevel > 1 ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.2)")
+                    ? (ghostLevel > 1
+                        ? "color-mix(in srgb, var(--semantic-color-graph-edge), transparent 62%)"
+                        : "color-mix(in srgb, var(--semantic-color-graph-edge), transparent 48%)")
                     : isSelected
                         ? "var(--semantic-color-graph-edge-active)"
                         : isHovered

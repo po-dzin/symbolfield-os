@@ -44,9 +44,9 @@ export class BlockSuiteEngine {
         this.onHistoryStateChange = options.onHistoryStateChange;
 
         // Synchronous init for immediate feedback, then async upgrade
-        const { doc } = createEmptyDoc();
-        this.doc = doc;
-        this.job = new Job({ collection: doc.collection });
+        const empty = createEmptyDoc();
+        this.doc = empty.init();
+        this.job = new Job({ collection: this.doc.collection });
 
         this.mount(); // Mount empty doc immediately
 
@@ -90,13 +90,22 @@ export class BlockSuiteEngine {
     }
 
     private async importLegacyContent(content?: string) {
-        if (!content) return;
-        // Check if doc is empty before importing
-        if (this.doc.root) return;
+        const markdown = (content ?? '').trim();
+        if (!markdown) return;
+
+        const rootId = this.doc.root?.id;
+        if (rootId) {
+            await MarkdownTransformer.importMarkdownToBlock({
+                doc: this.doc,
+                markdown: `${markdown}\n`,
+                blockId: rootId
+            });
+            return;
+        }
 
         await MarkdownTransformer.importMarkdownToDoc({
             collection: this.doc.collection,
-            markdown: content
+            markdown
         });
     }
 
