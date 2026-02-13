@@ -26,6 +26,7 @@ export interface ImportResult {
 const IMPORT_GRID_COLUMNS = 3;
 const IMPORT_CELL_GAP = 220;
 const MAX_LINKS_PER_DOC = 48;
+const MAX_EXTRACTED_TEXT_CHARS = 12_000;
 const OBSIDIAN_TAG_REGEX = /(^|\s)#([a-zA-Z0-9/_-]+)/g;
 
 const stripExtension = (name: string): string => name.replace(/\.[^.]+$/, '');
@@ -153,6 +154,64 @@ const parseCanvasSummary = (rawContent: string): {
     }
 };
 
+const normalizeExtractedText = (value: string): string => (
+    value
+        .replace(/\u0000/g, ' ')
+        .replace(/\r/g, '\n')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/[ \t]{2,}/g, ' ')
+        .trim()
+        .slice(0, MAX_EXTRACTED_TEXT_CHARS)
+);
+
+const extractDocxText = async (file: File): Promise<string> => {
+    try {
+        const mammoth = await import('mammoth');
+        const result = await (mammoth as {
+            extractRawText: (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value?: string }>;
+        }).extractRawText({ arrayBuffer: await file.arrayBuffer() });
+        return normalizeExtractedText(result.value ?? '');
+    } catch {
+        return '';
+    }
+};
+
+const extractPdfText = async (file: File): Promise<string> => {
+    try {
+        const [pdfjs, worker] = await Promise.all([
+            import('pdfjs-dist'),
+            import('pdfjs-dist/build/pdf.worker.min.mjs?url')
+        ]);
+        const pdf = pdfjs as {
+            getDocument: (src: { data: ArrayBuffer }) => { promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: Array<Record<string, unknown>> }> }> }> };
+            GlobalWorkerOptions?: { workerSrc?: string };
+        };
+        if (pdf.GlobalWorkerOptions && !pdf.GlobalWorkerOptions.workerSrc && typeof worker.default === 'string') {
+            pdf.GlobalWorkerOptions.workerSrc = worker.default;
+        }
+        const loadingTask = pdf.getDocument({ data: await file.arrayBuffer() });
+        const doc = await loadingTask.promise;
+        const chunks: string[] = [];
+        const pageCount = Math.min(doc.numPages, 20);
+        for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+            const page = await doc.getPage(pageNumber);
+            const content = await page.getTextContent();
+            const pageText = normalizeExtractedText(
+                content.items
+                    .map(item => (typeof item.str === 'string' ? item.str : ''))
+                    .join(' ')
+            );
+            if (pageText) {
+                chunks.push(pageText);
+            }
+        }
+        return normalizeExtractedText(chunks.join('\n\n'));
+    } catch {
+        return '';
+    }
+};
+
 export const extractWikiLinks = (content: string): string[] => {
     const links: string[] = [];
     const regex = /\[\[([^[\]]+)\]\]/g;
@@ -173,6 +232,13 @@ const buildDocumentNodeContent = (doc: ImportedDocument): string => {
         return doc.content;
     }
     if (doc.kind === 'pdf') {
+        if (doc.content.trim()) {
+            return [
+                '# Imported PDF',
+                '',
+                doc.content
+            ].join('\n');
+        }
         return [
             '# Imported PDF',
             '',
@@ -180,6 +246,13 @@ const buildDocumentNodeContent = (doc: ImportedDocument): string => {
             `Size: ${doc.size} bytes`,
             '',
             'PDF text extraction is not enabled yet. Add snippets manually or re-import as markdown.'
+        ].join('\n');
+    }
+    if (doc.content.trim()) {
+        return [
+            '# Imported Document',
+            '',
+            doc.content
         ].join('\n');
     }
     return [
@@ -266,11 +339,38 @@ export const buildImportedSpaceData = (docs: ImportedDocument[]): SpaceData => {
     };
 };
 
-const readFileText = async (file: File, kind: ImportKind): Promise<string> => {
+const readFileText = async (file: File, kind: ImportKind): Promise<{ content: string; warning?: string }> => {
     if (kind === 'markdown' || kind === 'canvas') {
-        return file.text();
+        return { content: await file.text() };
     }
-    return '';
+    if (kind === 'pdf') {
+        const extracted = await extractPdfText(file);
+        if (extracted) {
+            return { content: extracted };
+        }
+        return {
+            content: '',
+            warning: `PDF extraction fallback for "${file.name}" (text extraction unavailable).`
+        };
+    }
+    if (kind === 'document') {
+        const lowerName = file.name.toLowerCase();
+        if (lowerName.endsWith('.docx')) {
+            const extracted = await extractDocxText(file);
+            if (extracted) {
+                return { content: extracted };
+            }
+            return {
+                content: '',
+                warning: `DOCX extraction fallback for "${file.name}" (text extraction unavailable).`
+            };
+        }
+        return {
+            content: '',
+            warning: `Legacy DOC import fallback for "${file.name}" (convert to DOCX/Markdown for full text).`
+        };
+    }
+    return { content: '' };
 };
 
 export const importFilesToStation = async (files: File[]): Promise<ImportResult> => {
@@ -285,7 +385,11 @@ export const importFilesToStation = async (files: File[]): Promise<ImportResult>
             ignoredFiles.push(file.name);
             continue;
         }
-        const rawContent = await readFileText(file, kind);
+        const readResult = await readFileText(file, kind);
+        const rawContent = readResult.content;
+        if (readResult.warning) {
+            warnings.push(readResult.warning);
+        }
         const sourcePath = typeof (file as File & { webkitRelativePath?: string }).webkitRelativePath === 'string'
             ? (file as File & { webkitRelativePath?: string }).webkitRelativePath || undefined
             : undefined;
