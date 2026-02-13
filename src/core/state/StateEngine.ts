@@ -46,6 +46,16 @@ interface SessionState {
     label: string | null;
 }
 
+export interface SessionRecord {
+    id: string;
+    label: string;
+    startedAt: number;
+    endedAt: number;
+    durationMs: number;
+    mode: AppMode;
+    scopeId: string | null;
+}
+
 interface StateSnapshot {
     appMode: AppMode;
     viewContext: ViewContext;
@@ -79,10 +89,72 @@ interface StateSnapshot {
     drawerRightTab: DrawerRightTab | null;
     layoutMode: 'overlay' | 'pinned' | 'split';
     session: SessionState;
+    sessionRecords: SessionRecord[];
 }
+
+const SESSION_HISTORY_KEY = 'sf_session_history.v0.5';
+const MAX_SESSION_RECORDS = 40;
 
 class StateEngine {
     private state: StateSnapshot;
+
+    private loadSessionRecords(): SessionRecord[] {
+        if (typeof window === 'undefined') return [];
+        try {
+            const raw = window.localStorage.getItem(SESSION_HISTORY_KEY);
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return [];
+            return parsed
+                .filter((item): item is SessionRecord => (
+                    !!item
+                    && typeof item === 'object'
+                    && typeof (item as SessionRecord).id === 'string'
+                    && typeof (item as SessionRecord).label === 'string'
+                    && typeof (item as SessionRecord).startedAt === 'number'
+                    && typeof (item as SessionRecord).endedAt === 'number'
+                    && typeof (item as SessionRecord).durationMs === 'number'
+                    && ((item as SessionRecord).mode === APP_MODES.DEEP
+                        || (item as SessionRecord).mode === APP_MODES.FLOW
+                        || (item as SessionRecord).mode === APP_MODES.LUMA)
+                ))
+                .sort((a, b) => b.endedAt - a.endedAt)
+                .slice(0, MAX_SESSION_RECORDS);
+        } catch {
+            return [];
+        }
+    }
+
+    private persistSessionRecords() {
+        if (typeof window === 'undefined') return;
+        try {
+            window.localStorage.setItem(
+                SESSION_HISTORY_KEY,
+                JSON.stringify(this.state.sessionRecords.slice(0, MAX_SESSION_RECORDS))
+            );
+        } catch {
+            // ignore storage errors
+        }
+    }
+
+    private finalizeActiveSession(endTime: number) {
+        if (!this.state.session.isActive || !this.state.session.startTime) return;
+        const startedAt = this.state.session.startTime;
+        const durationMs = Math.max(0, endTime - startedAt);
+        const record: SessionRecord = {
+            id: crypto.randomUUID(),
+            label: this.state.session.label ?? 'Focus',
+            startedAt,
+            endedAt: endTime,
+            durationMs,
+            mode: this.state.appMode,
+            scopeId: this.state.currentSpaceId
+        };
+        this.state.sessionRecords = [record, ...this.state.sessionRecords]
+            .sort((a, b) => b.endedAt - a.endedAt)
+            .slice(0, MAX_SESSION_RECORDS);
+        this.persistSessionRecords();
+    }
 
     constructor() {
         // Initial State
@@ -124,7 +196,8 @@ class StateEngine {
                 isActive: false,
                 startTime: null,
                 label: null
-            }
+            },
+            sessionRecords: this.loadSessionRecords()
         };
 
         this._loadPersistedSettings();
@@ -277,6 +350,9 @@ class StateEngine {
     }
 
     startFocusSession(label = 'Focus') {
+        if (this.state.session.isActive && this.state.session.startTime) {
+            this.finalizeActiveSession(Date.now());
+        }
         this.state.session = {
             isActive: true,
             startTime: Date.now(),
@@ -287,6 +363,7 @@ class StateEngine {
     }
 
     stopFocusSession() {
+        this.finalizeActiveSession(Date.now());
         this.state.session = {
             isActive: false,
             startTime: null,

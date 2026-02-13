@@ -27,8 +27,23 @@ export const SessionView: React.FC = () => {
     const appMode = useAppStore(state => state.appMode);
     const setAppMode = useAppStore(state => state.setAppMode);
     const fieldScopeId = useAppStore(state => state.fieldScopeId);
+    const sessionRecords = useAppStore(state => state.sessionRecords);
     const scale = useTimeStore(state => state.scale);
     const display = useTimeStore(state => state.display);
+
+    const records = React.useMemo(() => (
+        sessionRecords
+            .slice(0, 8)
+            .map(record => ({
+                id: record.id,
+                label: record.label,
+                duration: formatElapsedDuration(record.durationMs),
+                date: new Date(record.endedAt).toLocaleDateString([], {
+                    month: 'short',
+                    day: 'numeric'
+                })
+            }))
+    ), [sessionRecords]);
 
     return (
         <div className="flex-1 overflow-auto space-y-6 text-sm no-scrollbar pb-6">
@@ -109,16 +124,16 @@ export const SessionView: React.FC = () => {
                 <div className="space-y-5 pt-2">
                     <div className="flex items-center justify-between px-1">
                         <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--semantic-color-text-secondary)] opacity-60">Session Records</div>
-                        <button className="text-[9px] uppercase tracking-widest text-[var(--semantic-color-text-muted)] hover:text-[var(--semantic-color-text-primary)]">View All</button>
+                        <div className="text-[9px] uppercase tracking-widest text-[var(--semantic-color-text-muted)]">{records.length} tracked</div>
                     </div>
                     <div className="space-y-1">
-                        {[
-                            { label: 'Deep Field Sync', duration: '02:45:12', date: 'Today' },
-                            { label: 'Architecture Review', duration: '01:20:05', date: 'Today' },
-                            { label: 'Morning Ritual', duration: '00:45:00', date: 'Yesterday' },
-                            { label: 'System Hardening', duration: '04:12:30', date: 'Feb 6' }
-                        ].map((record, i) => (
-                            <div key={i} className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors group cursor-pointer border border-transparent hover:border-white/5">
+                        {records.length === 0 && (
+                            <div className="p-3 rounded-lg border border-[var(--semantic-color-border-default)]/40 text-[11px] text-[var(--semantic-color-text-muted)]">
+                                No completed sessions yet. Start and stop a focus session to build timeline history.
+                            </div>
+                        )}
+                        {records.map((record) => (
+                            <div key={record.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors group cursor-pointer border border-transparent hover:border-white/5">
                                 <div className="min-w-0 flex-1 pr-4">
                                     <div className="text-[13px] text-[var(--semantic-color-text-primary)] font-medium truncate group-hover:text-white">{record.label}</div>
                                     <div className="text-[9px] uppercase tracking-tight text-[var(--semantic-color-text-muted)] mt-0.5">{record.date}</div>

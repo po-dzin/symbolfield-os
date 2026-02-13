@@ -36,6 +36,16 @@ interface Session {
     label: string | null;
 }
 
+interface SessionRecord {
+    id: string;
+    label: string;
+    startedAt: number;
+    endedAt: number;
+    durationMs: number;
+    mode: AppModeType;
+    scopeId: string | null;
+}
+
 type ThemeOptionKey =
     | 'themePreset'
     | 'themeAccent'
@@ -81,6 +91,7 @@ interface AppState {
     drawerRightTab: DrawerRightTab | null;
     layoutMode: 'overlay' | 'pinned' | 'split';
     session: Session;
+    sessionRecords: SessionRecord[];
 
     // Harmony Theme Matrix (constrained customization)
     themePreset: HarmonyPresetSelection;
