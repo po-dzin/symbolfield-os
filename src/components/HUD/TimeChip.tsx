@@ -11,11 +11,6 @@ const TimeChip: React.FC = () => {
         return () => clearInterval(timer);
     }, []);
 
-    const handleClick = () => {
-        // TODO: Implement time-based quick jump (future feature)
-        console.log('TimeChip clicked - quick jump feature TBD');
-    };
-
     const timeString = currentTime.toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
@@ -24,9 +19,8 @@ const TimeChip: React.FC = () => {
 
     return (
         <button
-            onClick={handleClick}
             className="flex items-center px-3 h-8 rounded-[var(--primitive-radius-pill)] bg-[var(--semantic-color-bg-surface)] border border-[var(--semantic-color-border-default)] hover:border-[var(--semantic-color-text-secondary)] transition-all text-sm font-mono text-[var(--semantic-color-text-primary)] opacity-80 hover:opacity-100"
-            title="Local time (click for quick jump)"
+            title="Local time"
         >
             {timeString}
         </button>

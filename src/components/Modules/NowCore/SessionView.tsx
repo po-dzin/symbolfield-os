@@ -1,5 +1,7 @@
 import React from 'react';
 import { useAppStore } from '../../../store/useAppStore';
+import { useTimeStore } from '../../../store/useTimeStore';
+import { formatElapsedDuration } from '../../../core/time/sessionTime';
 
 const SessionTimer = ({ startTime }: { startTime: number }) => {
     const [elapsed, setElapsed] = React.useState('00:00:00');
@@ -7,10 +9,7 @@ const SessionTimer = ({ startTime }: { startTime: number }) => {
     React.useEffect(() => {
         const update = () => {
             const diff = Date.now() - startTime;
-            const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
-            const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
-            const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
-            setElapsed(`${h}:${m}:${s}`);
+            setElapsed(formatElapsedDuration(diff));
         };
 
         update();
@@ -21,8 +20,6 @@ const SessionTimer = ({ startTime }: { startTime: number }) => {
     return <span>{elapsed}</span>;
 };
 
-// Placeholder for useTimeStore or similar props if needed
-// For now, assume we just need session and appMode
 export const SessionView: React.FC = () => {
     const session = useAppStore(state => state.session);
     const startFocusSession = useAppStore(state => state.startFocusSession);
@@ -30,10 +27,8 @@ export const SessionView: React.FC = () => {
     const appMode = useAppStore(state => state.appMode);
     const setAppMode = useAppStore(state => state.setAppMode);
     const fieldScopeId = useAppStore(state => state.fieldScopeId);
-
-    // Mock data for scale/display - in real app connect to useTimeStore
-    const scale = '1:1';
-    const display = 'Local';
+    const scale = useTimeStore(state => state.scale);
+    const display = useTimeStore(state => state.display);
 
     return (
         <div className="flex-1 overflow-auto space-y-6 text-sm no-scrollbar pb-6">

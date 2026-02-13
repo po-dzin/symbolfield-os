@@ -1,15 +1,34 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { formatElapsedMinutes } from '../../core/time/sessionTime';
 
 const NowChip = () => {
     const appMode = useAppStore(state => state.appMode);
+    const setAppMode = useAppStore(state => state.setAppMode);
+    const session = useAppStore(state => state.session);
     const drawerRightOpen = useAppStore(state => state.drawerRightOpen);
     const drawerRightTab = useAppStore(state => state.drawerRightTab);
     const setDrawerRightTab = useAppStore(state => state.setDrawerRightTab);
     const setDrawerOpen = useAppStore(state => state.setDrawerOpen);
 
-    // Mock timer for v0.5 demonstration
-    const [timer] = useState('24m');
+    const [now, setNow] = useState(() => Date.now());
+
+    React.useEffect(() => {
+        const tickMs = session.isActive ? 1000 : 60000;
+        const timer = window.setInterval(() => setNow(Date.now()), tickMs);
+        return () => window.clearInterval(timer);
+    }, [session.isActive, session.startTime]);
+
+    const timerLabel = React.useMemo(() => {
+        if (session.isActive && session.startTime) {
+            return formatElapsedMinutes(now - session.startTime);
+        }
+        return new Date(now).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+    }, [now, session.isActive, session.startTime]);
 
     const getModeIcon = (mode: string) => {
         switch (mode) {
@@ -46,7 +65,7 @@ const NowChip = () => {
                         const currentIdx = modes.indexOf(appMode);
                         const nextMode = modes[(currentIdx + 1) % modes.length];
                         if (nextMode) {
-                            useAppStore.getState().setAppMode(nextMode);
+                            setAppMode(nextMode);
                         }
                     }}
                 >
@@ -56,7 +75,7 @@ const NowChip = () => {
                 <span className="text-[var(--semantic-color-text-secondary)] opacity-30">|</span>
                 <div className="flex items-center gap-1 text-[var(--semantic-color-text-primary)] font-medium text-xs">
                     <span>⏱</span>
-                    <span>{timer}</span>
+                    <span>{timerLabel}</span>
                 </div>
             </div>
         </button>
