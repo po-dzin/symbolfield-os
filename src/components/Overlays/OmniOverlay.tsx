@@ -9,6 +9,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { eventBus, EVENTS } from '../../core/events/EventBus';
 import { stationStorage } from '../../core/storage/StationStorage';
+import { EntitlementLimitError } from '../../core/access/EntitlementsService';
 import type { ExternalGraphLink } from '../../core/types/gateway';
 
 type OmniScope = 'all' | 'atlas' | 'portal' | 'station' | 'space' | 'cluster' | 'node' | 'external';
@@ -117,8 +118,16 @@ const OmniOverlay: React.FC = () => {
             keywords: ['new', 'space', 'create'],
             scope: 'any',
             action: async () => {
-                const id = spaceManager.createSpace('New Space');
-                await spaceManager.loadSpace(id);
+                try {
+                    const id = spaceManager.createSpace('New Space');
+                    await spaceManager.loadSpace(id);
+                } catch (error) {
+                    if (error instanceof EntitlementLimitError) {
+                        window.alert(error.message);
+                        return;
+                    }
+                    window.alert('Unable to create a space right now.');
+                }
             }
         },
         {

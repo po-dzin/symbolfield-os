@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { completeOnboarding, markWelcomeSeen } from '../../core/state/onboardingState';
+import { EntitlementLimitError } from '../../core/access/EntitlementsService';
 
 interface OnboardingOverlayProps {
     onDismiss: () => void;
@@ -25,10 +26,18 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onDismiss }) => {
 
     const handleCreateSpace = () => {
         import('../../core/state/SpaceManager').then(({ spaceManager }) => {
-            const id = spaceManager.createSpace(); // Untitled
-            spaceManager.loadSpace(id);
-            markWelcomeSeen();
-            onDismiss();
+            try {
+                const id = spaceManager.createSpace(); // Untitled
+                void spaceManager.loadSpace(id);
+                markWelcomeSeen();
+                onDismiss();
+            } catch (error) {
+                if (error instanceof EntitlementLimitError) {
+                    window.alert(error.message);
+                    return;
+                }
+                window.alert('Unable to create a space right now.');
+            }
         });
     };
 

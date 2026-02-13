@@ -2,6 +2,7 @@ import { collectClusterDescendantIds } from '../graph/clusterHierarchy';
 import { spaceManager, type SpaceData } from '../state/SpaceManager';
 import { stateEngine } from '../state/StateEngine';
 import { asNodeId, type Edge, type NodeBase, type NodeId } from '../types';
+import { entitlementsService } from '../access/EntitlementsService';
 
 const SHARE_STORAGE_KEY = 'sf_share_links.v0.5';
 
@@ -191,6 +192,8 @@ export const shareService = {
         const spaceId = normalizeString(input.spaceId);
         const scopeType = normalizeScopeType(input.scopeType);
         if (!spaceId || !scopeType) return null;
+        const currentLinks = loadShareLinks();
+        entitlementsService.assertCanCreateShareLink(currentLinks.length);
 
         if (stateEngine.getState().currentSpaceId === spaceId) {
             spaceManager.saveCurrentSpace();
@@ -216,8 +219,7 @@ export const shareService = {
             updatedAt: now
         };
 
-        const links = loadShareLinks();
-        const nextLinks = [nextLink, ...links].sort((a, b) => b.updatedAt - a.updatedAt);
+        const nextLinks = [nextLink, ...currentLinks].sort((a, b) => b.updatedAt - a.updatedAt);
         persistShareLinks(nextLinks);
         return nextLink;
     }

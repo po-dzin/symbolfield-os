@@ -3,6 +3,7 @@ import { useAppStore } from '../../../store/useAppStore';
 import { spaceManager } from '../../../core/state/SpaceManager';
 import { buildShareUrl, shareService } from '../../../core/share/ShareService';
 import { stationStorage } from '../../../core/storage/StationStorage';
+import { EntitlementLimitError } from '../../../core/access/EntitlementsService';
 
 const SpaceProperties = () => {
     const viewContext = useAppStore(state => state.viewContext);
@@ -25,24 +26,33 @@ const SpaceProperties = () => {
 
     const handleCreateShare = async () => {
         if (!inspectedSpaceId || !meta) return;
-        const link = shareService.createShareLink({
-            title: meta.name,
-            scopeType: 'space',
-            spaceId: inspectedSpaceId
-        });
-        if (!link) return;
-        stationStorage.upsertExternalGraphLink(
-            { type: 'share', token: link.token },
-            { label: `${meta.name} (Shared)`, visibility: 'shared' }
-        );
-        const url = buildShareUrl(link.token);
-        if (!url) return;
+        let shareUrl = '';
         try {
-            await navigator.clipboard.writeText(url);
+            const link = shareService.createShareLink({
+                title: meta.name,
+                scopeType: 'space',
+                spaceId: inspectedSpaceId
+            });
+            if (!link) return;
+            stationStorage.upsertExternalGraphLink(
+                { type: 'share', token: link.token },
+                { label: `${meta.name} (Shared)`, visibility: 'shared' }
+            );
+            shareUrl = buildShareUrl(link.token);
+            if (!shareUrl) return;
+            await navigator.clipboard.writeText(shareUrl);
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1400);
-        } catch {
-            window.prompt('Copy share link', url);
+        } catch (error) {
+            if (error instanceof EntitlementLimitError) {
+                window.alert(error.message);
+                return;
+            }
+            if (shareUrl) {
+                window.prompt('Copy share link', shareUrl);
+                return;
+            }
+            window.alert('Unable to create share link right now.');
         }
     };
 

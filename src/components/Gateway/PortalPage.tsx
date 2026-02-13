@@ -6,6 +6,7 @@ import { spaceManager } from '../../core/state/SpaceManager';
 import { stateEngine } from '../../core/state/StateEngine';
 import { stationStorage } from '../../core/storage/StationStorage';
 import { buildPortalPreviewLayout } from '../../core/gateway/portalPreview';
+import { EntitlementLimitError } from '../../core/access/EntitlementsService';
 
 const PortalPage = ({ brandSlug, portalSlug }: { brandSlug: string; portalSlug: string }) => {
     const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
@@ -34,16 +35,24 @@ const PortalPage = ({ brandSlug, portalSlug }: { brandSlug: string; portalSlug: 
     const handleFork = () => {
         if (!listing || !listing.spaceSnapshot) return;
 
-        // 1. Fork the space
-        const newSpaceId = spaceManager.forkSpace(listing.spaceSnapshot, listing.title);
+        try {
+            // 1. Fork the space
+            const newSpaceId = spaceManager.forkSpace(listing.spaceSnapshot, listing.title);
 
-        // 2. Navigate to it
-        // We need to switch context to SPACE and load the new space
-        stateEngine.setViewContext('space'); // This might be redundant as setSpace does it, but to be sure
-        spaceManager.loadSpace(newSpaceId);
+            // 2. Navigate to it
+            // We need to switch context to SPACE and load the new space
+            stateEngine.setViewContext('space'); // This might be redundant as setSpace does it, but to be sure
+            void spaceManager.loadSpace(newSpaceId);
 
-        // 3. Clear Gateway route to exit Gateway mode completely
-        setGatewayRoute(null);
+            // 3. Clear Gateway route to exit Gateway mode completely
+            setGatewayRoute(null);
+        } catch (error) {
+            if (error instanceof EntitlementLimitError) {
+                window.alert(error.message);
+                return;
+            }
+            window.alert('Unable to fork this space right now.');
+        }
     };
 
     return (

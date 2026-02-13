@@ -14,6 +14,7 @@ import { initUndoManager } from './core/undo/UndoManager';
 import { initAudioBus } from './core/audio/AudioBus';
 import { initEventLog, eventLog } from './core/events/EventLog';
 import { readShareTokenFromLocation } from './core/share/ShareService';
+import { entitlementsService } from './core/access/EntitlementsService';
 
 function App() {
     const addNode = useGraphStore(state => state.addNode);
@@ -57,6 +58,10 @@ function App() {
         setGatewayRoute({ type: 'share', token: shareToken });
         setViewContext('gateway');
     }, [setGatewayRoute, setViewContext]);
+
+    useEffect(() => {
+        void entitlementsService.refreshRemote();
+    }, []);
 
     return (
         <>

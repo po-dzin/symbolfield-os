@@ -2,6 +2,15 @@ import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { importFilesToStation } from '../../core/import/ImportService';
+import { EntitlementLimitError } from '../../core/access/EntitlementsService';
+
+const showActionError = (error: unknown) => {
+    if (error instanceof EntitlementLimitError) {
+        window.alert(error.message);
+        return;
+    }
+    window.alert('Action is unavailable right now. Please retry.');
+};
 
 const StartGates = () => {
     const setViewContext = useAppStore(state => state.setViewContext);
@@ -22,6 +31,8 @@ const StartGates = () => {
             const result = await importFilesToStation(files);
             await spaceManager.loadSpace(result.spaceId);
             setViewContext('space');
+        } catch (error) {
+            showActionError(error);
         } finally {
             setIsImporting(false);
             event.target.value = '';
@@ -40,8 +51,12 @@ const StartGates = () => {
             />
             <button
                 onClick={() => {
-                    const id = spaceManager.createSpace();
-                    spaceManager.loadSpace(id);
+                    try {
+                        const id = spaceManager.createSpace();
+                        void spaceManager.loadSpace(id);
+                    } catch (error) {
+                        showActionError(error);
+                    }
                 }}
                 className={gateClassName}
             >

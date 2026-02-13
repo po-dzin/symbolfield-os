@@ -3,6 +3,7 @@ import { useAppStore } from '../../../store/useAppStore';
 import { useGraphStore } from '../../../store/useGraphStore';
 import { buildShareUrl, shareService } from '../../../core/share/ShareService';
 import { stationStorage } from '../../../core/storage/StationStorage';
+import { EntitlementLimitError } from '../../../core/access/EntitlementsService';
 
 const NodeProperties = () => {
     const activeScope = useAppStore(state => state.activeScope);
@@ -27,25 +28,34 @@ const NodeProperties = () => {
     const handleCreateShare = async () => {
         if (!currentSpaceId) return;
         const scopeType = node.type === 'cluster' ? 'cluster' : 'node';
-        const link = shareService.createShareLink({
-            title: displayLabel,
-            scopeType,
-            spaceId: currentSpaceId,
-            scopeNodeId: node.id
-        });
-        if (!link) return;
-        stationStorage.upsertExternalGraphLink(
-            { type: 'share', token: link.token },
-            { label: `${displayLabel} (${scopeType})`, visibility: 'shared' }
-        );
-        const url = buildShareUrl(link.token);
-        if (!url) return;
+        let shareUrl = '';
         try {
-            await navigator.clipboard.writeText(url);
+            const link = shareService.createShareLink({
+                title: displayLabel,
+                scopeType,
+                spaceId: currentSpaceId,
+                scopeNodeId: node.id
+            });
+            if (!link) return;
+            stationStorage.upsertExternalGraphLink(
+                { type: 'share', token: link.token },
+                { label: `${displayLabel} (${scopeType})`, visibility: 'shared' }
+            );
+            shareUrl = buildShareUrl(link.token);
+            if (!shareUrl) return;
+            await navigator.clipboard.writeText(shareUrl);
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1400);
-        } catch {
-            window.prompt('Copy share link', url);
+        } catch (error) {
+            if (error instanceof EntitlementLimitError) {
+                window.alert(error.message);
+                return;
+            }
+            if (shareUrl) {
+                window.prompt('Copy share link', shareUrl);
+                return;
+            }
+            window.alert('Unable to create share link right now.');
         }
     };
 

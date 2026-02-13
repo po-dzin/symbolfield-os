@@ -4,6 +4,7 @@ import { stateEngine } from '../../core/state/StateEngine';
 import { buildPortalPreviewLayout } from '../../core/gateway/portalPreview';
 import { buildShareUrl, shareService, type ShareLinkSnapshot } from '../../core/share/ShareService';
 import { useAppStore } from '../../store/useAppStore';
+import { EntitlementLimitError } from '../../core/access/EntitlementsService';
 
 const SharePage = ({ token }: { token: string }) => {
     const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
@@ -45,13 +46,21 @@ const SharePage = ({ token }: { token: string }) => {
 
     const handleFork = () => {
         if (!shareLink) return;
-        const forkId = spaceManager.forkSpace(
-            { nodes: shareLink.nodes, edges: shareLink.edges },
-            `${shareLink.title} (Shared)`
-        );
-        stateEngine.setViewContext('space');
-        void spaceManager.loadSpace(forkId);
-        setGatewayRoute(null);
+        try {
+            const forkId = spaceManager.forkSpace(
+                { nodes: shareLink.nodes, edges: shareLink.edges },
+                `${shareLink.title} (Shared)`
+            );
+            stateEngine.setViewContext('space');
+            void spaceManager.loadSpace(forkId);
+            setGatewayRoute(null);
+        } catch (error) {
+            if (error instanceof EntitlementLimitError) {
+                window.alert(error.message);
+                return;
+            }
+            window.alert('Unable to fork shared graph right now.');
+        }
     };
 
     if (!shareLink) {
@@ -161,4 +170,3 @@ const SharePage = ({ token }: { token: string }) => {
 };
 
 export default SharePage;
-

@@ -11,6 +11,7 @@ import {
     readRemoteUiStateKey,
     writeRemoteUiStateKey
 } from '../data/uiStateRemote';
+import { entitlementsService } from '../access/EntitlementsService';
 
 export interface SpaceMeta {
     id: string;
@@ -256,10 +257,20 @@ class SpaceManager {
         };
     }
 
+    private countActiveUserSpaces(): number {
+        return Array.from(this.spaces.values()).filter(
+            space => !space.trashed && (space.kind ?? 'user') === 'user'
+        ).length;
+    }
+
     createSpace(name = 'New Space', parentId = ARCHECORE_ID, options: { id?: string; kind?: 'user' | 'playground' } = {}): string {
         const id = options.id ?? crypto.randomUUID();
         const existing = this.spaces.get(id);
         if (existing) return existing.id;
+        const kind = options.kind ?? 'user';
+        if (kind === 'user') {
+            entitlementsService.assertCanCreateSpace(this.countActiveUserSpaces());
+        }
         const uniqueName = options.kind === 'playground' ? name : this.generateUniqueName(name);
         const now = Date.now();
         const coreNodeId = getCoreId(id);
@@ -272,7 +283,7 @@ class SpaceManager {
             coreNodeId,
             gridSnapEnabled: true,
             parentSpaceId: parentId,
-            kind: options.kind ?? 'user',
+            kind,
             trashed: false,
             deletedAt: null
         };
@@ -291,6 +302,7 @@ class SpaceManager {
     }
 
     forkSpace(data: SpaceData, baseName: string): string {
+        entitlementsService.assertCanCreateSpace(this.countActiveUserSpaces());
         const id = crypto.randomUUID();
         const uniqueName = this.generateUniqueName(baseName);
         const now = Date.now();

@@ -7,6 +7,7 @@ import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { spaceManager } from '../../core/state/SpaceManager';
 import { eventBus } from '../../core/events/EventBus';
+import { EntitlementLimitError } from '../../core/access/EntitlementsService';
 
 const OmniInputExpanded = () => {
     const paletteOpen = useAppStore(state => state.paletteOpen);
@@ -53,8 +54,16 @@ const OmniInputExpanded = () => {
                 keywords: ['space', 'create', 'new'],
                 scope: 'any',
                 action: async () => {
-                    const id = spaceManager.createSpace('New Space');
-                    await spaceManager.loadSpace(id);
+                    try {
+                        const id = spaceManager.createSpace('New Space');
+                        await spaceManager.loadSpace(id);
+                    } catch (error) {
+                        if (error instanceof EntitlementLimitError) {
+                            window.alert(error.message);
+                            return;
+                        }
+                        window.alert('Unable to create a space right now.');
+                    }
                 }
             },
             {

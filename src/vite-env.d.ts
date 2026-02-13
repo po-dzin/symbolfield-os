@@ -8,6 +8,9 @@ interface ImportMetaEnv {
     readonly VITE_GATEWAY_BACKEND?: 'local' | 'remote';
     readonly VITE_GATEWAY_API_BASE_URL?: string;
     readonly VITE_GATEWAY_API_TOKEN?: string;
+    readonly VITE_ENTITLEMENTS_BACKEND?: 'local' | 'remote';
+    readonly VITE_ENTITLEMENTS_API_BASE_URL?: string;
+    readonly VITE_ENTITLEMENTS_API_TOKEN?: string;
 }
 
 interface ImportMeta {
