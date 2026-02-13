@@ -10,11 +10,21 @@ const SharePage = ({ token }: { token: string }) => {
     const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
     const setViewContext = useAppStore(state => state.setViewContext);
     const [shareLink, setShareLink] = useState<ShareLinkSnapshot | null>(null);
+    const [loadingShare, setLoadingShare] = useState(true);
     const [copied, setCopied] = useState(false);
 
     useEffect(() => {
-        const next = shareService.resolveShareLinkByToken(token);
-        setShareLink(next);
+        let cancelled = false;
+        setLoadingShare(true);
+        void (async () => {
+            const next = await shareService.resolveShareLinkByTokenAsync(token);
+            if (cancelled) return;
+            setShareLink(next);
+            setLoadingShare(false);
+        })();
+        return () => {
+            cancelled = true;
+        };
     }, [token]);
 
     const preview = useMemo(
@@ -62,6 +72,10 @@ const SharePage = ({ token }: { token: string }) => {
             window.alert('Unable to fork shared graph right now.');
         }
     };
+
+    if (loadingShare) {
+        return <div className="p-10 text-center opacity-50">Resolving shared graph…</div>;
+    }
 
     if (!shareLink) {
         return (

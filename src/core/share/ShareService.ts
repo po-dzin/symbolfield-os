@@ -115,6 +115,7 @@ const mergeShareLinks = (
 
 let remoteHydrated = false;
 let remoteHydrating = false;
+let remoteHydrationPromise: Promise<void> | null = null;
 let remoteWriteTimer: number | null = null;
 
 const loadShareLinks = (): ShareLinkSnapshot[] => {
@@ -152,24 +153,30 @@ const persistShareLinks = (links: ShareLinkSnapshot[], options: { syncRemote?: b
     }
 };
 
-const hydrateShareLinksFromRemote = () => {
-    if (!isUiStateRemoteEnabled()) return;
-    if (remoteHydrated || remoteHydrating) return;
+const hydrateShareLinksFromRemote = (): Promise<void> => {
+    if (!isUiStateRemoteEnabled()) return Promise.resolve();
+    if (remoteHydrated) return Promise.resolve();
+    if (remoteHydrating && remoteHydrationPromise) return remoteHydrationPromise;
     remoteHydrating = true;
-    void (async () => {
-        const payload = await readRemoteUiStateKey(REMOTE_SHARE_LINKS_KEY);
-        const remoteLinks = normalizeShareLinks(payload);
-        const localLinks = loadShareLinks();
-        const merged = mergeShareLinks(localLinks, remoteLinks);
-        if (merged.length !== localLinks.length || merged.some((link, index) => localLinks[index]?.token !== link.token)) {
-            persistShareLinks(merged, { syncRemote: false });
-            if (merged.length > remoteLinks.length) {
-                scheduleRemoteShareWrite(merged);
+    remoteHydrationPromise = (async () => {
+        try {
+            const payload = await readRemoteUiStateKey(REMOTE_SHARE_LINKS_KEY);
+            const remoteLinks = normalizeShareLinks(payload);
+            const localLinks = loadShareLinks();
+            const merged = mergeShareLinks(localLinks, remoteLinks);
+            if (merged.length !== localLinks.length || merged.some((link, index) => localLinks[index]?.token !== link.token)) {
+                persistShareLinks(merged, { syncRemote: false });
+                if (merged.length > remoteLinks.length) {
+                    scheduleRemoteShareWrite(merged);
+                }
             }
+            remoteHydrated = true;
+        } finally {
+            remoteHydrating = false;
+            remoteHydrationPromise = null;
         }
-        remoteHydrated = true;
-        remoteHydrating = false;
     })();
+    return remoteHydrationPromise;
 };
 
 const toNodeId = (value: NodeId | string): NodeId => (
@@ -255,8 +262,11 @@ export const readShareTokenFromLocation = (href: string): string | null => {
 
 export const shareService = {
     loadShareLinks: () => {
-        hydrateShareLinksFromRemote();
+        void hydrateShareLinksFromRemote();
         return loadShareLinks();
+    },
+    hydrateShareLinksFromRemote: async () => {
+        await hydrateShareLinksFromRemote();
     },
     clearShareLinks: () => {
         persistShareLinks([]);
@@ -268,6 +278,13 @@ export const shareService = {
         const normalizedToken = normalizeString(token);
         if (!normalizedToken) return null;
         const links = shareService.loadShareLinks();
+        return links.find(link => link.token === normalizedToken) ?? null;
+    },
+    resolveShareLinkByTokenAsync: async (token: string): Promise<ShareLinkSnapshot | null> => {
+        const normalizedToken = normalizeString(token);
+        if (!normalizedToken) return null;
+        await hydrateShareLinksFromRemote();
+        const links = loadShareLinks();
         return links.find(link => link.token === normalizedToken) ?? null;
     },
     createShareLink: (input: CreateShareLinkInput): ShareLinkSnapshot | null => {
