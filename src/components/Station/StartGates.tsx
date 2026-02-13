@@ -74,7 +74,7 @@ const StartGates = () => {
                 type="file"
                 className="hidden"
                 multiple
-                accept=".md,.markdown,.txt,.canvas,.doc,.docx,.pdf"
+                accept=".md,.markdown,.txt,.canvas,.pdf"
                 onChange={handleImportSelection}
             />
             <button

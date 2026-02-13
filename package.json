@@ -24,7 +24,7 @@
     "@blocksuite/icons": "^2.1.75",
     "@blocksuite/presets": "^0.0.0-canary-20250316001624",
     "@blocksuite/store": "^0.0.0-canary-20250316001624",
-    "mammoth": "^1.11.0",
+    "jspdf": "^4.1.0",
     "pdfjs-dist": "^5.4.624",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

@@ -3,7 +3,7 @@ import type { SpaceData } from '../state/SpaceManager';
 import { spaceManager } from '../state/SpaceManager';
 import { entitlementsService } from '../access/EntitlementsService';
 
-export type ImportKind = 'markdown' | 'document' | 'pdf' | 'canvas' | 'unsupported';
+export type ImportKind = 'markdown' | 'pdf' | 'canvas' | 'unsupported';
 
 export interface ImportedDocument {
     id: string;
@@ -49,9 +49,6 @@ export const detectImportKind = (fileName: string, mimeType: string): ImportKind
     }
     if (lowerName.endsWith('.pdf') || lowerMime === 'application/pdf') {
         return 'pdf';
-    }
-    if (lowerName.endsWith('.doc') || lowerName.endsWith('.docx') || lowerMime.includes('wordprocessingml') || lowerMime.includes('msword')) {
-        return 'document';
     }
     return 'unsupported';
 };
@@ -165,18 +162,6 @@ const normalizeExtractedText = (value: string): string => (
         .slice(0, MAX_EXTRACTED_TEXT_CHARS)
 );
 
-const extractDocxText = async (file: File): Promise<string> => {
-    try {
-        const mammoth = await import('mammoth');
-        const result = await (mammoth as {
-            extractRawText: (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value?: string }>;
-        }).extractRawText({ arrayBuffer: await file.arrayBuffer() });
-        return normalizeExtractedText(result.value ?? '');
-    } catch {
-        return '';
-    }
-};
-
 const extractPdfText = async (file: File): Promise<string> => {
     try {
         const [pdfjs, worker] = await Promise.all([
@@ -248,20 +233,13 @@ const buildDocumentNodeContent = (doc: ImportedDocument): string => {
             'PDF text extraction is not enabled yet. Add snippets manually or re-import as markdown.'
         ].join('\n');
     }
-    if (doc.content.trim()) {
-        return [
-            '# Imported Document',
-            '',
-            doc.content
-        ].join('\n');
-    }
     return [
-        '# Imported Document',
+        '# Imported File',
         '',
         `File: ${doc.name}`,
         `Size: ${doc.size} bytes`,
         '',
-        'DOC/DOCX text extraction is not enabled yet. Export as markdown/text for full import.'
+        'Unsupported import kind.'
     ].join('\n');
 };
 
@@ -353,23 +331,6 @@ const readFileText = async (file: File, kind: ImportKind): Promise<{ content: st
             warning: `PDF extraction fallback for "${file.name}" (text extraction unavailable).`
         };
     }
-    if (kind === 'document') {
-        const lowerName = file.name.toLowerCase();
-        if (lowerName.endsWith('.docx')) {
-            const extracted = await extractDocxText(file);
-            if (extracted) {
-                return { content: extracted };
-            }
-            return {
-                content: '',
-                warning: `DOCX extraction fallback for "${file.name}" (text extraction unavailable).`
-            };
-        }
-        return {
-            content: '',
-            warning: `Legacy DOC import fallback for "${file.name}" (convert to DOCX/Markdown for full text).`
-        };
-    }
     return { content: '' };
 };
 
@@ -438,7 +399,7 @@ export const importFilesToStation = async (files: File[]): Promise<ImportResult>
     }
 
     if (!importedDocs.length) {
-        warnings.push('No supported files found. Use md/markdown/txt/canvas/doc/docx/pdf.');
+        warnings.push('No supported files found. Use md/markdown/txt/canvas/pdf.');
         const id = spaceManager.createSpace('Imported Space');
         return {
             spaceId: id,

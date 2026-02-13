@@ -4,12 +4,19 @@ import { useGraphStore } from '../../../store/useGraphStore';
 import { buildShareUrl, shareService } from '../../../core/share/ShareService';
 import { stationStorage } from '../../../core/storage/StationStorage';
 import { EntitlementLimitError } from '../../../core/access/EntitlementsService';
+import {
+    exportNodeToFile,
+    NODE_EXPORT_FORMATS,
+    type NodeExportFormat
+} from '../../../core/export/NodeExportService';
 
 const NodeProperties = () => {
     const activeScope = useAppStore(state => state.activeScope);
     const currentSpaceId = useAppStore(state => state.currentSpaceId);
     const nodes = useGraphStore(state => state.nodes);
     const [copied, setCopied] = useState(false);
+    const [exportMenuOpen, setExportMenuOpen] = useState(false);
+    const [exportingFormat, setExportingFormat] = useState<NodeExportFormat | null>(null);
 
     // Find the active node
     const node = nodes.find(n => n.id === activeScope);
@@ -56,6 +63,25 @@ const NodeProperties = () => {
                 return;
             }
             window.alert('Unable to create share link right now.');
+        }
+    };
+
+    const handleExport = async (format: NodeExportFormat) => {
+        setExportingFormat(format);
+        try {
+            const exported = await exportNodeToFile({
+                format,
+                node,
+                spaceId: currentSpaceId
+            });
+            if (!exported) {
+                window.alert('Export is unavailable in this environment.');
+            }
+        } catch {
+            window.alert('Unable to export node right now.');
+        } finally {
+            setExportingFormat(null);
+            setExportMenuOpen(false);
         }
     };
 
@@ -119,6 +145,30 @@ const NodeProperties = () => {
                 <button className="ui-selectable ui-shape-soft w-full py-2 px-4 text-sm font-medium text-[var(--semantic-color-text-secondary)] flex items-center justify-center gap-2">
                     <span>Convert Type...</span>
                 </button>
+                <div className="relative">
+                    <button
+                        type="button"
+                        onClick={() => setExportMenuOpen(prev => !prev)}
+                        disabled={Boolean(exportingFormat)}
+                        className="ui-selectable ui-shape-soft w-full py-2 px-4 text-sm font-medium text-[var(--semantic-color-text-secondary)] flex items-center justify-center gap-2"
+                    >
+                        <span>{exportingFormat ? `Exporting ${exportingFormat.toUpperCase()}...` : 'Export Node'}</span>
+                    </button>
+                    {exportMenuOpen && (
+                        <div className="absolute left-0 right-0 mt-1 z-10 rounded-[var(--primitive-radius-md)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/95 backdrop-blur-xl p-1">
+                            {NODE_EXPORT_FORMATS.map((option) => (
+                                <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => { void handleExport(option.id); }}
+                                    className="ui-selectable ui-shape-soft w-full py-2 px-3 text-xs text-left uppercase tracking-[0.12em] text-[var(--semantic-color-text-secondary)]"
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
                 <button className="ui-selectable ui-shape-soft w-full py-2 px-4 text-sm font-medium text-[var(--semantic-color-status-error)] hover:bg-[var(--semantic-color-status-error)]/10 flex items-center justify-center gap-2">
                     <span>Delete Node</span>
                 </button>

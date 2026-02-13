@@ -6,6 +6,13 @@ import { stationStorage } from '../../../core/storage/StationStorage';
 import { EntitlementLimitError } from '../../../core/access/EntitlementsService';
 import { publishedSpacesStorage } from '../../../core/gateway/PublishedSpacesStorage';
 import type { ExternalGraphLinkVisibility } from '../../../core/types/gateway';
+import { collectClusterDescendantIds } from '../../../core/graph/clusterHierarchy';
+import { asNodeId } from '../../../core/types';
+import {
+    exportSpaceToFile,
+    SPACE_CLUSTER_EXPORT_FORMATS,
+    type SpaceClusterExportFormat
+} from '../../../core/export/SpaceExportService';
 
 const ACCESS_LEVELS: ExternalGraphLinkVisibility[] = ['private', 'shared', 'public'];
 
@@ -21,6 +28,7 @@ const SpaceProperties = () => {
     const viewContext = useAppStore(state => state.viewContext);
     const currentSpaceId = useAppStore(state => state.currentSpaceId);
     const stationInspectorSpaceId = useAppStore(state => state.stationInspectorSpaceId);
+    const activeScope = useAppStore(state => state.activeScope);
     const setGatewayRoute = useAppStore(state => state.setGatewayRoute);
     const setViewContext = useAppStore(state => state.setViewContext);
     const inspectedSpaceId = viewContext === 'home' ? stationInspectorSpaceId : currentSpaceId;
@@ -29,6 +37,8 @@ const SpaceProperties = () => {
     const [accessLevelDraft, setAccessLevelDraft] = useState<ExternalGraphLinkVisibility>('private');
     const [portalBrandDraft, setPortalBrandDraft] = useState('symbolfield');
     const [portalSlugDraft, setPortalSlugDraft] = useState('');
+    const [exportMenuOpen, setExportMenuOpen] = useState(false);
+    const [exportingFormat, setExportingFormat] = useState<SpaceClusterExportFormat | null>(null);
 
     const meta = useMemo(
         () => (inspectedSpaceId ? spaceManager.getSpaceMeta(inspectedSpaceId) : undefined),
@@ -41,6 +51,49 @@ const SpaceProperties = () => {
     const nodeCount = spaceData?.nodes.length ?? 0;
     const edgeCount = spaceData?.edges.length ?? 0;
     const clusterCount = spaceData?.nodes?.filter(node => node.type === 'cluster').length ?? 0;
+    const exportTarget = useMemo(() => {
+        if (!inspectedSpaceId || !spaceData) return null;
+        if (viewContext === 'space' && activeScope) {
+            const clusterNode = spaceData.nodes.find(
+                node => String(node.id) === String(activeScope) && node.type === 'cluster'
+            );
+            if (clusterNode) {
+                const descendants = collectClusterDescendantIds(
+                    asNodeId(String(clusterNode.id)),
+                    spaceData.nodes,
+                    spaceData.edges,
+                    { includeEdgeLinked: true }
+                );
+                const scopedIds = new Set<string>([String(clusterNode.id)]);
+                descendants.forEach((id) => scopedIds.add(String(id)));
+                const scopedNodes = spaceData.nodes.filter(node => scopedIds.has(String(node.id)));
+                const scopedEdges = spaceData.edges.filter(edge => (
+                    scopedIds.has(String(edge.source)) && scopedIds.has(String(edge.target))
+                ));
+                const clusterLabel = typeof clusterNode.data?.label === 'string' && clusterNode.data.label.trim()
+                    ? clusterNode.data.label.trim()
+                    : 'Cluster';
+                return {
+                    scope: 'cluster' as const,
+                    title: clusterLabel,
+                    description: `Cluster export from ${meta?.name ?? 'Space'}`,
+                    data: {
+                        spaceId: inspectedSpaceId,
+                        nodes: scopedNodes,
+                        edges: scopedEdges,
+                        version: 1
+                    }
+                };
+            }
+        }
+
+        return {
+            scope: 'space' as const,
+            title: meta?.name ?? 'Space',
+            description: meta?.description,
+            data: spaceData
+        };
+    }, [inspectedSpaceId, spaceData, viewContext, activeScope, meta?.name, meta?.description]);
 
     useEffect(() => {
         if (!meta) return;
@@ -129,6 +182,30 @@ const SpaceProperties = () => {
             portalSlug: normalizedPortalSlug
         });
         setViewContext('gateway');
+    };
+
+    const handleExport = async (format: SpaceClusterExportFormat) => {
+        if (!inspectedSpaceId || !meta || !exportTarget) return;
+        setExportingFormat(format);
+        try {
+            const exported = await exportSpaceToFile({
+                format,
+                spaceId: inspectedSpaceId,
+                spaceName: exportTarget.title,
+                data: exportTarget.data,
+                ...(exportTarget.description !== undefined ? { description: exportTarget.description } : {})
+            });
+            if (!exported) {
+                window.alert('Export is unavailable in this environment.');
+                return;
+            }
+            setPublishStatus(`Exported ${exportTarget.scope} (${format.toUpperCase()})`);
+        } catch {
+            window.alert('Unable to export this space right now.');
+        } finally {
+            setExportingFormat(null);
+            setExportMenuOpen(false);
+        }
     };
 
     if (!meta) {
@@ -319,9 +396,36 @@ const SpaceProperties = () => {
                 >
                     <span>{publishStatus || 'Publish Space to Brand Portal'}</span>
                 </button>
-                <button className="ui-selectable ui-shape-soft w-full py-2 px-4 text-sm font-medium text-[var(--semantic-color-text-secondary)] flex items-center justify-center gap-2">
-                    <span>Export Space</span>
-                </button>
+                <div className="relative">
+                    <button
+                        type="button"
+                        onClick={() => setExportMenuOpen(prev => !prev)}
+                        disabled={Boolean(exportingFormat)}
+                        className="ui-selectable ui-shape-soft w-full py-2 px-4 text-sm font-medium text-[var(--semantic-color-text-secondary)] flex items-center justify-center gap-2"
+                    >
+                        <span>
+                            {exportingFormat
+                                ? `Exporting ${exportingFormat.toUpperCase()}...`
+                                : exportTarget?.scope === 'cluster'
+                                    ? 'Export Cluster'
+                                    : 'Export Space'}
+                        </span>
+                    </button>
+                    {exportMenuOpen && (
+                        <div className="absolute left-0 right-0 mt-1 z-10 rounded-[var(--primitive-radius-md)] border border-[var(--semantic-color-border-default)] bg-[var(--semantic-color-bg-surface)]/95 backdrop-blur-xl p-1">
+                            {SPACE_CLUSTER_EXPORT_FORMATS.map((option) => (
+                                <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => { void handleExport(option.id); }}
+                                    className="ui-selectable ui-shape-soft w-full py-2 px-3 text-xs text-left uppercase tracking-[0.12em] text-[var(--semantic-color-text-secondary)]"
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
                 <button className="ui-selectable ui-shape-soft w-full py-2 px-4 text-sm font-medium text-[var(--semantic-color-status-error)] hover:bg-[var(--semantic-color-status-error)]/10 flex items-center justify-center gap-2">
                     <span>Archive Space</span>
                 </button>
