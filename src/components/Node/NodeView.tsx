@@ -3,6 +3,8 @@ import type { DocSnapshot } from '@blocksuite/store';
 import { useAppStore } from '../../store/useAppStore';
 import { useGraphStore } from '../../store/useGraphStore';
 import { NodeBuilder } from './NodeBuilder';
+import { isSfContentRemoteEnabled, listSfDocs, upsertSfDoc } from '../../core/data/sfContentRemote';
+import { buildNodeDocRecord, pickNodeDocRecord } from '../../core/data/sfContentNodeSync';
 
 const serializeSnapshot = (snapshot: unknown): string => {
     try {
@@ -44,6 +46,7 @@ const firstNonEmptyString = (...values: unknown[]): string => {
 const NodeView = () => {
     const viewContext = useAppStore(state => state.viewContext);
     const activeScope = useAppStore(state => state.activeScope);
+    const currentSpaceId = useAppStore(state => state.currentSpaceId);
     const exitNode = useAppStore(state => state.exitNode);
     const nodes = useGraphStore(state => state.nodes);
     const updateNode = useGraphStore(state => state.updateNode);
@@ -98,10 +101,45 @@ const NodeView = () => {
     const [tagsDraft, setTagsDraft] = React.useState('');
 
     const lastSavedSnapshotRef = React.useRef('');
+    const remoteSaveTimerRef = React.useRef<number | null>(null);
 
     React.useEffect(() => {
         lastSavedSnapshotRef.current = serializeSnapshot(initialSnapshot);
     }, [node?.id, initialSnapshot]);
+
+    React.useEffect(() => {
+        if (!isNodeView || !node) return;
+        if (!isSfContentRemoteEnabled()) return;
+        if (node.data?.docSnapshot) return;
+
+        let cancelled = false;
+        void (async () => {
+            const records = await listSfDocs();
+            if (cancelled) return;
+            const remoteDoc = pickNodeDocRecord(records, currentSpaceId, node.id);
+            if (!remoteDoc) return;
+            updateNode(node.id, {
+                data: {
+                    docSnapshot: remoteDoc.snapshotJson,
+                    contentFormat: 'blocksuite.page.v1'
+                }
+            });
+            lastSavedSnapshotRef.current = serializeSnapshot(remoteDoc.snapshotJson);
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isNodeView, node?.id, node?.data?.docSnapshot, currentSpaceId, updateNode, node]);
+
+    React.useEffect(() => {
+        return () => {
+            if (remoteSaveTimerRef.current !== null) {
+                window.clearTimeout(remoteSaveTimerRef.current);
+                remoteSaveTimerRef.current = null;
+            }
+        };
+    }, []);
 
     React.useEffect(() => {
         setTitleDraft(nodeLabel);
@@ -124,8 +162,23 @@ const NodeView = () => {
             }
         });
 
+        if (isSfContentRemoteEnabled()) {
+            if (remoteSaveTimerRef.current !== null) {
+                window.clearTimeout(remoteSaveTimerRef.current);
+            }
+            remoteSaveTimerRef.current = window.setTimeout(() => {
+                const record = buildNodeDocRecord({
+                    spaceId: currentSpaceId,
+                    nodeId: node.id,
+                    title: nodeLabel,
+                    snapshotJson: snapshot
+                });
+                void upsertSfDoc(record);
+            }, 700);
+        }
+
         lastSavedSnapshotRef.current = serialized;
-    }, [isNodeView, node, updateNode]);
+    }, [isNodeView, node, updateNode, currentSpaceId, nodeLabel]);
 
     const commitTitle = React.useCallback(() => {
         if (!node) return;

@@ -53,6 +53,8 @@ const readSfContentConfig = (): SfContentConfig => {
 
 const config = readSfContentConfig();
 
+export const isSfContentRemoteEnabled = (): boolean => config.enabled;
+
 const buildHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = {
         Accept: 'application/json',
