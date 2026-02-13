@@ -3,8 +3,16 @@ import { spaceManager, type SpaceData } from '../state/SpaceManager';
 import { stateEngine } from '../state/StateEngine';
 import { asNodeId, type Edge, type NodeBase, type NodeId } from '../types';
 import { entitlementsService } from '../access/EntitlementsService';
+import {
+    clearRemoteUiStateKey,
+    isUiStateRemoteEnabled,
+    readRemoteUiStateKey,
+    writeRemoteUiStateKey
+} from '../data/uiStateRemote';
 
 const SHARE_STORAGE_KEY = 'sf_share_links.v0.5';
+const REMOTE_SHARE_LINKS_KEY = 'share-links';
+const REMOTE_WRITE_DEBOUNCE_MS = 160;
 
 export type ShareScopeType = 'space' | 'cluster' | 'node';
 
@@ -72,29 +80,96 @@ const parseShareLinkSnapshot = (value: unknown): ShareLinkSnapshot | null => {
     };
 };
 
+const sortShareLinks = (links: ShareLinkSnapshot[]): ShareLinkSnapshot[] => (
+    [...links].sort((a, b) => b.updatedAt - a.updatedAt)
+);
+
+const normalizeShareLinks = (value: unknown): ShareLinkSnapshot[] => (
+    Array.isArray(value)
+        ? sortShareLinks(
+            value
+                .map(item => parseShareLinkSnapshot(item))
+                .filter((item): item is ShareLinkSnapshot => Boolean(item))
+        )
+        : []
+);
+
+const mergeShareLinks = (
+    localLinks: ShareLinkSnapshot[],
+    remoteLinks: ShareLinkSnapshot[]
+): ShareLinkSnapshot[] => {
+    const next = new Map<string, ShareLinkSnapshot>();
+    const upsert = (link: ShareLinkSnapshot) => {
+        const key = link.token || link.id;
+        if (!key) return;
+        const existing = next.get(key);
+        if (!existing || link.updatedAt >= existing.updatedAt) {
+            next.set(key, link);
+        }
+    };
+
+    localLinks.forEach(upsert);
+    remoteLinks.forEach(upsert);
+    return sortShareLinks(Array.from(next.values()));
+};
+
+let remoteHydrated = false;
+let remoteHydrating = false;
+let remoteWriteTimer: number | null = null;
+
 const loadShareLinks = (): ShareLinkSnapshot[] => {
     if (typeof window === 'undefined') return [];
     try {
         const raw = window.localStorage.getItem(SHARE_STORAGE_KEY);
         if (!raw) return [];
-        const parsed = JSON.parse(raw) as unknown;
-        if (!Array.isArray(parsed)) return [];
-        return parsed
-            .map(item => parseShareLinkSnapshot(item))
-            .filter((item): item is ShareLinkSnapshot => Boolean(item))
-            .sort((a, b) => b.updatedAt - a.updatedAt);
+        return normalizeShareLinks(JSON.parse(raw) as unknown);
     } catch {
         return [];
     }
 };
 
-const persistShareLinks = (links: ShareLinkSnapshot[]) => {
+const scheduleRemoteShareWrite = (links: ShareLinkSnapshot[]) => {
+    if (!isUiStateRemoteEnabled()) return;
+    if (remoteWriteTimer !== null) {
+        window.clearTimeout(remoteWriteTimer);
+    }
+    remoteWriteTimer = window.setTimeout(() => {
+        remoteWriteTimer = null;
+        void writeRemoteUiStateKey(REMOTE_SHARE_LINKS_KEY, links);
+    }, REMOTE_WRITE_DEBOUNCE_MS);
+};
+
+const persistShareLinks = (links: ShareLinkSnapshot[], options: { syncRemote?: boolean } = {}) => {
     if (typeof window === 'undefined') return;
     try {
-        window.localStorage.setItem(SHARE_STORAGE_KEY, JSON.stringify(links));
+        const normalized = sortShareLinks(links);
+        window.localStorage.setItem(SHARE_STORAGE_KEY, JSON.stringify(normalized));
+        if (options.syncRemote !== false) {
+            scheduleRemoteShareWrite(normalized);
+        }
     } catch {
         // Ignore storage write failures in MVP mode.
     }
+};
+
+const hydrateShareLinksFromRemote = () => {
+    if (!isUiStateRemoteEnabled()) return;
+    if (remoteHydrated || remoteHydrating) return;
+    remoteHydrating = true;
+    void (async () => {
+        const payload = await readRemoteUiStateKey(REMOTE_SHARE_LINKS_KEY);
+        const remoteLinks = normalizeShareLinks(payload);
+        const localLinks = loadShareLinks();
+        const merged = mergeShareLinks(localLinks, remoteLinks);
+        if (merged.length !== localLinks.length || merged.some((link, index) => localLinks[index]?.token !== link.token)) {
+            persistShareLinks(merged, { syncRemote: false });
+            if (merged.length > remoteLinks.length) {
+                scheduleRemoteShareWrite(merged);
+            }
+        }
+        remoteHydrated = true;
+        remoteHydrating = false;
+    })();
 };
 
 const toNodeId = (value: NodeId | string): NodeId => (
@@ -179,12 +254,20 @@ export const readShareTokenFromLocation = (href: string): string | null => {
 };
 
 export const shareService = {
-    loadShareLinks,
-    clearShareLinks: () => persistShareLinks([]),
+    loadShareLinks: () => {
+        hydrateShareLinksFromRemote();
+        return loadShareLinks();
+    },
+    clearShareLinks: () => {
+        persistShareLinks([]);
+        if (isUiStateRemoteEnabled()) {
+            void clearRemoteUiStateKey(REMOTE_SHARE_LINKS_KEY);
+        }
+    },
     resolveShareLinkByToken: (token: string): ShareLinkSnapshot | null => {
         const normalizedToken = normalizeString(token);
         if (!normalizedToken) return null;
-        const links = loadShareLinks();
+        const links = shareService.loadShareLinks();
         return links.find(link => link.token === normalizedToken) ?? null;
     },
     createShareLink: (input: CreateShareLinkInput): ShareLinkSnapshot | null => {
@@ -192,7 +275,7 @@ export const shareService = {
         const spaceId = normalizeString(input.spaceId);
         const scopeType = normalizeScopeType(input.scopeType);
         if (!spaceId || !scopeType) return null;
-        const currentLinks = loadShareLinks();
+        const currentLinks = shareService.loadShareLinks();
         entitlementsService.assertCanCreateShareLink(currentLinks.length);
 
         if (stateEngine.getState().currentSpaceId === spaceId) {
@@ -219,7 +302,7 @@ export const shareService = {
             updatedAt: now
         };
 
-        const nextLinks = [nextLink, ...currentLinks].sort((a, b) => b.updatedAt - a.updatedAt);
+        const nextLinks = sortShareLinks([nextLink, ...currentLinks]);
         persistShareLinks(nextLinks);
         return nextLink;
     }
